@@ -1,634 +1,928 @@
+<!DOCTYPE html>
 <html>
 
 <head>
-    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="" />
-    <link rel="stylesheet" as="style" onload="this.rel='stylesheet'"
-        href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" />
-
-    <title>Stitch Design</title>
-    <link rel="icon" type="image/x-icon" href="data:image/x-icon;base64," />
-
+    <meta charset="utf-8" />
+    <link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect" />
+    <link as="style"
+        href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B600%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
+        onload="this.rel='stylesheet'" rel="stylesheet" />
+    <title>Linker Dashboard</title>
+    <link href="data:image/x-icon;base64," rel="icon" type="image/x-icon" />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <style type="text/tailwindcss">
+        :root {
+        --primary-blue: #4f46e5;
+        --secondary-text: #6b7280;
+        --border-color: #e5e7eb;
+        --bg-gray: #f9fafb;
+      }
+      .progress-ring__circle {
+        transition: stroke-dashoffset 0.35s;
+        transform: rotate(-90deg);
+        transform-origin: 50% 50%;
+      }
+    </style>
 </head>
 
 <body>
-    <div class="relative flex h-auto min-h-screen w-full flex-col bg-slate-50 group/design-root overflow-x-hidden"
+    <div class="relative flex h-auto min-h-screen w-full flex-row bg-slate-50 group/design-root overflow-x-hidden"
         style='font-family: Inter, "Noto Sans", sans-serif;'>
-        <div class="layout-container flex h-full grow flex-col">
-            <div class="gap-1 px-6 flex flex-1 justify-center py-5">
-                <div class="layout-content-container flex flex-col w-80">
-                    <div class="flex h-full min-h-[700px] flex-col justify-between bg-slate-50 p-4">
-                        <div class="flex flex-col gap-4">
-                            <h1 class="text-[#0d141b] text-base font-medium leading-normal">Affiliate Hub</h1>
-                            <div class="flex flex-col gap-2">
-                                <div class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#e7edf3]">
-                                    <div class="text-[#0d141b]" data-icon="House" data-size="24px" data-weight="fill">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px"
-                                            fill="currentColor" viewBox="0 0 256 256">
-                                            <path
-                                                d="M224,115.55V208a16,16,0,0,1-16,16H168a16,16,0,0,1-16-16V168a8,8,0,0,0-8-8H112a8,8,0,0,0-8,8v40a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V115.55a16,16,0,0,1,5.17-11.78l80-75.48.11-.11a16,16,0,0,1,21.53,0,1.14,1.14,0,0,0,.11.11l80,75.48A16,16,0,0,1,224,115.55Z">
-                                            </path>
-                                        </svg>
-                                    </div>
-                                    <p class="text-[#0d141b] text-sm font-medium leading-normal">Dashboard</p>
-                                </div>
-                                <div class="flex items-center gap-3 px-3 py-2">
-                                    <div class="text-[#0d141b]" data-icon="PresentationChart" data-size="24px"
-                                        data-weight="regular">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px"
-                                            fill="currentColor" viewBox="0 0 256 256">
-                                            <path
-                                                d="M216,40H136V24a8,8,0,0,0-16,0V40H40A16,16,0,0,0,24,56V176a16,16,0,0,0,16,16H79.36L57.75,219a8,8,0,0,0,12.5,10l29.59-37h56.32l29.59,37a8,8,0,1,0,12.5-10l-21.61-27H216a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40Zm0,136H40V56H216V176ZM104,120v24a8,8,0,0,1-16,0V120a8,8,0,0,1,16,0Zm32-16v40a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm32-16v56a8,8,0,0,1-16,0V88a8,8,0,0,1,16,0Z">
-                                            </path>
-                                        </svg>
-                                    </div>
-                                    <p class="text-[#0d141b] text-sm font-medium leading-normal">Campaigns</p>
-                                </div>
-                                <div class="flex items-center gap-3 px-3 py-2">
-                                    <div class="text-[#0d141b]" data-icon="Gift" data-size="24px" data-weight="regular">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px"
-                                            fill="currentColor" viewBox="0 0 256 256">
-                                            <path
-                                                d="M216,72H180.92c.39-.33.79-.65,1.17-1A29.53,29.53,0,0,0,192,49.57,32.62,32.62,0,0,0,158.44,16,29.53,29.53,0,0,0,137,25.91a54.94,54.94,0,0,0-9,14.48,54.94,54.94,0,0,0-9-14.48A29.53,29.53,0,0,0,97.56,16,32.62,32.62,0,0,0,64,49.57,29.53,29.53,0,0,0,73.91,71c.38.33.78.65,1.17,1H40A16,16,0,0,0,24,88v32a16,16,0,0,0,16,16v64a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V136a16,16,0,0,0,16-16V88A16,16,0,0,0,216,72ZM149,36.51a13.69,13.69,0,0,1,10-4.5h.49A16.62,16.62,0,0,1,176,49.08a13.69,13.69,0,0,1-4.5,10c-9.49,8.4-25.24,11.36-35,12.4C137.7,60.89,141,45.5,149,36.51Zm-64.09.36A16.63,16.63,0,0,1,96.59,32h.49a13.69,13.69,0,0,1,10,4.5c8.39,9.48,11.35,25.2,12.39,34.92-9.72-1-25.44-4-34.92-12.39a13.69,13.69,0,0,1-4.5-10A16.6,16.6,0,0,1,84.87,36.87ZM40,88h80v32H40Zm16,48h64v64H56Zm144,64H136V136h64Zm16-80H136V88h80v32Z">
-                                            </path>
-                                        </svg>
-                                    </div>
-                                    <p class="text-[#0d141b] text-sm font-medium leading-normal">Offers</p>
-                                </div>
-                                <div class="flex items-center gap-3 px-3 py-2">
-                                    <div class="text-[#0d141b]" data-icon="File" data-size="24px" data-weight="regular">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px"
-                                            fill="currentColor" viewBox="0 0 256 256">
-                                            <path
-                                                d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Z">
-                                            </path>
-                                        </svg>
-                                    </div>
-                                    <p class="text-[#0d141b] text-sm font-medium leading-normal">Reports</p>
-                                </div>
-                                <div class="flex items-center gap-3 px-3 py-2">
-                                    <div class="text-[#0d141b]" data-icon="CurrencyDollar" data-size="24px"
-                                        data-weight="regular">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px"
-                                            fill="currentColor" viewBox="0 0 256 256">
-                                            <path
-                                                d="M152,120H136V56h8a32,32,0,0,1,32,32,8,8,0,0,0,16,0,48.05,48.05,0,0,0-48-48h-8V24a8,8,0,0,0-16,0V40h-8a48,48,0,0,0,0,96h8v64H104a32,32,0,0,1-32-32,8,8,0,0,0-16,0,48.05,48.05,0,0,0,48,48h16v16a8,8,0,0,0,16,0V216h16a48,48,0,0,0,0-96Zm-40,0a32,32,0,0,1,0-64h8v64Zm40,80H136V136h16a32,32,0,0,1,0,64Z">
-                                            </path>
-                                        </svg>
-                                    </div>
-                                    <p class="text-[#0d141b] text-sm font-medium leading-normal">Payments</p>
-                                </div>
-                                <div class="flex items-center gap-3 px-3 py-2">
-                                    <div class="text-[#0d141b]" data-icon="Wrench" data-size="24px"
-                                        data-weight="regular">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px"
-                                            fill="currentColor" viewBox="0 0 256 256">
-                                            <path
-                                                d="M226.76,69a8,8,0,0,0-12.84-2.88l-40.3,37.19-17.23-3.7-3.7-17.23,37.19-40.3A8,8,0,0,0,187,29.24,72,72,0,0,0,88,96,72.34,72.34,0,0,0,94,124.94L33.79,177c-.15.12-.29.26-.43.39a32,32,0,0,0,45.26,45.26c.13-.13.27-.28.39-.42L131.06,162A72,72,0,0,0,232,96,71.56,71.56,0,0,0,226.76,69ZM160,152a56.14,56.14,0,0,1-27.07-7,8,8,0,0,0-9.92,1.77L67.11,211.51a16,16,0,0,1-22.62-22.62L109.18,133a8,8,0,0,0,1.77-9.93,56,56,0,0,1,58.36-82.31l-31.2,33.81a8,8,0,0,0-1.94,7.1L141.83,108a8,8,0,0,0,6.14,6.14l26.35,5.66a8,8,0,0,0,7.1-1.94l33.81-31.2A56.06,56.06,0,0,1,160,152Z">
-                                            </path>
-                                        </svg>
-                                    </div>
-                                    <p class="text-[#0d141b] text-sm font-medium leading-normal">Tools</p>
-                                </div>
-                                <div class="flex items-center gap-3 px-3 py-2">
-                                    <div class="text-[#0d141b]" data-icon="Gear" data-size="24px" data-weight="regular">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px"
-                                            fill="currentColor" viewBox="0 0 256 256">
-                                            <path
-                                                d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z">
-                                            </path>
-                                        </svg>
-                                    </div>
-                                    <p class="text-[#0d141b] text-sm font-medium leading-normal">Settings</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        <aside
+            class="flex h-screen w-64 flex-col border-r border-slate-200 bg-white fixed left-0 top-0 z-10 overflow-y-auto">
+            <div class="p-6 flex items-center gap-3">
+                <div class="flex items-center justify-center rounded-full bg-indigo-600 w-8 h-8 text-white font-bold">L
                 </div>
-                <div class="layout-content-container flex flex-col max-w-[960px] flex-1">
-                    <header
-                        class="flex items-center justify-between whitespace-nowrap border-b border-solid border-b-[#e7edf3] px-10 py-3">
-                        <div class="flex items-center gap-4 text-[#0d141b]">
-                            <div class="size-4">
-                                <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path
-                                        d="M36.7273 44C33.9891 44 31.6043 39.8386 30.3636 33.69C29.123 39.8386 26.7382 44 24 44C21.2618 44 18.877 39.8386 17.6364 33.69C16.3957 39.8386 14.0109 44 11.2727 44C7.25611 44 4 35.0457 4 24C4 12.9543 7.25611 4 11.2727 4C14.0109 4 16.3957 8.16144 17.6364 14.31C18.877 8.16144 21.2618 4 24 4C26.7382 4 29.123 8.16144 30.3636 14.31C31.6043 8.16144 33.9891 4 36.7273 4C40.7439 4 44 12.9543 44 24C44 35.0457 40.7439 44 36.7273 44Z"
-                                        fill="currentColor"></path>
-                                </svg>
+                <h1 class="text-xl font-bold text-slate-900">Linker</h1>
+            </div>
+            <div class="flex flex-col gap-1 px-4 py-2">
+                <p class="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Main</p>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-600 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">dashboard</span>
+                    Dashboard
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">campaign</span>
+                    Campaigns
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">local_offer</span>
+                    Offers
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">description</span>
+                    Reports
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">payments</span>
+                    Payments
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">build</span>
+                    Tools
+                </a>
+            </div>
+            <div class="flex flex-col gap-1 px-4 py-2 mt-4">
+                <p class="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Other</p>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">settings</span>
+                    Settings
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">person</span>
+                    Account
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">support_agent</span>
+                    Support
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">feedback</span>
+                    Feedback
+                </a>
+            </div>
+            <div class="mt-auto p-4 border-t border-slate-100">
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">logout</span>
+                    Logout
+                </a>
+            </div>
+        </aside>
+        <main class="flex-1 ml-64 min-h-screen bg-[#f8f9fa] p-8">
+            <header class="flex items-center justify-between mb-8">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">Jason Bourne</h2>
+                    <p class="text-slate-500 text-sm">User ID: 17516</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button class="p-2 text-slate-500 hover:bg-white rounded-full"><span
+                            class="material-symbols-outlined">settings</span></button>
+                    <button class="p-2 text-slate-500 hover:bg-white rounded-full"><span
+                            class="material-symbols-outlined">star</span></button>
+                    <button class="p-2 text-slate-500 hover:bg-white rounded-full"><span
+                            class="material-symbols-outlined">notifications</span></button>
+                    <button class="p-2 text-slate-500 hover:bg-white rounded-full"><span
+                            class="material-symbols-outlined">fullscreen</span></button>
+                </div>
+            </header>
+            <div class="flex gap-6 items-start">
+                <div class="flex-1 flex flex-col gap-6 w-full min-w-0">
+                    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <p class="text-sm font-medium text-slate-500">Clicks <span
+                                            class="text-xs font-normal text-slate-400">This Month</span></p>
+                                    <h3 class="text-2xl font-bold text-slate-900 mt-1">6,896</h3>
+                                </div>
+                                <span
+                                    class="bg-red-50 text-red-600 text-xs px-2 py-1 rounded-full font-medium flex items-center">-3.382
+                                    (33%)</span>
                             </div>
-                            <h2 class="text-[#0d141b] text-lg font-bold leading-tight tracking-[-0.015em]">Affiliate Hub
-                            </h2>
-                        </div>
-                        <div class="flex flex-1 justify-end gap-8">
-                            <label class="flex flex-col min-w-40 !h-10 max-w-64">
-                                <div class="flex w-full flex-1 items-stretch rounded-lg h-full">
-                                    <div class="text-[#4c739a] flex border-none bg-[#e7edf3] items-center justify-center pl-4 rounded-l-lg border-r-0"
-                                        data-icon="MagnifyingGlass" data-size="24px" data-weight="regular">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px"
-                                            fill="currentColor" viewBox="0 0 256 256">
-                                            <path
-                                                d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z">
-                                            </path>
-                                        </svg>
+                            <p class="text-xs text-slate-400 mb-6">Compared to yesterday</p>
+                            <div class="flex flex-col items-center justify-center mb-6 relative">
+                                <div class="relative w-32 h-32">
+                                    <svg class="w-full h-full" viewBox="0 0 100 100">
+                                        <circle class="text-slate-100 stroke-current" cx="50" cy="50" fill="transparent"
+                                            r="40" stroke-width="8"></circle>
+                                        <circle class="text-indigo-600 progress-ring__circle stroke-current" cx="50"
+                                            cy="50" fill="transparent" r="40" stroke-dasharray="251.2"
+                                            stroke-dashoffset="20" stroke-linecap="round" stroke-width="8"></circle>
+                                    </svg>
+                                    <div
+                                        class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+                                        <span class="text-2xl font-bold text-indigo-600">92%</span>
                                     </div>
-                                    <input placeholder="Search"
-                                        class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#0d141b] focus:outline-0 focus:ring-0 border-none bg-[#e7edf3] focus:border-none h-full placeholder:text-[#4c739a] px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal"
-                                        value="" />
                                 </div>
-                            </label>
-                            <button
-                                class="flex max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 bg-[#e7edf3] text-[#0d141b] gap-2 text-sm font-bold leading-normal tracking-[0.015em] min-w-0 px-2.5">
-                                <div class="text-[#0d141b]" data-icon="Bell" data-size="20px" data-weight="regular">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px"
-                                        fill="currentColor" viewBox="0 0 256 256">
-                                        <path
-                                            d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z">
-                                        </path>
-                                    </svg>
+                                <p class="text-xs font-medium text-slate-600 mt-2">Month Target achieved</p>
+                                <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-8">
+                                    <span>389K</span>
+                                    <span>425K</span>
                                 </div>
-                            </button>
-                            <div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10"
-                                style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBobS3nXE2CmGkGwzpwKORmudmD-UuZLr1bBbd4D_kPxv_-q5IsxUowqlZNUUM-r9tTXjNkxORwWJeC8y7HaAFjKlY3WwDAyU9kObvZnyoBXeaGufpM4Y_YdGIUksBt8hCovORXZTS5EPUjUEop68xFVjFJmI-Ni0v3kczdIol5PWh6jCGl5K36NiC-WD_ObPCReSpcXCodW9WTLLj1HtAuDdG2YmdXZjYBn1tTDx6fhqfD_MeKC_hID-xWPbC9LwmPy8kI4eQu2t0");'>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Impressions
+                                </div>
+                                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Clicks</div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-slate-50 text-xs text-slate-600 space-y-2">
+                                <div class="flex justify-between">
+                                    <span><span
+                                            class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Zara</span>
+                                    <span class="font-bold">81 Sales <span class="text-red-500">▼-46</span></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span><span
+                                            class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>AliExpress</span>
+                                    <span class="font-bold">131 Leads <span class="text-red-500">▼-40</span></span>
+                                </div>
                             </div>
                         </div>
-                    </header>
-                    <div class="flex flex-wrap justify-between gap-3 p-4">
-                        <p class="text-[#0d141b] tracking-light text-[32px] font-bold leading-tight min-w-72">Dashboard
+                        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <p class="text-sm font-medium text-slate-500">Leads <span
+                                            class="text-xs font-normal text-slate-400">This Month</span></p>
+                                    <h3 class="text-2xl font-bold text-slate-900 mt-1">6,896</h3>
+                                </div>
+                                <span
+                                    class="bg-green-50 text-green-600 text-xs px-2 py-1 rounded-full font-medium flex items-center">↗
+                                    246 (+130%)</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mb-6">Compared to yesterday</p>
+                            <div class="flex flex-col items-center justify-center mb-6 relative">
+                                <div class="relative w-32 h-32">
+                                    <svg class="w-full h-full" viewBox="0 0 100 100">
+                                        <circle class="text-slate-100 stroke-current" cx="50" cy="50" fill="transparent"
+                                            r="40" stroke-width="8"></circle>
+                                        <circle class="text-orange-500 progress-ring__circle stroke-current" cx="50"
+                                            cy="50" fill="transparent" r="40" stroke-dasharray="251.2"
+                                            stroke-dashoffset="0" stroke-linecap="round" stroke-width="8"></circle>
+                                    </svg>
+                                    <div
+                                        class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+                                        <span class="text-2xl font-bold text-orange-500">200+%</span>
+                                    </div>
+                                </div>
+                                <p class="text-xs font-medium text-slate-600 mt-2">Month Target achieved</p>
+                                <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-8">
+                                    <span>435</span>
+                                    <span>10</span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Leads</div>
+                                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Sales</div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-slate-50 text-xs text-slate-600 space-y-2">
+                                <div class="flex justify-between">
+                                    <span><span
+                                            class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Three
+                                        Mobile</span>
+                                    <span class="font-bold">95 Sales <span class="text-red-500">▼-36</span></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span><span
+                                            class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Three
+                                        Mobile</span>
+                                    <span class="font-bold">145 Leads <span class="text-red-500">▼-40</span></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <p class="text-sm font-medium text-slate-500">Video Starts <span
+                                            class="text-xs font-normal text-slate-400">today</span></p>
+                                    <h3 class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+                                </div>
+                                <span
+                                    class="bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded-full font-medium flex items-center">-</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mb-6">Compared to yesterday</p>
+                            <div class="flex flex-col items-center justify-center mb-6 relative">
+                                <div class="relative w-32 h-32">
+                                    <svg class="w-full h-full" viewBox="0 0 100 100">
+                                        <circle class="text-slate-100 stroke-current" cx="50" cy="50" fill="transparent"
+                                            r="40" stroke-width="8"></circle>
+                                        <circle class="text-slate-300 progress-ring__circle stroke-current" cx="50"
+                                            cy="50" fill="transparent" r="40" stroke-dasharray="251.2"
+                                            stroke-dashoffset="180" stroke-linecap="round" stroke-width="8"></circle>
+                                    </svg>
+                                    <div
+                                        class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+                                        <span class="text-2xl font-bold text-slate-300">68%</span>
+                                    </div>
+                                </div>
+                                <p class="text-xs font-medium text-slate-600 mt-2"> </p>
+                                <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-8">
+                                    <span> </span>
+                                    <span> </span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Video Clicks
+                                </div>
+                                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Video Starts
+                                </div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-slate-50 text-xs text-slate-600 space-y-2">
+                                <div class="flex justify-between">
+                                    <span><span
+                                            class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>AliExpress</span>
+                                    <span class="font-bold">83 Sales <span class="text-red-500">▼-37</span></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span><span
+                                            class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Zara</span>
+                                    <span class="font-bold">139 Leads <span class="text-red-500">▼-47</span></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+                            <div class="flex justify-between items-start mb-2">
+                                <div>
+                                    <p class="text-sm font-medium text-slate-500">Commission <span
+                                            class="text-xs font-normal text-slate-400">this month</span></p>
+                                    <h3 class="text-2xl font-bold text-slate-900 mt-1">€94,10</h3>
+                                </div>
+                                <span
+                                    class="bg-green-50 text-green-600 text-xs px-2 py-1 rounded-full font-medium flex items-center">↗
+                                    €54.10</span>
+                            </div>
+                            <p class="text-xs text-slate-400 mb-6">Compared to yesterday</p>
+                            <div class="flex flex-col items-center justify-center mb-6 relative">
+                                <div class="relative w-32 h-32">
+                                    <svg class="w-full h-full" viewBox="0 0 100 100">
+                                        <circle class="text-slate-100 stroke-current" cx="50" cy="50" fill="transparent"
+                                            r="40" stroke-width="8"></circle>
+                                        <circle class="text-indigo-600 progress-ring__circle stroke-current" cx="50"
+                                            cy="50" fill="transparent" r="40" stroke-dasharray="251.2"
+                                            stroke-dashoffset="20" stroke-linecap="round" stroke-width="8"></circle>
+                                    </svg>
+                                    <div
+                                        class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+                                        <span class="text-2xl font-bold text-indigo-600">92%</span>
+                                    </div>
+                                </div>
+                                <p class="text-xs font-medium text-slate-600 mt-2">Month Target achieved</p>
+                                <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-8">
+                                    <span>€94,10</span>
+                                    <span>425K</span>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Impressions
+                                </div>
+                                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Clicks</div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-slate-50 text-xs text-slate-600 space-y-2">
+                                <div class="flex justify-between">
+                                    <span><span
+                                            class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Zara</span>
+                                    <span class="font-bold">81 Sales <span class="text-red-500">▼-46</span></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span><span
+                                            class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>AliExpress</span>
+                                    <span class="font-bold">81 Sales <span class="text-red-500">▼-40</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-black text-white px-4 py-2 text-xs rounded-lg overflow-hidden whitespace-nowrap">
+                        <div class="inline-flex gap-8 animate-marquee">
+                            <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                                New collection on sale</span>
+                            <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                                New promotion material for Virgin</span>
+                            <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                                Great incentive for 3</span>
+                            <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                                New collection on sale</span>
+                            <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                                New promotion material for Virgin</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-bold text-slate-800 text-sm">Boosting Affiliate Marketing through Social
+                                Media Strategies</h3>
+                            <span class="material-symbols-outlined text-slate-400 text-sm">keyboard_arrow_down</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-4">Thursday, 6 June 2024</p>
+                        <p class="text-sm text-slate-600 leading-relaxed mb-4">
+                            Utilizing social media for affiliate promotions can significantly enhance your marketing
+                            efforts. Key to success is choosing the right platforms that align with your target
+                            audience. For instance, Instagram and Pinterest are ideal for visually-driven products,
+                            while Twitter and LinkedIn cater to content-rich offering.
                         </p>
+                        <a class="text-indigo-600 text-sm font-medium hover:underline" href="#">Continue to read</a>
+                        <div class="flex justify-center gap-1 mt-4">
+                            <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+                        </div>
                     </div>
-                    <div class="px-4 py-3">
-                        <label class="flex flex-col min-w-40 h-12 w-full">
-                            <div class="flex w-full flex-1 items-stretch rounded-lg h-full">
-                                <div class="text-[#4c739a] flex border-none bg-[#e7edf3] items-center justify-center pl-4 rounded-l-lg border-r-0"
-                                    data-icon="MagnifyingGlass" data-size="24px" data-weight="regular">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px"
-                                        fill="currentColor" viewBox="0 0 256 256">
-                                        <path
-                                            d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z">
-                                        </path>
-                                    </svg>
+                    <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                            <h3 class="font-bold text-slate-900">General Statistics</h3>
+                            <div class="flex gap-2 text-xs bg-slate-50 p-1 rounded-lg mt-2 sm:mt-0">
+                                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">1
+                                    day</button>
+                                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">1
+                                    Week</button>
+                                <button class="px-3 py-1 rounded bg-white shadow-sm text-slate-900 font-medium">1
+                                    Month</button>
+                                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">3
+                                    month</button>
+                                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">6
+                                    month</button>
+                                <button
+                                    class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">YTD</button>
+                                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">1
+                                    year</button>
+                                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">2
+                                    Year</button>
+                                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">5
+                                    Year</button>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <div class="flex justify-between text-xs text-slate-500 mb-2">
+                                <span>Volume</span>
+                                <div class="flex gap-4">
+                                    <span class="flex items-center gap-1"><span
+                                            class="w-2 h-2 rounded-full bg-indigo-600"></span>Impressions</span>
+                                    <span class="flex items-center gap-1"><span
+                                            class="w-2 h-2 rounded-full bg-green-500"></span>Clicks</span>
+                                    <span class="flex items-center gap-1"><span
+                                            class="w-2 h-2 rounded-full bg-orange-500"></span>Leads</span>
+                                    <span class="flex items-center gap-1"><span
+                                            class="w-2 h-2 rounded-full bg-blue-400"></span>Sales</span>
                                 </div>
-                                <input placeholder="Search"
-                                    class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[#0d141b] focus:outline-0 focus:ring-0 border-none bg-[#e7edf3] focus:border-none h-full placeholder:text-[#4c739a] px-4 rounded-l-none border-l-0 pl-2 text-base font-normal leading-normal"
-                                    value="" />
                             </div>
-                        </label>
-                    </div>
-                    <h2 class="text-[#0d141b] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
-                        Key Performance Indicators</h2>
-                    <div class="flex flex-wrap gap-4 p-4">
-                        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 border border-[#cfdbe7]">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">Clicks</p>
-                            <p class="text-[#0d141b] tracking-light text-2xl font-bold leading-tight">12,345</p>
-                            <p class="text-[#078838] text-base font-medium leading-normal">+12%</p>
-                        </div>
-                        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 border border-[#cfdbe7]">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">Leads</p>
-                            <p class="text-[#0d141b] tracking-light text-2xl font-bold leading-tight">678</p>
-                            <p class="text-[#078838] text-base font-medium leading-normal">+8%</p>
-                        </div>
-                        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 border border-[#cfdbe7]">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">Video Starts</p>
-                            <p class="text-[#0d141b] tracking-light text-2xl font-bold leading-tight">3,456</p>
-                            <p class="text-[#078838] text-base font-medium leading-normal">+15%</p>
-                        </div>
-                        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 border border-[#cfdbe7]">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">Total Commission Earned</p>
-                            <p class="text-[#0d141b] tracking-light text-2xl font-bold leading-tight">$15,678</p>
-                            <p class="text-[#078838] text-base font-medium leading-normal">+10%</p>
-                        </div>
-                    </div>
-                    <h2 class="text-[#0d141b] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
-                        Performance Overview</h2>
-                    <div class="flex px-4 py-3">
-                        <div class="flex h-10 flex-1 items-center justify-center rounded-lg bg-[#e7edf3] p-1">
-                            <label
-                                class="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-lg px-2 has-[:checked]:bg-slate-50 has-[:checked]:shadow-[0_0_4px_rgba(0,0,0,0.1)] has-[:checked]:text-[#0d141b] text-[#4c739a] text-sm font-medium leading-normal">
-                                <span class="truncate">1M</span>
-                                <input type="radio" name="8dbb98af-05a6-4c5a-be0d-1bfa48ddeac0" class="invisible w-0"
-                                    value="1M" />
-                            </label>
-                            <label
-                                class="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-lg px-2 has-[:checked]:bg-slate-50 has-[:checked]:shadow-[0_0_4px_rgba(0,0,0,0.1)] has-[:checked]:text-[#0d141b] text-[#4c739a] text-sm font-medium leading-normal">
-                                <span class="truncate">3M</span>
-                                <input type="radio" name="8dbb98af-05a6-4c5a-be0d-1bfa48ddeac0" class="invisible w-0"
-                                    value="3M" />
-                            </label>
-                            <label
-                                class="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-lg px-2 has-[:checked]:bg-slate-50 has-[:checked]:shadow-[0_0_4px_rgba(0,0,0,0.1)] has-[:checked]:text-[#0d141b] text-[#4c739a] text-sm font-medium leading-normal">
-                                <span class="truncate">YTD</span>
-                                <input type="radio" name="8dbb98af-05a6-4c5a-be0d-1bfa48ddeac0" class="invisible w-0"
-                                    value="YTD" checked="" />
-                            </label>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap gap-4 px-4 py-6">
-                        <div class="flex min-w-72 flex-1 flex-col gap-2">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">Clicks</p>
-                            <p class="text-[#0d141b] tracking-light text-[32px] font-bold leading-tight truncate">12,345
-                            </p>
-                            <div class="flex gap-1">
-                                <p class="text-[#4c739a] text-base font-normal leading-normal">YTD</p>
-                                <p class="text-[#078838] text-base font-medium leading-normal">+12%</p>
-                            </div>
-                            <div class="flex min-h-[180px] flex-1 flex-col gap-8 py-4">
-                                <svg width="100%" height="148" viewBox="-3 0 478 150" fill="none"
-                                    xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+                            <div
+                                class="h-64 w-full bg-slate-50 rounded-lg relative overflow-hidden flex items-end px-4 pb-8">
+                                <svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none">
                                     <path
-                                        d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25V149H326.769H0V109Z"
-                                        fill="url(#paint0_linear_1131_5935)"></path>
+                                        d="M0,150 C50,140 100,160 200,140 C300,120 400,150 500,130 C600,110 700,140 800,120 L800,200 L0,200 Z"
+                                        fill="rgba(79, 70, 229, 0.05)"></path>
                                     <path
-                                        d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25"
-                                        stroke="#4c739a" stroke-width="3" stroke-linecap="round"></path>
-                                    <defs>
-                                        <linearGradient id="paint0_linear_1131_5935" x1="236" y1="1" x2="236" y2="149"
-                                            gradientUnits="userSpaceOnUse">
-                                            <stop stop-color="#e7edf3"></stop>
-                                            <stop offset="1" stop-color="#e7edf3" stop-opacity="0"></stop>
-                                        </linearGradient>
-                                    </defs>
+                                        d="M0,150 C50,140 100,160 200,140 C300,120 400,150 500,130 C600,110 700,140 800,120"
+                                        fill="none" stroke="#4f46e5" stroke-width="2"></path>
+                                    <path
+                                        d="M0,180 C50,170 100,190 200,170 C300,160 400,170 500,160 C600,150 700,160 800,150"
+                                        fill="none" stroke="#22c55e" stroke-width="2"></path>
+                                    <path d="M0,100 C50,90 100,110 200,90 C300,80 400,100 500,80 C600,70 700,90 800,70"
+                                        fill="none" stroke="#f97316" stroke-width="2"></path>
                                 </svg>
-                                <div class="flex justify-around">
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Jan</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Feb</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Mar</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Apr</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        May</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Jun</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Jul</p>
+                                <div
+                                    class="absolute bottom-2 left-0 w-full flex justify-between text-[10px] text-slate-400 px-4">
+                                    <span>May 06</span><span>May 09</span><span>May 12</span><span>May
+                                        18</span><span>May 21</span><span>May 24</span><span>May 27</span><span>May
+                                        30</span><span>Jun 02</span><span>Jun 05</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="flex min-w-72 flex-1 flex-col gap-2">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">Conversions</p>
-                            <p class="text-[#0d141b] tracking-light text-[32px] font-bold leading-tight truncate">678
-                            </p>
-                            <div class="flex gap-1">
-                                <p class="text-[#4c739a] text-base font-normal leading-normal">YTD</p>
-                                <p class="text-[#078838] text-base font-medium leading-normal">+8%</p>
+                        <div class="mb-4">
+                            <div class="text-xs text-slate-500 mb-2">Volume</div>
+                            <div class="h-40 w-full flex items-end justify-between gap-1 px-2">
+                                <div class="w-full bg-indigo-100 rounded-t h-[40%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[60%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[30%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[50%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[80%]"></div>
+                                <div class="w-full bg-indigo-500 rounded-t h-[90%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[45%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[65%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[55%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[70%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[35%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[50%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[60%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[40%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[60%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[30%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[50%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[80%]"></div>
+                                <div class="w-full bg-indigo-500 rounded-t h-[90%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[45%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[65%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[55%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[70%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[35%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[50%]"></div>
+                                <div class="w-full bg-indigo-100 rounded-t h-[60%]"></div>
                             </div>
-                            <div class="flex min-h-[180px] flex-1 flex-col gap-8 py-4">
-                                <svg width="100%" height="148" viewBox="-3 0 478 150" fill="none"
-                                    xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-                                    <path
-                                        d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25V149H326.769H0V109Z"
-                                        fill="url(#paint0_linear_1131_5935)"></path>
-                                    <path
-                                        d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25"
-                                        stroke="#4c739a" stroke-width="3" stroke-linecap="round"></path>
-                                    <defs>
-                                        <linearGradient id="paint0_linear_1131_5935" x1="236" y1="1" x2="236" y2="149"
-                                            gradientUnits="userSpaceOnUse">
-                                            <stop stop-color="#e7edf3"></stop>
-                                            <stop offset="1" stop-color="#e7edf3" stop-opacity="0"></stop>
-                                        </linearGradient>
-                                    </defs>
-                                </svg>
-                                <div class="flex justify-around">
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Jan</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Feb</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Mar</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Apr</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        May</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Jun</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Jul</p>
-                                </div>
+                            <div class="flex justify-between text-[10px] text-slate-400 mt-2 px-2">
+                                <span>May 06</span><span>May 15</span><span>May 24</span><span>Jun 05</span>
                             </div>
                         </div>
-                        <div class="flex min-w-72 flex-1 flex-col gap-2">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">Revenue</p>
-                            <p class="text-[#0d141b] tracking-light text-[32px] font-bold leading-tight truncate">
-                                $15,678</p>
-                            <div class="flex gap-1">
-                                <p class="text-[#4c739a] text-base font-normal leading-normal">YTD</p>
-                                <p class="text-[#078838] text-base font-medium leading-normal">+10%</p>
-                            </div>
-                            <div class="flex min-h-[180px] flex-1 flex-col gap-8 py-4">
-                                <svg width="100%" height="148" viewBox="-3 0 478 150" fill="none"
-                                    xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-                                    <path
-                                        d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25V149H326.769H0V109Z"
-                                        fill="url(#paint0_linear_1131_5935)"></path>
-                                    <path
-                                        d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25"
-                                        stroke="#4c739a" stroke-width="3" stroke-linecap="round"></path>
-                                    <defs>
-                                        <linearGradient id="paint0_linear_1131_5935" x1="236" y1="1" x2="236" y2="149"
-                                            gradientUnits="userSpaceOnUse">
-                                            <stop stop-color="#e7edf3"></stop>
-                                            <stop offset="1" stop-color="#e7edf3" stop-opacity="0"></stop>
-                                        </linearGradient>
-                                    </defs>
-                                </svg>
-                                <div class="flex justify-around">
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Jan</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Feb</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Mar</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Apr</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        May</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Jun</p>
-                                    <p class="text-[#4c739a] text-[13px] font-bold leading-normal tracking-[0.015em]">
-                                        Jul</p>
-                                </div>
-                            </div>
+                        <div class="border-b border-slate-200 mb-4">
+                            <nav aria-label="Tabs" class="flex space-x-8">
+                                <a class="border-slate-900 text-slate-900 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                                    href="#">Clicks</a>
+                                <a class="border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                                    href="#">Leads</a>
+                                <a class="border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                                    href="#">Sales</a>
+                                <a class="border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                                    href="#">Conversions</a>
+                            </nav>
                         </div>
-                    </div>
-                    <h2 class="text-[#0d141b] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
-                        Top Performing Campaigns</h2>
-                    <div class="px-4 py-3 @container">
-                        <div class="flex overflow-hidden rounded-lg border border-[#cfdbe7] bg-slate-50">
-                            <table class="flex-1">
-                                <thead>
-                                    <tr class="bg-slate-50">
-                                        <th
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-120 px-4 py-3 text-left text-[#0d141b] w-[400px] text-sm font-medium leading-normal">
-                                            Campaign Name
-                                        </th>
-                                        <th
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-240 px-4 py-3 text-left text-[#0d141b] w-60 text-sm font-medium leading-normal">
-                                            Status</th>
-                                        <th
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-360 px-4 py-3 text-left text-[#0d141b] w-[400px] text-sm font-medium leading-normal">
-                                            Clicks</th>
-                                        <th
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-480 px-4 py-3 text-left text-[#0d141b] w-[400px] text-sm font-medium leading-normal">
-                                            Conversions
-                                        </th>
-                                        <th
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-600 px-4 py-3 text-left text-[#0d141b] w-[400px] text-sm font-medium leading-normal">
-                                            EPC</th>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-slate-200 text-sm text-left">
+                                <thead class="bg-slate-50 text-slate-500 font-medium">
+                                    <tr>
+                                        <th class="px-3 py-2"></th>
+                                        <th class="px-3 py-2">Campaign</th>
+                                        <th class="px-3 py-2">Affiliate Site</th>
+                                        <th class="px-3 py-2">Product</th>
+                                        <th class="px-3 py-2">Commission</th>
+                                        <th class="px-3 py-2 text-right">Time</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <tr class="border-t border-t-[#cfdbe7]">
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-120 h-[72px] px-4 py-2 w-[400px] text-[#0d141b] text-sm font-normal leading-normal">
-                                            Summer Sale
+                                <tbody class="divide-y divide-slate-100 bg-white">
+                                    <tr>
+                                        <td class="px-3 py-3"><span
+                                                class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">?</span>
                                         </td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-240 h-[72px] px-4 py-2 w-60 text-sm font-normal leading-normal">
-                                            <button
-                                                class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-8 px-4 bg-[#e7edf3] text-[#0d141b] text-sm font-medium leading-normal w-full">
-                                                <span class="truncate">Active</span>
-                                            </button>
+                                        <td class="px-3 py-3 text-indigo-600 font-medium">Three Mobile <span
+                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
                                         </td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-360 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            5,432</td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-480 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            345</td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-600 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            $2.50</td>
+                                        <td class="px-3 py-3 text-indigo-600">The Daily Telegraph <span
+                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                        </td>
+                                        <td class="px-3 py-3 text-slate-500">Default</td>
+                                        <td class="px-3 py-3 text-slate-900">€0.00</td>
+                                        <td class="px-3 py-3 text-slate-500 text-right">01 Jul 2024, 08:39:17</td>
                                     </tr>
-                                    <tr class="border-t border-t-[#cfdbe7]">
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-120 h-[72px] px-4 py-2 w-[400px] text-[#0d141b] text-sm font-normal leading-normal">
-                                            Back to School
+                                    <tr>
+                                        <td class="px-3 py-3"><span
+                                                class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">?</span>
                                         </td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-240 h-[72px] px-4 py-2 w-60 text-sm font-normal leading-normal">
-                                            <button
-                                                class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-8 px-4 bg-[#e7edf3] text-[#0d141b] text-sm font-medium leading-normal w-full">
-                                                <span class="truncate">Paused</span>
-                                            </button>
+                                        <td class="px-3 py-3 text-indigo-600 font-medium">AliExpress <span
+                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
                                         </td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-360 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            3,210</td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-480 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            210</td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-600 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            $1.80</td>
+                                        <td class="px-3 py-3 text-indigo-600">The Daily Telegraph <span
+                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                        </td>
+                                        <td class="px-3 py-3 text-slate-500">Default</td>
+                                        <td class="px-3 py-3 text-slate-900">€0.00</td>
+                                        <td class="px-3 py-3 text-slate-500 text-right">30 Jun 2024, 05:13:05</td>
                                     </tr>
-                                    <tr class="border-t border-t-[#cfdbe7]">
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-120 h-[72px] px-4 py-2 w-[400px] text-[#0d141b] text-sm font-normal leading-normal">
-                                            Holiday Special
+                                    <tr>
+                                        <td class="px-3 py-3"><span
+                                                class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">?</span>
                                         </td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-240 h-[72px] px-4 py-2 w-60 text-sm font-normal leading-normal">
-                                            <button
-                                                class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-8 px-4 bg-[#e7edf3] text-[#0d141b] text-sm font-medium leading-normal w-full">
-                                                <span class="truncate">Active</span>
-                                            </button>
+                                        <td class="px-3 py-3 text-indigo-600 font-medium">Three Mobile <span
+                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
                                         </td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-360 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            2,109</td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-480 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            150</td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-600 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            $1.50</td>
+                                        <td class="px-3 py-3 text-indigo-600">BBC <span
+                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                        </td>
+                                        <td class="px-3 py-3 text-slate-500">Default</td>
+                                        <td class="px-3 py-3 text-slate-900">€0.00</td>
+                                        <td class="px-3 py-3 text-slate-500 text-right">27 Jun 2024, 02:43:03</td>
                                     </tr>
-                                    <tr class="border-t border-t-[#cfdbe7]">
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-120 h-[72px] px-4 py-2 w-[400px] text-[#0d141b] text-sm font-normal leading-normal">
-                                            New Year Promo
+                                    <tr>
+                                        <td class="px-3 py-3"><span
+                                                class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">?</span>
                                         </td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-240 h-[72px] px-4 py-2 w-60 text-sm font-normal leading-normal">
-                                            <button
-                                                class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-8 px-4 bg-[#e7edf3] text-[#0d141b] text-sm font-medium leading-normal w-full">
-                                                <span class="truncate">Inactive</span>
-                                            </button>
+                                        <td class="px-3 py-3 text-indigo-600 font-medium">Zara <span
+                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
                                         </td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-360 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            1,098</td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-480 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            75</td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-600 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            $1.20</td>
+                                        <td class="px-3 py-3 text-indigo-600">The Daily Telegraph <span
+                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                        </td>
+                                        <td class="px-3 py-3 text-slate-500">Default</td>
+                                        <td class="px-3 py-3 text-slate-900">€0.00</td>
+                                        <td class="px-3 py-3 text-slate-500 text-right">23 Jun 2024, 22:05:12</td>
                                     </tr>
-                                    <tr class="border-t border-t-[#cfdbe7]">
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-120 h-[72px] px-4 py-2 w-[400px] text-[#0d141b] text-sm font-normal leading-normal">
-                                            Spring Savings
+                                    <tr>
+                                        <td class="px-3 py-3"><span
+                                                class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">?</span>
                                         </td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-240 h-[72px] px-4 py-2 w-60 text-sm font-normal leading-normal">
-                                            <button
-                                                class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-8 px-4 bg-[#e7edf3] text-[#0d141b] text-sm font-medium leading-normal w-full">
-                                                <span class="truncate">Active</span>
-                                            </button>
+                                        <td class="px-3 py-3 text-indigo-600 font-medium">Zara <span
+                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
                                         </td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-360 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            543</td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-480 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            30</td>
-                                        <td
-                                            class="table-93e608a9-e095-49e6-b20e-88f68f696c64-column-600 h-[72px] px-4 py-2 w-[400px] text-[#4c739a] text-sm font-normal leading-normal">
-                                            $0.90</td>
+                                        <td class="px-3 py-3 text-indigo-600">Sky News <span
+                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                        </td>
+                                        <td class="px-3 py-3 text-slate-500">Default</td>
+                                        <td class="px-3 py-3 text-slate-900">€0.00</td>
+                                        <td class="px-3 py-3 text-slate-500 text-right">20 Jun 2024, 17:05:22</td>
                                     </tr>
                                 </tbody>
                             </table>
-                        </div>
-                        <style>
-                            @container(max-width:120px) {
-                                .table-93e608a9-e095-49e6-b20e-88f68f696c64-column-120 {
-                                    display: none;
-                                }
-                            }
-
-                            @container(max-width:240px) {
-                                .table-93e608a9-e095-49e6-b20e-88f68f696c64-column-240 {
-                                    display: none;
-                                }
-                            }
-
-                            @container(max-width:360px) {
-                                .table-93e608a9-e095-49e6-b20e-88f68f696c64-column-360 {
-                                    display: none;
-                                }
-                            }
-
-                            @container(max-width:480px) {
-                                .table-93e608a9-e095-49e6-b20e-88f68f696c64-column-480 {
-                                    display: none;
-                                }
-                            }
-
-                            @container(max-width:600px) {
-                                .table-93e608a9-e095-49e6-b20e-88f68f696c64-column-600 {
-                                    display: none;
-                                }
-                            }
-                        </style>
-                    </div>
-                    <h2 class="text-[#0d141b] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
-                        Recent Activity</h2>
-                    <div class="grid grid-cols-[40px_1fr] gap-x-2 px-4">
-                        <div class="flex flex-col items-center gap-1 pt-3">
-                            <div class="text-[#0d141b]" data-icon="User" data-size="24px" data-weight="regular">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor"
-                                    viewBox="0 0 256 256">
-                                    <path
-                                        d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z">
-                                    </path>
-                                </svg>
+                            <div class="mt-4 text-center">
+                                <a class="text-sm text-indigo-600 hover:underline" href="#">More sale transactions</a>
                             </div>
-                            <div class="w-[1.5px] bg-[#cfdbe7] h-2 grow"></div>
-                        </div>
-                        <div class="flex flex-1 flex-col py-3">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">New Lead from Summer Sale
-                                Campaign</p>
-                            <p class="text-[#4c739a] text-base font-normal leading-normal">1 hour ago</p>
-                        </div>
-                        <div class="flex flex-col items-center gap-1">
-                            <div class="w-[1.5px] bg-[#cfdbe7] h-2"></div>
-                            <div class="text-[#0d141b]" data-icon="ShoppingCart" data-size="24px" data-weight="regular">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor"
-                                    viewBox="0 0 256 256">
-                                    <path
-                                        d="M222.14,58.87A8,8,0,0,0,216,56H54.68L49.79,29.14A16,16,0,0,0,34.05,16H16a8,8,0,0,0,0,16h18L59.56,172.29a24,24,0,0,0,5.33,11.27,28,28,0,1,0,44.4,8.44h45.42A27.75,27.75,0,0,0,152,204a28,28,0,1,0,28-28H83.17a8,8,0,0,1-7.87-6.57L72.13,152h116a24,24,0,0,0,23.61-19.71l12.16-66.86A8,8,0,0,0,222.14,58.87ZM96,204a12,12,0,1,1-12-12A12,12,0,0,1,96,204Zm96,0a12,12,0,1,1-12-12A12,12,0,0,1,192,204Zm4-74.57A8,8,0,0,1,188.1,136H69.22L57.59,72H206.41Z">
-                                    </path>
-                                </svg>
-                            </div>
-                            <div class="w-[1.5px] bg-[#cfdbe7] h-2 grow"></div>
-                        </div>
-                        <div class="flex flex-1 flex-col py-3">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">Sale from Back to School
-                                Campaign</p>
-                            <p class="text-[#4c739a] text-base font-normal leading-normal">3 hours ago</p>
-                        </div>
-                        <div class="flex flex-col items-center gap-1 pb-3">
-                            <div class="w-[1.5px] bg-[#cfdbe7] h-2"></div>
-                            <div class="text-[#0d141b]" data-icon="CurrencyDollar" data-size="24px"
-                                data-weight="regular">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor"
-                                    viewBox="0 0 256 256">
-                                    <path
-                                        d="M152,120H136V56h8a32,32,0,0,1,32,32,8,8,0,0,0,16,0,48.05,48.05,0,0,0-48-48h-8V24a8,8,0,0,0-16,0V40h-8a48,48,0,0,0,0,96h8v64H104a32,32,0,0,1-32-32,8,8,0,0,0-16,0,48.05,48.05,0,0,0,48,48h16v16a8,8,0,0,0,16,0V216h16a48,48,0,0,0,0-96Zm-40,0a32,32,0,0,1,0-64h8v64Zm40,80H136V136h16a32,32,0,0,1,0,64Z">
-                                    </path>
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="flex flex-1 flex-col py-3">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">Commission Update for Holiday
-                                Special</p>
-                            <p class="text-[#4c739a] text-base font-normal leading-normal">5 hours ago</p>
                         </div>
                     </div>
-                    <h2 class="text-[#0d141b] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
-                        Notifications/Alerts</h2>
-                    <div class="flex items-center gap-4 bg-slate-50 px-4 min-h-[72px] py-2">
-                        <div class="text-[#0d141b] flex items-center justify-center rounded-lg bg-[#e7edf3] shrink-0 size-12"
-                            data-icon="Bell" data-size="24px" data-weight="regular">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" fill="currentColor"
-                                viewBox="0 0 256 256">
-                                <path
-                                    d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z">
-                                </path>
-                            </svg>
+                    <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                        <h3 class="font-bold text-slate-900 mb-4">Top 10 impressions &amp; clicks</h3>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-xs text-left">
+                                    <thead class="text-slate-500 border-b border-slate-200">
+                                        <tr>
+                                            <th class="py-2">TM</th>
+                                            <th class="py-2">TM</th>
+                                            <th class="py-2">Campaign</th>
+                                            <th class="py-2">Impressions</th>
+                                            <th class="py-2">Change</th>
+                                            <th class="py-2">eCPM</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <tr>
+                                            <td class="py-2 text-green-600 font-bold">▲ 1</td>
+                                            <td class="py-2">1</td>
+                                            <td class="py-2 text-indigo-600">AliExpress <span
+                                                    class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                            </td>
+                                            <td class="py-2">92,821</td>
+                                            <td class="py-2 text-red-500">-56,751</td>
+                                            <td class="py-2 text-slate-500">€0.59</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 text-green-600 font-bold">▲ 2</td>
+                                            <td class="py-2">2</td>
+                                            <td class="py-2 text-indigo-600">Zara <span
+                                                    class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                            </td>
+                                            <td class="py-2">92,821</td>
+                                            <td class="py-2 text-red-500">-46,364</td>
+                                            <td class="py-2 text-slate-500">€0.59</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 text-green-600 font-bold">▲ 3</td>
+                                            <td class="py-2">3</td>
+                                            <td class="py-2 text-indigo-600">Tree Mobile <span
+                                                    class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                            </td>
+                                            <td class="py-2">92,821</td>
+                                            <td class="py-2 text-red-500">-56,519</td>
+                                            <td class="py-2 text-slate-500">€0.59</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full text-xs text-left">
+                                    <thead class="text-slate-500 border-b border-slate-200">
+                                        <tr>
+                                            <th class="py-2">TM</th>
+                                            <th class="py-2">TM</th>
+                                            <th class="py-2">Campaign</th>
+                                            <th class="py-2">Impressions</th>
+                                            <th class="py-2">Change</th>
+                                            <th class="py-2">eCPM</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100">
+                                        <tr>
+                                            <td class="py-2 text-green-600 font-bold">▲ 1</td>
+                                            <td class="py-2">3</td>
+                                            <td class="py-2 text-indigo-600">Zara <span
+                                                    class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                            </td>
+                                            <td class="py-2">2,253</td>
+                                            <td class="py-2 text-red-500">-1,111</td>
+                                            <td class="py-2 text-slate-500">€0.59</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 text-red-500 font-bold">▼ 1</td>
+                                            <td class="py-2">1</td>
+                                            <td class="py-2 text-indigo-600">Tree Mobile <span
+                                                    class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                            </td>
+                                            <td class="py-2">2,201</td>
+                                            <td class="py-2 text-red-500">-1,283</td>
+                                            <td class="py-2 text-slate-500">€0.59</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-2 text-red-500 font-bold">▼ 1</td>
+                                            <td class="py-2">1</td>
+                                            <td class="py-2 text-indigo-600">AliExpress <span
+                                                    class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                            </td>
+                                            <td class="py-2">2,146</td>
+                                            <td class="py-2 text-red-500">-1,284</td>
+                                            <td class="py-2 text-slate-500">€0.59</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="flex flex-col justify-center">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal line-clamp-1">Campaign Update
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+                        <h3 class="font-bold text-slate-900 mb-4">Latest News</h3>
+                        <div class="mb-8">
+                            <h4 class="font-semibold text-slate-800 text-sm">Mastering the Art of Blogging: Tips for
+                                Crafting Engaging Posts</h4>
+                            <p class="text-xs text-slate-400 mt-1 mb-2">Thursday, 6 June 2024</p>
+                            <p class="text-sm text-slate-600 leading-relaxed">
+                                Creating compelling blog content is essential for attracting and retaining readers. A
+                                great blog post starts with a captivating headline that grabs attention. It's crucial to
+                                engage the audience from the outset with a strong opening sentence.
                             </p>
-                            <p class="text-[#4c739a] text-sm font-normal leading-normal line-clamp-2">Your Summer Sale
-                                campaign has reached 5,000 clicks.</p>
+                            <a class="text-xs text-indigo-600 hover:underline mt-2 inline-block" href="#">Continue to
+                                read &gt;</a>
                         </div>
                     </div>
-                    <h2 class="text-[#0d141b] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
-                        Quick Stats</h2>
-                    <div class="flex flex-wrap gap-4 p-4">
-                        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 bg-[#e7edf3]">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">Traffic Sources</p>
-                            <p class="text-[#0d141b] tracking-light text-2xl font-bold leading-tight">Social: 40%,
-                                Organic: 30%, Paid: 30%</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white p-4 rounded-xl border border-slate-100 text-center">
+                            <div
+                                class="h-16 flex items-center justify-center mb-4 text-3xl font-serif font-bold italic">
+                                ZARA</div>
+                            <h4 class="font-bold text-slate-800 text-sm mb-2">New collection on sale</h4>
+                            <p class="text-xs text-slate-500 mb-4">Zara Launches Sale on Latest Collection In a highly
+                                anticipated move, Zara has launched a sale...</p>
+                            <a class="text-xs text-indigo-600 font-medium hover:underline" href="#">Learn More</a>
                         </div>
-                        <div class="flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 bg-[#e7edf3]">
-                            <p class="text-[#0d141b] text-base font-medium leading-normal">Device Types</p>
-                            <p class="text-[#0d141b] tracking-light text-2xl font-bold leading-tight">Desktop: 60%,
-                                Mobile: 40%</p>
+                        <div class="bg-white p-4 rounded-xl border border-slate-100 text-center">
+                            <div
+                                class="h-16 flex items-center justify-center mb-4 text-3xl font-serif font-bold italic">
+                                ZARA</div>
+                            <h4 class="font-bold text-slate-800 text-sm mb-2">New collection on sale</h4>
+                            <p class="text-xs text-slate-500 mb-4">Zara Launches Sale on Latest Collection In a highly
+                                anticipated move, Zara has launched a sale...</p>
+                            <a class="text-xs text-indigo-600 font-medium hover:underline" href="#">Learn More</a>
                         </div>
-                    </div>
-                    <h2 class="text-[#0d141b] text-[22px] font-bold leading-tight tracking-[-0.015em] px-4 pb-3 pt-5">
-                        Financial Summary</h2>
-                    <div class="p-4">
-                        <div
-                            class="flex items-stretch justify-between gap-4 rounded-lg bg-slate-50 p-4 shadow-[0_0_4px_rgba(0,0,0,0.1)]">
-                            <div class="flex flex-col gap-1 flex-[2_2_0px]">
-                                <p class="text-[#0d141b] text-base font-bold leading-tight">Current Balance: $5,000</p>
-                                <p class="text-[#4c739a] text-sm font-normal leading-normal">Pending Payments: $2,500 |
-                                    Recent Payouts: $7,500</p>
-                            </div>
-                            <div class="w-full bg-center bg-no-repeat aspect-video bg-cover rounded-lg flex-1"></div>
+                        <div class="bg-white p-4 rounded-xl border border-slate-100 text-center">
+                            <div
+                                class="h-16 flex items-center justify-center mb-4 text-3xl font-serif font-bold italic">
+                                ZARA</div>
+                            <h4 class="font-bold text-slate-800 text-sm mb-2">New collection on sale</h4>
+                            <p class="text-xs text-slate-500 mb-4">Zara Launches Sale on Latest Collection In a highly
+                                anticipated move, Zara has launched a sale...</p>
+                            <a class="text-xs text-indigo-600 font-medium hover:underline" href="#">Learn More</a>
                         </div>
                     </div>
                 </div>
+                <div class="w-[320px] flex-shrink-0 flex flex-col gap-6">
+                    <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+                        <h3 class="font-bold text-slate-900 mb-4">Information</h3>
+                        <div class="flex justify-between items-center text-sm mb-2">
+                            <span class="text-slate-600">To-do list</span>
+                        </div>
+                        <ul class="text-xs text-slate-500 space-y-2 mb-4">
+                            <li class="flex items-center justify-between">
+                                <span class="flex items-center gap-2"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Open unread tickets</span>
+                                <span
+                                    class="bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">7</span>
+                            </li>
+                        </ul>
+                        <div class="flex justify-between items-center text-sm mb-2">
+                            <span class="text-slate-600">Bookmarks</span>
+                        </div>
+                        <ul class="text-xs text-slate-500 space-y-2">
+                            <li class="flex items-center gap-2"><span
+                                    class="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Financial &gt; Invoices</li>
+                        </ul>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+                        <h3 class="font-bold text-slate-900 mb-4">Financial Overview</h3>
+                        <div class="mb-4">
+                            <p class="text-xs text-slate-400">Total commission June 2024</p>
+                            <p class="text-2xl font-bold text-slate-900">€72.63</p>
+                        </div>
+                        <div class="mb-4">
+                            <p class="text-xs text-slate-400">Total outstanding</p>
+                            <p class="text-2xl font-bold text-slate-900">€1,647,126.06</p>
+                        </div>
+                        <div class="mb-6">
+                            <p class="text-xs text-slate-400">Next Payment</p>
+                            <p class="text-2xl font-bold text-slate-900">€0.00</p>
+                        </div>
+                        <button
+                            class="w-full py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 font-medium">Account
+                            balance overview&gt;</button>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+                        <h3 class="font-bold text-slate-900 mb-2">Devices</h3>
+                        <p class="text-xs text-slate-400 mb-4 text-center">Division of devices (Past 30 days)</p>
+                        <div class="flex justify-center mb-6 relative">
+                            <div
+                                class="w-40 h-40 rounded-full border-[12px] border-indigo-600 border-l-pink-300 border-b-slate-100 transform rotate-45 relative">
+                            </div>
+                            <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                <span class="font-bold text-slate-900">0.5 BTC</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-center gap-4 text-xs mb-4">
+                            <span class="flex items-center gap-1"><span
+                                    class="w-2 h-2 rounded-full bg-indigo-600"></span>Desktop</span>
+                            <span class="flex items-center gap-1"><span
+                                    class="w-2 h-2 rounded-full bg-pink-300"></span>Mobile</span>
+                            <span class="flex items-center gap-1"><span
+                                    class="w-2 h-2 rounded-full bg-slate-200"></span>Tablet</span>
+                        </div>
+                        <table class="w-full text-xs text-left mb-6">
+                            <thead class="bg-slate-50 text-slate-500">
+                                <tr>
+                                    <th class="p-2">Device</th>
+                                    <th class="p-2">Leads</th>
+                                    <th class="p-2">Sales</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-slate-600">
+                                <tr>
+                                    <td class="p-2">Desktop</td>
+                                    <td class="p-2">53,15%</td>
+                                    <td class="p-2">65,29%</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-2">Mobile</td>
+                                    <td class="p-2">23,13%</td>
+                                    <td class="p-2">18,93%</td>
+                                </tr>
+                                <tr>
+                                    <td class="p-2">Tablet</td>
+                                    <td class="p-2">23,13%</td>
+                                    <td class="p-2">18,93%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="mb-4">
+                            <p class="font-semibold text-xs text-slate-800 mb-2">Most used operating systems</p>
+                            <p class="text-[10px] text-slate-400 mb-2">Based on Leads, Sales</p>
+                            <ul class="text-xs text-slate-600 space-y-1">
+                                <li class="flex items-center gap-2"><span
+                                        class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                                    Android (49,48%)</li>
+                                <li class="flex items-center gap-2"><span
+                                        class="material-symbols-outlined text-green-500 text-sm">check_circle</span> iOS
+                                    (29,83%)</li>
+                                <li class="flex items-center gap-2"><span
+                                        class="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                                    WinXP (20,69%)</li>
+                            </ul>
+                        </div>
+                        <button
+                            class="w-full py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 font-medium">Full
+                            devices report&gt;</button>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+                        <h3 class="font-bold text-slate-900 mb-4">Report today</h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-baseline">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-700">Impressions</p>
+                                    <p class="text-[10px] text-slate-400">11.896 (11.884 Unique)</p>
+                                </div>
+                                <span class="text-xs font-bold text-slate-900">€0</span>
+                            </div>
+                            <div class="flex justify-between items-baseline">
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-700">Clicks</p>
+                                    <p class="text-[10px] text-slate-400">319 (319 Unique)</p>
+                                </div>
+                                <span class="text-xs font-bold text-slate-900">€0</span>
+                            </div>
+                            <div class="flex justify-between items-baseline">
+                                <p class="text-xs font-semibold text-slate-700">Leads</p>
+                                <span class="text-xs font-bold text-slate-900">20</span>
+                                <span class="text-xs font-bold text-slate-900">€0</span>
+                            </div>
+                            <div class="flex justify-between items-baseline">
+                                <p class="text-xs font-semibold text-slate-700">Sales</p>
+                                <span class="text-xs font-bold text-slate-900">14</span>
+                                <span class="text-xs font-bold text-slate-900">€0</span>
+                            </div>
+                            <div class="flex justify-between items-baseline border-t border-slate-100 pt-2 mt-2">
+                                <p class="text-xs font-bold text-slate-900">Total commission</p>
+                                <span class="text-xs font-bold text-slate-900">€0</span>
+                            </div>
+                        </div>
+                        <button
+                            class="w-full py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 font-medium mt-4">Extended
+                            report&gt;</button>
+                        <div class="flex gap-2 mt-4 text-center">
+                            <div class="flex-1 bg-slate-50 p-2 rounded">
+                                <p class="text-[10px] text-slate-500">EPC</p>
+                                <p class="text-xs font-bold text-slate-900">€0</p>
+                            </div>
+                            <div class="flex-1 bg-slate-50 p-2 rounded">
+                                <p class="text-[10px] text-slate-500">eCPM</p>
+                                <p class="text-xs font-bold text-slate-900">€0</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 mt-2 text-center">
+                            <div class="flex-1 bg-slate-50 p-2 rounded">
+                                <p class="text-[10px] text-slate-500">CTR</p>
+                                <p class="text-xs font-bold text-slate-900">1,58%</p>
+                            </div>
+                            <div class="flex-1 bg-slate-50 p-2 rounded">
+                                <p class="text-[10px] text-slate-500">CLR</p>
+                                <p class="text-xs font-bold text-slate-900">6,27%</p>
+                            </div>
+                            <div class="flex-1 bg-slate-50 p-2 rounded">
+                                <p class="text-[10px] text-slate-500">CSR</p>
+                                <p class="text-xs font-bold text-slate-900">4,39%</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+                        <div class="relative mb-4">
+                            <span
+                                class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
+                            <input
+                                class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 text-slate-600"
+                                placeholder="Campaign search" type="text" />
+                        </div>
+                        <p class="font-semibold text-xs text-slate-800 mb-3">Campaign Per status</p>
+                        <ul class="space-y-2 text-xs text-slate-600">
+                            <li class="flex justify-between items-center">
+                                <span class="flex items-center gap-2"><span
+                                        class="w-3 h-3 bg-green-500 rounded flex items-center justify-center text-[8px] text-white">✓</span>
+                                    Accepted</span>
+                                <span class="flex gap-4"><span>66</span><span
+                                        class="text-slate-400 w-8 text-right">(24%)</span></span>
+                            </li>
+                            <li class="flex justify-between items-center">
+                                <span class="flex items-center gap-2"><span
+                                        class="w-3 h-3 bg-yellow-500 rounded flex items-center justify-center text-[8px] text-white">!</span>
+                                    Not Subscribed</span>
+                                <span class="flex gap-4"><span>204</span><span
+                                        class="text-slate-400 w-8 text-right">(74%)</span></span>
+                            </li>
+                            <li class="flex justify-between items-center">
+                                <span class="flex items-center gap-2"><span
+                                        class="w-3 h-3 bg-orange-400 rounded flex items-center justify-center text-[8px] text-white">⏸</span>
+                                    On Hold</span>
+                                <span class="flex gap-4"><span>0</span><span
+                                        class="text-slate-400 w-8 text-right">(0%)</span></span>
+                            </li>
+                            <li class="flex justify-between items-center">
+                                <span class="flex items-center gap-2"><span
+                                        class="w-3 h-3 bg-blue-400 rounded flex items-center justify-center text-[8px] text-white">?</span>
+                                    Under evaluation</span>
+                                <span class="flex gap-4"><span>0</span><span
+                                        class="text-slate-400 w-8 text-right">(0%)</span></span>
+                            </li>
+                            <li class="flex justify-between items-center">
+                                <span class="flex items-center gap-2"><span
+                                        class="w-3 h-3 bg-red-500 rounded flex items-center justify-center text-[8px] text-white">✕</span>
+                                    Cancelled</span>
+                                <span class="flex gap-4"><span>0</span><span
+                                        class="text-slate-400 w-8 text-right">(0%)</span></span>
+                            </li>
+                            <li class="flex justify-between items-center">
+                                <span class="flex items-center gap-2"><span
+                                        class="w-3 h-3 bg-gray-500 rounded flex items-center justify-center text-[8px] text-white">✕</span>
+                                    Cancelled</span>
+                                <span class="flex gap-4"><span>0</span><span
+                                        class="text-slate-400 w-8 text-right">(0%)</span></span>
+                            </li>
+                        </ul>
+                        <button
+                            class="w-full py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 font-medium mt-4">Campaign
+                            overview&gt;</button>
+                    </div>
+                </div>
             </div>
-        </div>
+        </main>
     </div>
+
 </body>
 
 </html>

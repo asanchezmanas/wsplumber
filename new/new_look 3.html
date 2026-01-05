@@ -1,493 +1,857 @@
 <!DOCTYPE html>
-<html class="dark" lang="es">
+<html>
 
 <head>
   <meta charset="utf-8" />
-  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
-  <title>Nexus Trade - Dashboard</title>
-  <link href="https://fonts.googleapis.com" rel="preconnect" />
-  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap"
-    rel="stylesheet" />
+  <link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect" />
+  <link as="style"
+    href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B600%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
+    onload="this.rel='stylesheet'" rel="stylesheet" />
+  <title>Linker Dashboard</title>
+  <link href="data:image/x-icon;base64," rel="icon" type="image/x-icon" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link
     href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
     rel="stylesheet" />
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-  <script>
-    tailwind.config = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          colors: {
-            background: "#050505",
-            surface: "#0A0A0A",
-            "surface-highlight": "#121212",
-            primary: "#254194", // Refined Deep Navy
-            "primary-light": "#93c5fd", // Softer blue
-            "primary-soft": "rgba(37, 65, 148, 0.1)",
-            text: {
-              main: "#F0F0F0",
-              muted: "#9ca3af",
-              dim: "#525252"
-            },
-            border: "rgba(255, 255, 255, 0.08)"
-          },
-          fontFamily: {
-            display: ['"Plus Jakarta Sans"', 'sans-serif'],
-            body: ['"Inter"', 'sans-serif'],
-          },
-          borderRadius: {
-            DEFAULT: "4px",
-            'lg': "8px",
-            'xl': "12px",
-            '2xl': "16px",
-          },
-          backgroundImage: {
-            'gradient-subtle': 'linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0))',
-          },
-        },
-      },
-    };
-  </script>
-  <style>
-    body {
-      background-color: #050505;
-      color: #F0F0F0;
-    }
-
-    ::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: #050505;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #262626;
-      border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #404040;
-    }
-
-    .text-balance {
-      text-wrap: balance;
-    }
-  </style>
+  <style type="text/tailwindcss">
+    :root {
+        --primary-blue: #4f46e5;
+        --secondary-text: #6b7280;
+        --border-color: #e5e7eb;
+        --bg-gray: #f9fafb;
+      }
+      .progress-ring__circle {
+        transition: stroke-dashoffset 0.35s;
+        transform: rotate(-90deg);
+        transform-origin: 50% 50%;
+      }
+    </style>
 </head>
 
-<body class="font-body antialiased selection:bg-primary/30 selection:text-white bg-background">
-  <nav class="fixed w-full z-50 transition-all duration-300 bg-[#050505]/90 backdrop-blur-sm border-b border-white/5">
-    <div class="max-w-[1600px] mx-auto px-6 lg:px-8">
-      <div class="flex justify-between items-center h-20">
-        <div class="flex items-center gap-3">
-          <div
-            class="w-8 h-8 rounded-lg bg-primary/20 border border-primary/20 flex items-center justify-center text-primary-light">
-            <span class="material-symbols-outlined" style="font-size: 20px;">candlestick_chart</span>
-          </div>
-          <span class="font-display font-semibold text-lg tracking-tight text-white">Nexus<span
-              class="text-white/30">Trade</span></span>
-        </div>
-        <div class="hidden md:flex items-center gap-8">
-          <a class="text-sm font-medium text-white transition-colors border-b-2 border-primary pb-0.5"
-            href="#">Dashboard</a>
-          <a class="text-sm font-medium text-text-muted hover:text-white transition-colors" href="#">Mis Bots</a>
-          <a class="text-sm font-medium text-text-muted hover:text-white transition-colors" href="#">Mercado</a>
-          <a class="text-sm font-medium text-text-muted hover:text-white transition-colors" href="#">Cartera</a>
-          <a class="text-sm font-medium text-text-muted hover:text-white transition-colors" href="#">Configuración</a>
+<body>
+  <div class="relative flex h-auto min-h-screen w-full flex-row bg-slate-50 group/design-root overflow-x-hidden"
+    style='font-family: Inter, "Noto Sans", sans-serif;'>
+    <aside
+      class="flex h-screen w-64 flex-col border-r border-slate-200 bg-white fixed left-0 top-0 z-10 overflow-y-auto">
+      <div class="p-6 flex items-center gap-3">
+        <div class="flex items-center justify-center rounded-full bg-indigo-600 w-8 h-8 text-white font-bold">L</div>
+        <h1 class="text-xl font-bold text-slate-900">Linker</h1>
+      </div>
+      <div class="flex flex-col gap-1 px-4 py-2">
+        <p class="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Main</p>
+        <a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-600 font-medium text-sm"
+          href="#">
+          <span class="material-symbols-outlined text-[20px]">dashboard</span>
+          Dashboard
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+          href="#">
+          <span class="material-symbols-outlined text-[20px]">campaign</span>
+          Campaigns
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+          href="#">
+          <span class="material-symbols-outlined text-[20px]">local_offer</span>
+          Offers
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+          href="#">
+          <span class="material-symbols-outlined text-[20px]">description</span>
+          Reports
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+          href="#">
+          <span class="material-symbols-outlined text-[20px]">payments</span>
+          Payments
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+          href="#">
+          <span class="material-symbols-outlined text-[20px]">build</span>
+          Tools
+        </a>
+      </div>
+      <div class="flex flex-col gap-1 px-4 py-2 mt-4">
+        <p class="px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Other</p>
+        <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+          href="#">
+          <span class="material-symbols-outlined text-[20px]">settings</span>
+          Settings
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+          href="#">
+          <span class="material-symbols-outlined text-[20px]">person</span>
+          Account
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+          href="#">
+          <span class="material-symbols-outlined text-[20px]">support_agent</span>
+          Support
+        </a>
+        <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+          href="#">
+          <span class="material-symbols-outlined text-[20px]">feedback</span>
+          Feedback
+        </a>
+      </div>
+      <div class="mt-auto p-4 border-t border-slate-100">
+        <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+          href="#">
+          <span class="material-symbols-outlined text-[20px]">logout</span>
+          Logout
+        </a>
+      </div>
+    </aside>
+    <main class="flex-1 ml-64 min-h-screen bg-[#f8f9fa] p-8">
+      <header class="flex items-center justify-between mb-8">
+        <div>
+          <h2 class="text-2xl font-bold text-slate-900">Jason Bourne</h2>
+          <p class="text-slate-500 text-sm">User ID: 17516</p>
         </div>
         <div class="flex items-center gap-4">
-          <button
-            class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/5 text-text-muted transition-colors relative">
-            <span class="material-symbols-outlined text-[20px]">notifications</span>
-            <span class="absolute top-2 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-background"></span>
-          </button>
-          <div class="h-8 w-[1px] bg-white/10 mx-1"></div>
-          <div class="flex items-center gap-3 pl-1">
-            <div class="text-right hidden sm:block">
-              <p class="text-xs font-medium text-white">Alex Morgan</p>
-              <p class="text-[10px] text-text-muted">Pro Plan</p>
+          <button class="p-2 text-slate-500 hover:bg-white rounded-full"><span
+              class="material-symbols-outlined">settings</span></button>
+          <button class="p-2 text-slate-500 hover:bg-white rounded-full"><span
+              class="material-symbols-outlined">star</span></button>
+          <button class="p-2 text-slate-500 hover:bg-white rounded-full"><span
+              class="material-symbols-outlined">notifications</span></button>
+          <button class="p-2 text-slate-500 hover:bg-white rounded-full"><span
+              class="material-symbols-outlined">fullscreen</span></button>
+        </div>
+      </header>
+      <div class="flex gap-6 items-start">
+        <div class="flex-1 flex flex-col gap-6 w-full min-w-0">
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <p class="text-sm font-medium text-slate-500">Clicks <span
+                      class="text-xs font-normal text-slate-400">This Month</span></p>
+                  <h3 class="text-2xl font-bold text-slate-900 mt-1">6,896</h3>
+                </div>
+                <span class="bg-red-50 text-red-600 text-xs px-2 py-1 rounded-full font-medium flex items-center">-3.382
+                  (33%)</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-6">Compared to yesterday</p>
+              <div class="flex flex-col items-center justify-center mb-6 relative">
+                <div class="relative w-32 h-32">
+                  <svg class="w-full h-full" viewBox="0 0 100 100">
+                    <circle class="text-slate-100 stroke-current" cx="50" cy="50" fill="transparent" r="40"
+                      stroke-width="8"></circle>
+                    <circle class="text-indigo-600 progress-ring__circle stroke-current" cx="50" cy="50"
+                      fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="20" stroke-linecap="round"
+                      stroke-width="8"></circle>
+                  </svg>
+                  <div class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+                    <span class="text-2xl font-bold text-indigo-600">92%</span>
+                  </div>
+                </div>
+                <p class="text-xs font-medium text-slate-600 mt-2">Month Target achieved</p>
+                <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-8">
+                  <span>389K</span>
+                  <span>425K</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Impressions</div>
+                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Clicks</div>
+              </div>
+              <div class="mt-4 pt-4 border-t border-slate-50 text-xs text-slate-600 space-y-2">
+                <div class="flex justify-between">
+                  <span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Zara</span>
+                  <span class="font-bold">81 Sales <span class="text-red-500">▼-46</span></span>
+                </div>
+                <div class="flex justify-between">
+                  <span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>AliExpress</span>
+                  <span class="font-bold">131 Leads <span class="text-red-500">▼-40</span></span>
+                </div>
+              </div>
             </div>
-            <div
-              class="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white font-medium text-xs shadow-lg shadow-blue-900/20">
-              AM
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <p class="text-sm font-medium text-slate-500">Leads <span
+                      class="text-xs font-normal text-slate-400">This Month</span></p>
+                  <h3 class="text-2xl font-bold text-slate-900 mt-1">6,896</h3>
+                </div>
+                <span class="bg-green-50 text-green-600 text-xs px-2 py-1 rounded-full font-medium flex items-center">↗
+                  246 (+130%)</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-6">Compared to yesterday</p>
+              <div class="flex flex-col items-center justify-center mb-6 relative">
+                <div class="relative w-32 h-32">
+                  <svg class="w-full h-full" viewBox="0 0 100 100">
+                    <circle class="text-slate-100 stroke-current" cx="50" cy="50" fill="transparent" r="40"
+                      stroke-width="8"></circle>
+                    <circle class="text-orange-500 progress-ring__circle stroke-current" cx="50" cy="50"
+                      fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="0" stroke-linecap="round"
+                      stroke-width="8"></circle>
+                  </svg>
+                  <div class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+                    <span class="text-2xl font-bold text-orange-500">200+%</span>
+                  </div>
+                </div>
+                <p class="text-xs font-medium text-slate-600 mt-2">Month Target achieved</p>
+                <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-8">
+                  <span>435</span>
+                  <span>10</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Leads</div>
+                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Sales</div>
+              </div>
+              <div class="mt-4 pt-4 border-t border-slate-50 text-xs text-slate-600 space-y-2">
+                <div class="flex justify-between">
+                  <span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Three Mobile</span>
+                  <span class="font-bold">95 Sales <span class="text-red-500">▼-36</span></span>
+                </div>
+                <div class="flex justify-between">
+                  <span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Three Mobile</span>
+                  <span class="font-bold">145 Leads <span class="text-red-500">▼-40</span></span>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <p class="text-sm font-medium text-slate-500">Video Starts <span
+                      class="text-xs font-normal text-slate-400">today</span></p>
+                  <h3 class="text-2xl font-bold text-slate-900 mt-1">0</h3>
+                </div>
+                <span
+                  class="bg-slate-100 text-slate-500 text-xs px-2 py-1 rounded-full font-medium flex items-center">-</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-6">Compared to yesterday</p>
+              <div class="flex flex-col items-center justify-center mb-6 relative">
+                <div class="relative w-32 h-32">
+                  <svg class="w-full h-full" viewBox="0 0 100 100">
+                    <circle class="text-slate-100 stroke-current" cx="50" cy="50" fill="transparent" r="40"
+                      stroke-width="8"></circle>
+                    <circle class="text-slate-300 progress-ring__circle stroke-current" cx="50" cy="50"
+                      fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="180" stroke-linecap="round"
+                      stroke-width="8"></circle>
+                  </svg>
+                  <div class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+                    <span class="text-2xl font-bold text-slate-300">68%</span>
+                  </div>
+                </div>
+                <p class="text-xs font-medium text-slate-600 mt-2"> </p>
+                <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-8">
+                  <span> </span>
+                  <span> </span>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Video Clicks</div>
+                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Video Starts</div>
+              </div>
+              <div class="mt-4 pt-4 border-t border-slate-50 text-xs text-slate-600 space-y-2">
+                <div class="flex justify-between">
+                  <span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>AliExpress</span>
+                  <span class="font-bold">83 Sales <span class="text-red-500">▼-37</span></span>
+                </div>
+                <div class="flex justify-between">
+                  <span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Zara</span>
+                  <span class="font-bold">139 Leads <span class="text-red-500">▼-47</span></span>
+                </div>
+              </div>
+            </div>
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <p class="text-sm font-medium text-slate-500">Commission <span
+                      class="text-xs font-normal text-slate-400">this month</span></p>
+                  <h3 class="text-2xl font-bold text-slate-900 mt-1">€94,10</h3>
+                </div>
+                <span class="bg-green-50 text-green-600 text-xs px-2 py-1 rounded-full font-medium flex items-center">↗
+                  €54.10</span>
+              </div>
+              <p class="text-xs text-slate-400 mb-6">Compared to yesterday</p>
+              <div class="flex flex-col items-center justify-center mb-6 relative">
+                <div class="relative w-32 h-32">
+                  <svg class="w-full h-full" viewBox="0 0 100 100">
+                    <circle class="text-slate-100 stroke-current" cx="50" cy="50" fill="transparent" r="40"
+                      stroke-width="8"></circle>
+                    <circle class="text-indigo-600 progress-ring__circle stroke-current" cx="50" cy="50"
+                      fill="transparent" r="40" stroke-dasharray="251.2" stroke-dashoffset="20" stroke-linecap="round"
+                      stroke-width="8"></circle>
+                  </svg>
+                  <div class="absolute top-0 left-0 w-full h-full flex flex-col items-center justify-center">
+                    <span class="text-2xl font-bold text-indigo-600">92%</span>
+                  </div>
+                </div>
+                <p class="text-xs font-medium text-slate-600 mt-2">Month Target achieved</p>
+                <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-8">
+                  <span>€94,10</span>
+                  <span>425K</span>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Impressions</div>
+                <div class="bg-slate-50 p-2 rounded text-center font-medium text-slate-600">Clicks</div>
+              </div>
+              <div class="mt-4 pt-4 border-t border-slate-50 text-xs text-slate-600 space-y-2">
+                <div class="flex justify-between">
+                  <span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>Zara</span>
+                  <span class="font-bold">81 Sales <span class="text-red-500">▼-46</span></span>
+                </div>
+                <div class="flex justify-between">
+                  <span><span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block mr-1"></span>AliExpress</span>
+                  <span class="font-bold">81 Sales <span class="text-red-500">▼-40</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-black text-white px-4 py-2 text-xs rounded-lg overflow-hidden whitespace-nowrap">
+            <div class="inline-flex gap-8 animate-marquee">
+              <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span> New collection
+                on sale</span>
+              <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span> New promotion
+                material for Virgin</span>
+              <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span> Great
+                incentive for 3</span>
+              <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span> New collection
+                on sale</span>
+              <span class="flex items-center gap-2"><span class="w-2 h-2 bg-red-500 rounded-full"></span> New promotion
+                material for Virgin</span>
+            </div>
+          </div>
+          <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+            <div class="flex justify-between items-center mb-2">
+              <h3 class="font-bold text-slate-800 text-sm">Boosting Affiliate Marketing through Social Media Strategies
+              </h3>
+              <span class="material-symbols-outlined text-slate-400 text-sm">keyboard_arrow_down</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">Thursday, 6 June 2024</p>
+            <p class="text-sm text-slate-600 leading-relaxed mb-4">
+              Utilizing social media for affiliate promotions can significantly enhance your marketing efforts. Key to
+              success is choosing the right platforms that align with your target audience. For instance, Instagram and
+              Pinterest are ideal for visually-driven products, while Twitter and LinkedIn cater to content-rich
+              offering.
+            </p>
+            <a class="text-indigo-600 text-sm font-medium hover:underline" href="#">Continue to read</a>
+            <div class="flex justify-center gap-1 mt-4">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+            </div>
+          </div>
+          <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+              <h3 class="font-bold text-slate-900">General Statistics</h3>
+              <div class="flex gap-2 text-xs bg-slate-50 p-1 rounded-lg mt-2 sm:mt-0">
+                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">1 day</button>
+                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">1 Week</button>
+                <button class="px-3 py-1 rounded bg-white shadow-sm text-slate-900 font-medium">1 Month</button>
+                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">3 month</button>
+                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">6 month</button>
+                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">YTD</button>
+                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">1 year</button>
+                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">2 Year</button>
+                <button class="px-3 py-1 rounded text-slate-500 hover:bg-white hover:shadow-sm">5 Year</button>
+              </div>
+            </div>
+            <div class="mb-4">
+              <div class="flex justify-between text-xs text-slate-500 mb-2">
+                <span>Volume</span>
+                <div class="flex gap-4">
+                  <span class="flex items-center gap-1"><span
+                      class="w-2 h-2 rounded-full bg-indigo-600"></span>Impressions</span>
+                  <span class="flex items-center gap-1"><span
+                      class="w-2 h-2 rounded-full bg-green-500"></span>Clicks</span>
+                  <span class="flex items-center gap-1"><span
+                      class="w-2 h-2 rounded-full bg-orange-500"></span>Leads</span>
+                  <span class="flex items-center gap-1"><span
+                      class="w-2 h-2 rounded-full bg-blue-400"></span>Sales</span>
+                </div>
+              </div>
+              <div class="h-64 w-full bg-slate-50 rounded-lg relative overflow-hidden flex items-end px-4 pb-8">
+                <svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none">
+                  <path
+                    d="M0,150 C50,140 100,160 200,140 C300,120 400,150 500,130 C600,110 700,140 800,120 L800,200 L0,200 Z"
+                    fill="rgba(79, 70, 229, 0.05)"></path>
+                  <path d="M0,150 C50,140 100,160 200,140 C300,120 400,150 500,130 C600,110 700,140 800,120" fill="none"
+                    stroke="#4f46e5" stroke-width="2"></path>
+                  <path d="M0,180 C50,170 100,190 200,170 C300,160 400,170 500,160 C600,150 700,160 800,150" fill="none"
+                    stroke="#22c55e" stroke-width="2"></path>
+                  <path d="M0,100 C50,90 100,110 200,90 C300,80 400,100 500,80 C600,70 700,90 800,70" fill="none"
+                    stroke="#f97316" stroke-width="2"></path>
+                </svg>
+                <div class="absolute bottom-2 left-0 w-full flex justify-between text-[10px] text-slate-400 px-4">
+                  <span>May 06</span><span>May 09</span><span>May 12</span><span>May 18</span><span>May
+                    21</span><span>May 24</span><span>May 27</span><span>May 30</span><span>Jun 02</span><span>Jun
+                    05</span>
+                </div>
+              </div>
+            </div>
+            <div class="mb-4">
+              <div class="text-xs text-slate-500 mb-2">Volume</div>
+              <div class="h-40 w-full flex items-end justify-between gap-1 px-2">
+                <div class="w-full bg-indigo-100 rounded-t h-[40%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[60%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[30%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[50%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[80%]"></div>
+                <div class="w-full bg-indigo-500 rounded-t h-[90%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[45%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[65%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[55%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[70%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[35%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[50%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[60%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[40%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[60%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[30%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[50%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[80%]"></div>
+                <div class="w-full bg-indigo-500 rounded-t h-[90%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[45%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[65%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[55%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[70%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[35%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[50%]"></div>
+                <div class="w-full bg-indigo-100 rounded-t h-[60%]"></div>
+              </div>
+              <div class="flex justify-between text-[10px] text-slate-400 mt-2 px-2">
+                <span>May 06</span><span>May 15</span><span>May 24</span><span>Jun 05</span>
+              </div>
+            </div>
+            <div class="border-b border-slate-200 mb-4">
+              <nav aria-label="Tabs" class="flex space-x-8">
+                <a class="border-slate-900 text-slate-900 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                  href="#">Clicks</a>
+                <a class="border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                  href="#">Leads</a>
+                <a class="border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                  href="#">Sales</a>
+                <a class="border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                  href="#">Conversions</a>
+              </nav>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-slate-200 text-sm text-left">
+                <thead class="bg-slate-50 text-slate-500 font-medium">
+                  <tr>
+                    <th class="px-3 py-2"></th>
+                    <th class="px-3 py-2">Campaign</th>
+                    <th class="px-3 py-2">Affiliate Site</th>
+                    <th class="px-3 py-2">Product</th>
+                    <th class="px-3 py-2">Commission</th>
+                    <th class="px-3 py-2 text-right">Time</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 bg-white">
+                  <tr>
+                    <td class="px-3 py-3"><span
+                        class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">?</span>
+                    </td>
+                    <td class="px-3 py-3 text-indigo-600 font-medium">Three Mobile <span
+                        class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                    <td class="px-3 py-3 text-indigo-600">The Daily Telegraph <span
+                        class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                    <td class="px-3 py-3 text-slate-500">Default</td>
+                    <td class="px-3 py-3 text-slate-900">€0.00</td>
+                    <td class="px-3 py-3 text-slate-500 text-right">01 Jul 2024, 08:39:17</td>
+                  </tr>
+                  <tr>
+                    <td class="px-3 py-3"><span
+                        class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">?</span>
+                    </td>
+                    <td class="px-3 py-3 text-indigo-600 font-medium">AliExpress <span
+                        class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                    <td class="px-3 py-3 text-indigo-600">The Daily Telegraph <span
+                        class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                    <td class="px-3 py-3 text-slate-500">Default</td>
+                    <td class="px-3 py-3 text-slate-900">€0.00</td>
+                    <td class="px-3 py-3 text-slate-500 text-right">30 Jun 2024, 05:13:05</td>
+                  </tr>
+                  <tr>
+                    <td class="px-3 py-3"><span
+                        class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">?</span>
+                    </td>
+                    <td class="px-3 py-3 text-indigo-600 font-medium">Three Mobile <span
+                        class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                    <td class="px-3 py-3 text-indigo-600">BBC <span
+                        class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                    <td class="px-3 py-3 text-slate-500">Default</td>
+                    <td class="px-3 py-3 text-slate-900">€0.00</td>
+                    <td class="px-3 py-3 text-slate-500 text-right">27 Jun 2024, 02:43:03</td>
+                  </tr>
+                  <tr>
+                    <td class="px-3 py-3"><span
+                        class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">?</span>
+                    </td>
+                    <td class="px-3 py-3 text-indigo-600 font-medium">Zara <span
+                        class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                    <td class="px-3 py-3 text-indigo-600">The Daily Telegraph <span
+                        class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                    <td class="px-3 py-3 text-slate-500">Default</td>
+                    <td class="px-3 py-3 text-slate-900">€0.00</td>
+                    <td class="px-3 py-3 text-slate-500 text-right">23 Jun 2024, 22:05:12</td>
+                  </tr>
+                  <tr>
+                    <td class="px-3 py-3"><span
+                        class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">?</span>
+                    </td>
+                    <td class="px-3 py-3 text-indigo-600 font-medium">Zara <span
+                        class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                    <td class="px-3 py-3 text-indigo-600">Sky News <span
+                        class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                    <td class="px-3 py-3 text-slate-500">Default</td>
+                    <td class="px-3 py-3 text-slate-900">€0.00</td>
+                    <td class="px-3 py-3 text-slate-500 text-right">20 Jun 2024, 17:05:22</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div class="mt-4 text-center">
+                <a class="text-sm text-indigo-600 hover:underline" href="#">More sale transactions</a>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+            <h3 class="font-bold text-slate-900 mb-4">Top 10 impressions &amp; clicks</h3>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-xs text-left">
+                  <thead class="text-slate-500 border-b border-slate-200">
+                    <tr>
+                      <th class="py-2">TM</th>
+                      <th class="py-2">TM</th>
+                      <th class="py-2">Campaign</th>
+                      <th class="py-2">Impressions</th>
+                      <th class="py-2">Change</th>
+                      <th class="py-2">eCPM</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    <tr>
+                      <td class="py-2 text-green-600 font-bold">▲ 1</td>
+                      <td class="py-2">1</td>
+                      <td class="py-2 text-indigo-600">AliExpress <span
+                          class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                      <td class="py-2">92,821</td>
+                      <td class="py-2 text-red-500">-56,751</td>
+                      <td class="py-2 text-slate-500">€0.59</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2 text-green-600 font-bold">▲ 2</td>
+                      <td class="py-2">2</td>
+                      <td class="py-2 text-indigo-600">Zara <span
+                          class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                      <td class="py-2">92,821</td>
+                      <td class="py-2 text-red-500">-46,364</td>
+                      <td class="py-2 text-slate-500">€0.59</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2 text-green-600 font-bold">▲ 3</td>
+                      <td class="py-2">3</td>
+                      <td class="py-2 text-indigo-600">Tree Mobile <span
+                          class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                      <td class="py-2">92,821</td>
+                      <td class="py-2 text-red-500">-56,519</td>
+                      <td class="py-2 text-slate-500">€0.59</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-xs text-left">
+                  <thead class="text-slate-500 border-b border-slate-200">
+                    <tr>
+                      <th class="py-2">TM</th>
+                      <th class="py-2">TM</th>
+                      <th class="py-2">Campaign</th>
+                      <th class="py-2">Impressions</th>
+                      <th class="py-2">Change</th>
+                      <th class="py-2">eCPM</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    <tr>
+                      <td class="py-2 text-green-600 font-bold">▲ 1</td>
+                      <td class="py-2">3</td>
+                      <td class="py-2 text-indigo-600">Zara <span
+                          class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                      <td class="py-2">2,253</td>
+                      <td class="py-2 text-red-500">-1,111</td>
+                      <td class="py-2 text-slate-500">€0.59</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2 text-red-500 font-bold">▼ 1</td>
+                      <td class="py-2">1</td>
+                      <td class="py-2 text-indigo-600">Tree Mobile <span
+                          class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                      <td class="py-2">2,201</td>
+                      <td class="py-2 text-red-500">-1,283</td>
+                      <td class="py-2 text-slate-500">€0.59</td>
+                    </tr>
+                    <tr>
+                      <td class="py-2 text-red-500 font-bold">▼ 1</td>
+                      <td class="py-2">1</td>
+                      <td class="py-2 text-indigo-600">AliExpress <span
+                          class="material-symbols-outlined text-[10px] align-middle">open_in_new</span></td>
+                      <td class="py-2">2,146</td>
+                      <td class="py-2 text-red-500">-1,284</td>
+                      <td class="py-2 text-slate-500">€0.59</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm">
+            <h3 class="font-bold text-slate-900 mb-4">Latest News</h3>
+            <div class="mb-8">
+              <h4 class="font-semibold text-slate-800 text-sm">Mastering the Art of Blogging: Tips for Crafting Engaging
+                Posts</h4>
+              <p class="text-xs text-slate-400 mt-1 mb-2">Thursday, 6 June 2024</p>
+              <p class="text-sm text-slate-600 leading-relaxed">
+                Creating compelling blog content is essential for attracting and retaining readers. A great blog post
+                starts with a captivating headline that grabs attention. It's crucial to engage the audience from the
+                outset with a strong opening sentence.
+              </p>
+              <a class="text-xs text-indigo-600 hover:underline mt-2 inline-block" href="#">Continue to read &gt;</a>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-4 rounded-xl border border-slate-100 text-center">
+              <div class="h-16 flex items-center justify-center mb-4 text-3xl font-serif font-bold italic">ZARA</div>
+              <h4 class="font-bold text-slate-800 text-sm mb-2">New collection on sale</h4>
+              <p class="text-xs text-slate-500 mb-4">Zara Launches Sale on Latest Collection In a highly anticipated
+                move, Zara has launched a sale...</p>
+              <a class="text-xs text-indigo-600 font-medium hover:underline" href="#">Learn More</a>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-100 text-center">
+              <div class="h-16 flex items-center justify-center mb-4 text-3xl font-serif font-bold italic">ZARA</div>
+              <h4 class="font-bold text-slate-800 text-sm mb-2">New collection on sale</h4>
+              <p class="text-xs text-slate-500 mb-4">Zara Launches Sale on Latest Collection In a highly anticipated
+                move, Zara has launched a sale...</p>
+              <a class="text-xs text-indigo-600 font-medium hover:underline" href="#">Learn More</a>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-100 text-center">
+              <div class="h-16 flex items-center justify-center mb-4 text-3xl font-serif font-bold italic">ZARA</div>
+              <h4 class="font-bold text-slate-800 text-sm mb-2">New collection on sale</h4>
+              <p class="text-xs text-slate-500 mb-4">Zara Launches Sale on Latest Collection In a highly anticipated
+                move, Zara has launched a sale...</p>
+              <a class="text-xs text-indigo-600 font-medium hover:underline" href="#">Learn More</a>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </nav>
-  <main class="pt-28 pb-12 px-6 lg:px-8 max-w-[1600px] mx-auto">
-    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
-      <div>
-        <h1 class="text-3xl font-display font-medium text-white mb-2">Resumen General</h1>
-        <p class="text-text-muted text-sm font-light">Bienvenido de nuevo. Aquí está el rendimiento de tus bots hoy.</p>
-      </div>
-      <div class="flex items-center gap-3">
-        <span
-          class="text-xs text-text-muted font-mono bg-surface border border-white/5 px-3 py-1.5 rounded-lg flex items-center gap-2">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          System Operational
-        </span>
-        <button
-          class="bg-primary/10 hover:bg-primary/20 text-primary-light border border-primary/20 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
-          <span class="material-symbols-outlined text-[18px]">add</span>
-          Nuevo Bot
-        </button>
-      </div>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
-      <div class="bg-surface border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors group">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-2 rounded-lg bg-white/5 text-text-muted group-hover:text-white transition-colors">
-            <span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
-          </div>
-          <span
-            class="text-emerald-500 text-xs font-medium bg-emerald-500/10 border border-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1">
-            <span class="material-symbols-outlined text-[12px]">trending_up</span> +2.4%
-          </span>
-        </div>
-        <p class="text-text-muted text-xs uppercase tracking-wider mb-1">Valor Total</p>
-        <p class="text-2xl font-display font-medium text-white">$124,592.40</p>
-      </div>
-      <div class="bg-surface border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors group">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-2 rounded-lg bg-white/5 text-text-muted group-hover:text-primary-light transition-colors">
-            <span class="material-symbols-outlined text-[20px]">monitoring</span>
-          </div>
-          <span
-            class="text-emerald-500 text-xs font-medium bg-emerald-500/10 border border-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1">
-            +$1,240.50
-          </span>
-        </div>
-        <p class="text-text-muted text-xs uppercase tracking-wider mb-1">P/L (24h)</p>
-        <p class="text-2xl font-display font-medium text-white">$4,280.15</p>
-      </div>
-      <div class="bg-surface border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors group">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-2 rounded-lg bg-white/5 text-text-muted group-hover:text-white transition-colors">
-            <span class="material-symbols-outlined text-[20px]">smart_toy</span>
-          </div>
-          <span class="text-text-dim text-xs font-medium border border-white/5 px-2 py-0.5 rounded">
-            3/5 Activos
-          </span>
-        </div>
-        <p class="text-text-muted text-xs uppercase tracking-wider mb-1">Bots Activos</p>
-        <p class="text-2xl font-display font-medium text-white">3 <span
-            class="text-base text-text-dim font-light">Running</span></p>
-      </div>
-      <div class="bg-surface border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors group">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-2 rounded-lg bg-white/5 text-text-muted group-hover:text-white transition-colors">
-            <span class="material-symbols-outlined text-[20px]">layers</span>
-          </div>
-          <span class="text-text-muted text-xs font-medium">Vol: $450k</span>
-        </div>
-        <p class="text-text-muted text-xs uppercase tracking-wider mb-1">Operaciones Abiertas</p>
-        <p class="text-2xl font-display font-medium text-white">12</p>
-      </div>
-    </div>
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-      <div class="lg:col-span-2 space-y-6">
-        <div class="bg-surface border border-white/5 rounded-xl p-6 shadow-xl relative overflow-hidden">
-          <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
-            <div>
-              <h2 class="text-lg font-display font-medium text-white">Rendimiento de Cartera</h2>
-              <p class="text-xs text-text-muted font-light mt-1">Comparativa vs BTC Benchmark</p>
+        <div class="w-[320px] flex-shrink-0 flex flex-col gap-6">
+          <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+            <h3 class="font-bold text-slate-900 mb-4">Information</h3>
+            <div class="flex justify-between items-center text-sm mb-2">
+              <span class="text-slate-600">To-do list</span>
             </div>
-            <div class="flex bg-white/5 rounded-lg p-1 border border-white/5">
-              <button
-                class="px-3 py-1 text-xs font-medium text-text-muted hover:text-white transition-colors">1H</button>
-              <button
-                class="px-3 py-1 text-xs font-medium text-text-muted hover:text-white transition-colors">1D</button>
-              <button
-                class="px-3 py-1 text-xs font-medium bg-white/10 text-white rounded shadow-sm transition-colors">1W</button>
-              <button
-                class="px-3 py-1 text-xs font-medium text-text-muted hover:text-white transition-colors">1M</button>
+            <ul class="text-xs text-slate-500 space-y-2 mb-4">
+              <li class="flex items-center justify-between">
+                <span class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Open
+                  unread tickets</span>
+                <span
+                  class="bg-red-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">7</span>
+              </li>
+            </ul>
+            <div class="flex justify-between items-center text-sm mb-2">
+              <span class="text-slate-600">Bookmarks</span>
             </div>
+            <ul class="text-xs text-slate-500 space-y-2">
+              <li class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Financial
+                &gt; Invoices</li>
+            </ul>
           </div>
-          <div class="relative h-[300px] w-full mt-4 group">
-            <div
-              class="absolute inset-0 flex flex-col justify-between text-[10px] text-text-dim font-mono pointer-events-none">
-              <div class="border-b border-white/5 w-full h-0"></div>
-              <div class="border-b border-white/5 w-full h-0"></div>
-              <div class="border-b border-white/5 w-full h-0"></div>
-              <div class="border-b border-white/5 w-full h-0"></div>
-              <div class="border-b border-white/5 w-full h-0"></div>
+          <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+            <h3 class="font-bold text-slate-900 mb-4">Financial Overview</h3>
+            <div class="mb-4">
+              <p class="text-xs text-slate-400">Total commission June 2024</p>
+              <p class="text-2xl font-bold text-slate-900">€72.63</p>
             </div>
-            <svg class="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none"
-              viewBox="0 0 100 100">
-              <defs>
-                <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stop-color="#254194" stop-opacity="0.3"></stop>
-                  <stop offset="100%" stop-color="#254194" stop-opacity="0"></stop>
-                </linearGradient>
-              </defs>
-              <path
-                d="M0,80 C10,75 15,78 20,65 C25,55 30,60 40,45 C50,30 55,40 60,35 C70,25 75,30 85,20 C90,15 95,18 100,10"
-                fill="url(#chartGradient)" stroke="#3b82f6" stroke-width="0.5" vector-effect="non-scaling-stroke">
-              </path>
-              <path class="drop-shadow-[0_0_10px_rgba(37,65,148,0.5)]"
-                d="M0,80 C10,75 15,78 20,65 C25,55 30,60 40,45 C50,30 55,40 60,35 C70,25 75,30 85,20 C90,15 95,18 100,10"
-                fill="none" stroke="#254194" stroke-width="2" vector-effect="non-scaling-stroke"></path>
-            </svg>
-            <div
-              class="absolute top-[35%] left-[60%] w-px h-[65%] bg-white/10 border-r border-dashed border-white/20 hidden group-hover:block pointer-events-none">
+            <div class="mb-4">
+              <p class="text-xs text-slate-400">Total outstanding</p>
+              <p class="text-2xl font-bold text-slate-900">€1,647,126.06</p>
             </div>
-            <div
-              class="absolute top-[25%] left-[60%] -translate-x-1/2 bg-[#141414] border border-white/10 p-3 rounded-lg shadow-2xl hidden group-hover:block z-10">
-              <p class="text-[10px] text-text-muted mb-1">Oct 24, 14:30</p>
-              <p class="text-sm font-medium text-white">$123,840.50</p>
+            <div class="mb-6">
+              <p class="text-xs text-slate-400">Next Payment</p>
+              <p class="text-2xl font-bold text-slate-900">€0.00</p>
             </div>
-            <div
-              class="absolute top-[35%] left-[60%] -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-primary border-2 border-surface rounded-full shadow-[0_0_10px_rgba(37,65,148,0.8)] hidden group-hover:block">
-            </div>
+            <button
+              class="w-full py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 font-medium">Account
+              balance overview&gt;</button>
           </div>
-        </div>
-        <div class="bg-surface border border-white/5 rounded-xl p-6">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-display font-medium text-white">Operaciones Recientes</h2>
-            <a class="text-xs text-primary-light hover:text-white transition-colors" href="#">Ver todo</a>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-white/5">
-                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider">Par</th>
-                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider">Bot</th>
-                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider">Tipo</th>
-                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider">Precio</th>
-                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider">Hora</th>
-                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider text-right">P/L</th>
+          <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+            <h3 class="font-bold text-slate-900 mb-2">Devices</h3>
+            <p class="text-xs text-slate-400 mb-4 text-center">Division of devices (Past 30 days)</p>
+            <div class="flex justify-center mb-6 relative">
+              <div
+                class="w-40 h-40 rounded-full border-[12px] border-indigo-600 border-l-pink-300 border-b-slate-100 transform rotate-45 relative">
+              </div>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <span class="font-bold text-slate-900">0.5 BTC</span>
+              </div>
+            </div>
+            <div class="flex justify-center gap-4 text-xs mb-4">
+              <span class="flex items-center gap-1"><span
+                  class="w-2 h-2 rounded-full bg-indigo-600"></span>Desktop</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-pink-300"></span>Mobile</span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-200"></span>Tablet</span>
+            </div>
+            <table class="w-full text-xs text-left mb-6">
+              <thead class="bg-slate-50 text-slate-500">
+                <tr>
+                  <th class="p-2">Device</th>
+                  <th class="p-2">Leads</th>
+                  <th class="p-2">Sales</th>
                 </tr>
               </thead>
-              <tbody class="text-sm">
-                <tr class="group hover:bg-white/[0.02] transition-colors border-b border-white/5">
-                  <td class="py-4">
-                    <div class="flex items-center gap-2">
-                      <div
-                        class="w-6 h-6 rounded-full bg-orange-500/10 flex items-center justify-center text-[10px] text-orange-500 font-bold border border-orange-500/20">
-                        ₿</div>
-                      <span class="text-white font-medium">BTC/USDT</span>
-                    </div>
-                  </td>
-                  <td class="py-4 text-text-muted">Alpha Centauri</td>
-                  <td class="py-4"><span
-                      class="text-red-400 bg-red-400/10 px-2 py-0.5 rounded text-xs border border-red-400/10">Venta</span>
-                  </td>
-                  <td class="py-4 text-text-dim font-mono">$34,250.00</td>
-                  <td class="py-4 text-text-dim text-xs">Hace 2 min</td>
-                  <td class="py-4 text-right text-emerald-500 font-medium">+$245.00</td>
+              <tbody class="divide-y divide-slate-100 text-slate-600">
+                <tr>
+                  <td class="p-2">Desktop</td>
+                  <td class="p-2">53,15%</td>
+                  <td class="p-2">65,29%</td>
                 </tr>
-                <tr class="group hover:bg-white/[0.02] transition-colors border-b border-white/5">
-                  <td class="py-4">
-                    <div class="flex items-center gap-2">
-                      <div
-                        class="w-6 h-6 rounded-full bg-indigo-500/10 flex items-center justify-center text-[10px] text-indigo-500 font-bold border border-indigo-500/20">
-                        Ξ</div>
-                      <span class="text-white font-medium">ETH/USDT</span>
-                    </div>
-                  </td>
-                  <td class="py-4 text-text-muted">Beta Wave</td>
-                  <td class="py-4"><span
-                      class="text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-xs border border-emerald-400/10">Compra</span>
-                  </td>
-                  <td class="py-4 text-text-dim font-mono">$1,780.50</td>
-                  <td class="py-4 text-text-dim text-xs">Hace 15 min</td>
-                  <td class="py-4 text-right text-text-dim">-</td>
+                <tr>
+                  <td class="p-2">Mobile</td>
+                  <td class="p-2">23,13%</td>
+                  <td class="p-2">18,93%</td>
                 </tr>
-                <tr class="group hover:bg-white/[0.02] transition-colors border-b border-white/5">
-                  <td class="py-4">
-                    <div class="flex items-center gap-2">
-                      <div
-                        class="w-6 h-6 rounded-full bg-purple-500/10 flex items-center justify-center text-[10px] text-purple-500 font-bold border border-purple-500/20">
-                        S</div>
-                      <span class="text-white font-medium">SOL/USDT</span>
-                    </div>
-                  </td>
-                  <td class="py-4 text-text-muted">Gamma Ray</td>
-                  <td class="py-4"><span
-                      class="text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-xs border border-emerald-400/10">Compra</span>
-                  </td>
-                  <td class="py-4 text-text-dim font-mono">$32.40</td>
-                  <td class="py-4 text-text-dim text-xs">Hace 45 min</td>
-                  <td class="py-4 text-right text-text-dim">-</td>
-                </tr>
-                <tr class="group hover:bg-white/[0.02] transition-colors">
-                  <td class="py-4">
-                    <div class="flex items-center gap-2">
-                      <div
-                        class="w-6 h-6 rounded-full bg-orange-500/10 flex items-center justify-center text-[10px] text-orange-500 font-bold border border-orange-500/20">
-                        ₿</div>
-                      <span class="text-white font-medium">BTC/USDT</span>
-                    </div>
-                  </td>
-                  <td class="py-4 text-text-muted">Alpha Centauri</td>
-                  <td class="py-4"><span
-                      class="text-red-400 bg-red-400/10 px-2 py-0.5 rounded text-xs border border-red-400/10">Venta</span>
-                  </td>
-                  <td class="py-4 text-text-dim font-mono">$34,100.00</td>
-                  <td class="py-4 text-text-dim text-xs">Hace 1h 20m</td>
-                  <td class="py-4 text-right text-emerald-500 font-medium">+$112.50</td>
+                <tr>
+                  <td class="p-2">Tablet</td>
+                  <td class="p-2">23,13%</td>
+                  <td class="p-2">18,93%</td>
                 </tr>
               </tbody>
             </table>
+            <div class="mb-4">
+              <p class="font-semibold text-xs text-slate-800 mb-2">Most used operating systems</p>
+              <p class="text-[10px] text-slate-400 mb-2">Based on Leads, Sales</p>
+              <ul class="text-xs text-slate-600 space-y-1">
+                <li class="flex items-center gap-2"><span
+                    class="material-symbols-outlined text-green-500 text-sm">check_circle</span> Android (49,48%)</li>
+                <li class="flex items-center gap-2"><span
+                    class="material-symbols-outlined text-green-500 text-sm">check_circle</span> iOS (29,83%)</li>
+                <li class="flex items-center gap-2"><span
+                    class="material-symbols-outlined text-green-500 text-sm">check_circle</span> WinXP (20,69%)</li>
+              </ul>
+            </div>
+            <button
+              class="w-full py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 font-medium">Full
+              devices report&gt;</button>
+          </div>
+          <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+            <h3 class="font-bold text-slate-900 mb-4">Report today</h3>
+            <div class="space-y-3">
+              <div class="flex justify-between items-baseline">
+                <div>
+                  <p class="text-xs font-semibold text-slate-700">Impressions</p>
+                  <p class="text-[10px] text-slate-400">11.896 (11.884 Unique)</p>
+                </div>
+                <span class="text-xs font-bold text-slate-900">€0</span>
+              </div>
+              <div class="flex justify-between items-baseline">
+                <div>
+                  <p class="text-xs font-semibold text-slate-700">Clicks</p>
+                  <p class="text-[10px] text-slate-400">319 (319 Unique)</p>
+                </div>
+                <span class="text-xs font-bold text-slate-900">€0</span>
+              </div>
+              <div class="flex justify-between items-baseline">
+                <p class="text-xs font-semibold text-slate-700">Leads</p>
+                <span class="text-xs font-bold text-slate-900">20</span>
+                <span class="text-xs font-bold text-slate-900">€0</span>
+              </div>
+              <div class="flex justify-between items-baseline">
+                <p class="text-xs font-semibold text-slate-700">Sales</p>
+                <span class="text-xs font-bold text-slate-900">14</span>
+                <span class="text-xs font-bold text-slate-900">€0</span>
+              </div>
+              <div class="flex justify-between items-baseline border-t border-slate-100 pt-2 mt-2">
+                <p class="text-xs font-bold text-slate-900">Total commission</p>
+                <span class="text-xs font-bold text-slate-900">€0</span>
+              </div>
+            </div>
+            <button
+              class="w-full py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 font-medium mt-4">Extended
+              report&gt;</button>
+            <div class="flex gap-2 mt-4 text-center">
+              <div class="flex-1 bg-slate-50 p-2 rounded">
+                <p class="text-[10px] text-slate-500">EPC</p>
+                <p class="text-xs font-bold text-slate-900">€0</p>
+              </div>
+              <div class="flex-1 bg-slate-50 p-2 rounded">
+                <p class="text-[10px] text-slate-500">eCPM</p>
+                <p class="text-xs font-bold text-slate-900">€0</p>
+              </div>
+            </div>
+            <div class="flex gap-2 mt-2 text-center">
+              <div class="flex-1 bg-slate-50 p-2 rounded">
+                <p class="text-[10px] text-slate-500">CTR</p>
+                <p class="text-xs font-bold text-slate-900">1,58%</p>
+              </div>
+              <div class="flex-1 bg-slate-50 p-2 rounded">
+                <p class="text-[10px] text-slate-500">CLR</p>
+                <p class="text-xs font-bold text-slate-900">6,27%</p>
+              </div>
+              <div class="flex-1 bg-slate-50 p-2 rounded">
+                <p class="text-[10px] text-slate-500">CSR</p>
+                <p class="text-xs font-bold text-slate-900">4,39%</p>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+            <div class="relative mb-4">
+              <span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
+              <input
+                class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 text-slate-600"
+                placeholder="Campaign search" type="text" />
+            </div>
+            <p class="font-semibold text-xs text-slate-800 mb-3">Campaign Per status</p>
+            <ul class="space-y-2 text-xs text-slate-600">
+              <li class="flex justify-between items-center">
+                <span class="flex items-center gap-2"><span
+                    class="w-3 h-3 bg-green-500 rounded flex items-center justify-center text-[8px] text-white">✓</span>
+                  Accepted</span>
+                <span class="flex gap-4"><span>66</span><span class="text-slate-400 w-8 text-right">(24%)</span></span>
+              </li>
+              <li class="flex justify-between items-center">
+                <span class="flex items-center gap-2"><span
+                    class="w-3 h-3 bg-yellow-500 rounded flex items-center justify-center text-[8px] text-white">!</span>
+                  Not Subscribed</span>
+                <span class="flex gap-4"><span>204</span><span class="text-slate-400 w-8 text-right">(74%)</span></span>
+              </li>
+              <li class="flex justify-between items-center">
+                <span class="flex items-center gap-2"><span
+                    class="w-3 h-3 bg-orange-400 rounded flex items-center justify-center text-[8px] text-white">⏸</span>
+                  On Hold</span>
+                <span class="flex gap-4"><span>0</span><span class="text-slate-400 w-8 text-right">(0%)</span></span>
+              </li>
+              <li class="flex justify-between items-center">
+                <span class="flex items-center gap-2"><span
+                    class="w-3 h-3 bg-blue-400 rounded flex items-center justify-center text-[8px] text-white">?</span>
+                  Under evaluation</span>
+                <span class="flex gap-4"><span>0</span><span class="text-slate-400 w-8 text-right">(0%)</span></span>
+              </li>
+              <li class="flex justify-between items-center">
+                <span class="flex items-center gap-2"><span
+                    class="w-3 h-3 bg-red-500 rounded flex items-center justify-center text-[8px] text-white">✕</span>
+                  Cancelled</span>
+                <span class="flex gap-4"><span>0</span><span class="text-slate-400 w-8 text-right">(0%)</span></span>
+              </li>
+              <li class="flex justify-between items-center">
+                <span class="flex items-center gap-2"><span
+                    class="w-3 h-3 bg-gray-500 rounded flex items-center justify-center text-[8px] text-white">✕</span>
+                  Cancelled</span>
+                <span class="flex gap-4"><span>0</span><span class="text-slate-400 w-8 text-right">(0%)</span></span>
+              </li>
+            </ul>
+            <button
+              class="w-full py-2 border border-slate-200 rounded-lg text-sm text-slate-600 hover:bg-slate-50 font-medium mt-4">Campaign
+              overview&gt;</button>
           </div>
         </div>
       </div>
-      <div class="space-y-6">
-        <div class="bg-surface border border-white/5 rounded-xl p-6">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-display font-medium text-white">Estado de Bots</h2>
-            <button class="text-text-muted hover:text-white"><span
-                class="material-symbols-outlined text-[20px]">more_horiz</span></button>
-          </div>
-          <div class="space-y-4">
-            <div class="bg-white/[0.02] border border-white/5 rounded-lg p-4 hover:border-white/10 transition-all">
-              <div class="flex justify-between items-start mb-3">
-                <div class="flex items-center gap-3">
-                  <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                  <span class="font-medium text-white text-sm">Alpha Centauri</span>
-                </div>
-                <span class="text-xs font-mono text-emerald-500">+4.5%</span>
-              </div>
-              <div class="flex justify-between items-end">
-                <div class="text-xs text-text-muted">
-                  <span class="block mb-1">Estrategia: Scalping</span>
-                  <span class="font-mono text-text-dim">BTC/USDT</span>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input checked="" class="sr-only peer" type="checkbox" value="" />
-                  <div
-                    class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary">
-                  </div>
-                </label>
-              </div>
-            </div>
-            <div class="bg-white/[0.02] border border-white/5 rounded-lg p-4 hover:border-white/10 transition-all">
-              <div class="flex justify-between items-start mb-3">
-                <div class="flex items-center gap-3">
-                  <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-                  <span class="font-medium text-white text-sm">Beta Wave</span>
-                </div>
-                <span class="text-xs font-mono text-emerald-500">+1.2%</span>
-              </div>
-              <div class="flex justify-between items-end">
-                <div class="text-xs text-text-muted">
-                  <span class="block mb-1">Estrategia: Swing</span>
-                  <span class="font-mono text-text-dim">ETH/USDT</span>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input checked="" class="sr-only peer" type="checkbox" value="" />
-                  <div
-                    class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary">
-                  </div>
-                </label>
-              </div>
-            </div>
-            <div
-              class="bg-white/[0.02] border border-white/5 rounded-lg p-4 opacity-70 hover:opacity-100 transition-all">
-              <div class="flex justify-between items-start mb-3">
-                <div class="flex items-center gap-3">
-                  <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
-                  <span class="font-medium text-text-muted text-sm">Gamma Ray</span>
-                </div>
-                <span class="text-xs font-mono text-text-dim">0.0%</span>
-              </div>
-              <div class="flex justify-between items-end">
-                <div class="text-xs text-text-muted">
-                  <span class="block mb-1">Estrategia: Arbitraje</span>
-                  <span class="font-mono text-text-dim">SOL/USDT</span>
-                </div>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input class="sr-only peer" type="checkbox" value="" />
-                  <div
-                    class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary">
-                  </div>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="bg-surface border border-white/5 rounded-xl p-6">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-lg font-display font-medium text-white">Watchlist</h2>
-            <button class="text-text-muted hover:text-white"><span
-                class="material-symbols-outlined text-[20px]">settings</span></button>
-          </div>
-          <div class="space-y-2">
-            <div
-              class="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
-                  <img alt="BTC" class="w-4 h-4 invert opacity-80"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtGv7aydxuosaHD37dY3zneI7ZedrVWIf4XNxHx0Wijs-fM3TDoe6jOhRI4t-GxAEPBGLM9_cHPuZmZngyJmomGH915Drw2LKjthV0hwWH_Le2idHXjzmUMEBOXTBIFvq8BROMSd3Qe-11hrqzv_CNsUoytH3dAzZyE93HWJVEghT_WJvUXnxlRFKvMVzjkC1AU8jxJvwQq5stIZyqtXrTINmkY3Ki82Nqn3Pd9V1h2P05viGsHuA8p0gIu0NsC1ws3ECRlR48" />
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-white group-hover:text-primary-light transition-colors">Bitcoin</p>
-                  <p class="text-xs text-text-dim">BTC</p>
-                </div>
-              </div>
-              <div class="text-right">
-                <p class="text-sm font-medium text-white">$34,210</p>
-                <p class="text-xs text-emerald-500">+1.4%</p>
-              </div>
-            </div>
-            <div
-              class="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
-                  <img alt="ETH" class="w-4 h-4 invert opacity-80"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlE0j1ignrgiRqLyuUarwDtea4o-FTSfOI7tDJJ200d4gHW1jM4fQLRj7Z24yxprH8-xA-qd1KnUZ4yLk_-L47YTCIW3KtIVi6FhoUsLHUqXT_LiGeONFaY4eq1MrMVpgC0aVCDDctJmj-hg9C63fqzmviBiYLBfTqQ1MNWlGa_BuDKniDZun66QP66phCcekV9kCVTuEaak0rMyvEaFJ4XofCV-jZWgJOGPAbW3oN3TN9tGp0noY2TtyXNOGxohB9Pkd5PlFk" />
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-white group-hover:text-primary-light transition-colors">Ethereum
-                  </p>
-                  <p class="text-xs text-text-dim">ETH</p>
-                </div>
-              </div>
-              <div class="text-right">
-                <p class="text-sm font-medium text-white">$1,792</p>
-                <p class="text-xs text-red-500">-0.8%</p>
-              </div>
-            </div>
-            <div
-              class="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group">
-              <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
-                  <img alt="SOL" class="w-4 h-4 invert opacity-80"
-                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYAhSJkohTxgBIdEWqTaAwY5u4wa1UJ5DcK_oKJBCS4v6N8PMWZzQF5IafaHOcYGmgvCZF4ZIv_bJkTy33ymgraXkJ8yca5iHjTHk1oSsnZ0uohC0HCv0EG3kujB0ar4RG-ruEQ3hN7EE-a8Jw1aX8m3DTjgVA-T4CEim1GnfeK_vSV0Sd2IN2t0ZMcn40QH2y4-zLuUcsMsZ5cw_iviqDFGZ7EEMVcCIqv-NIM08zo-Keodz3BMlox74i-5DiX_9eK3gdFNIO" />
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-white group-hover:text-primary-light transition-colors">Solana</p>
-                  <p class="text-xs text-text-dim">SOL</p>
-                </div>
-              </div>
-              <div class="text-right">
-                <p class="text-sm font-medium text-white">$32.10</p>
-                <p class="text-xs text-emerald-500">+5.2%</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
-  <footer class="border-t border-white/5 mt-12 py-8 bg-[#020202]">
-    <div class="max-w-[1600px] mx-auto px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
-      <div class="text-xs text-text-dim font-mono">
-        Server Time: 14:32:05 UTC • Latency: 24ms
-      </div>
-      <div class="flex gap-6 text-xs text-text-muted">
-        <a class="hover:text-white transition-colors" href="#">Soporte</a>
-        <a class="hover:text-white transition-colors" href="#">Documentación API</a>
-        <a class="hover:text-white transition-colors" href="#">Estado del Sistema</a>
-      </div>
-    </div>
-  </footer>
+    </main>
+  </div>
 
 </body>
 
