@@ -227,16 +227,27 @@ class Operation:
     def close(self, price: Price, timestamp: Optional[datetime] = None) -> None:
         """
         Cierre genérico de la operación.
+        Detecta si el cierre fue por Take Profit.
         """
-        if self.status not in (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED):
+        if self.status not in (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED, OperationStatus.PENDING): # PENDING allowed for immediate fill&close
             raise ValueError(f"Cannot close operation in status {self.status}")
 
-        # Decidir si es TP o cierre normal
-        # Para simplificar, si el precio alcanza el TP, lo marcamos como TP_HIT
-        # En una implementación más compleja, compararíamos con tp_price
-        self.status = OperationStatus.CLOSED
         self.actual_close_price = price
         self.closed_at = timestamp or datetime.now()
+        
+        # Detectar si fue TP (con tolerancia para slippage/spread)
+        if self.tp_price:
+            diff = abs(float(price) - float(self.tp_price))
+            multiplier = 100 if "JPY" in self.pair else 10000
+            pips_diff = diff * multiplier
+            
+            if pips_diff < 1.0: # Tolerancia de 1 pip
+                self.status = OperationStatus.TP_HIT
+            else:
+                self.status = OperationStatus.CLOSED
+        else:
+            self.status = OperationStatus.CLOSED
+            
         self._calculate_profit()
 
     def close_with_tp(self, close_price: Price) -> None:

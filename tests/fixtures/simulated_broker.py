@@ -138,10 +138,11 @@ class SimulatedBroker(IBroker):
         )
         self.pending_orders[ticket] = order
         
+        print(f">>> Broker: Order {ticket} placed for {request.operation_id} at {request.entry_price}")
         return Result.ok(OrderResult(
             success=True,
             broker_ticket=ticket,
-            timestamp=self.ticks[self.current_tick_index].timestamp if self.ticks else None
+            timestamp=self.ticks[self.current_tick_index].timestamp if self.ticks and self.current_tick_index >= 0 else None
         ))
 
     async def cancel_order(self, ticket: BrokerTicket) -> Result[bool]:
@@ -184,6 +185,9 @@ class SimulatedBroker(IBroker):
         return Result.fail("Order/Position not found")
 
     async def get_open_positions(self) -> Result[List[Dict[str, Any]]]:
+        print(f">>> Broker[{id(self)}]: get_open_positions called. Count: {len(self.open_positions)}")
+        for t, p in self.open_positions.items():
+            print(f">>>   Broker[{id(self)}] has pos {t} for {p.operation_id}")
         return Result.ok([vars(p) for p in self.open_positions.values()])
 
     async def get_pending_orders(self) -> Result[List[Dict[str, Any]]]:
@@ -207,6 +211,7 @@ class SimulatedBroker(IBroker):
             return None
         
         tick = self.ticks[self.current_tick_index]
+        print(f">>> Broker[{id(self)}]: advance_tick to index {self.current_tick_index}")
         await self._process_executions(tick)
         return tick
 
@@ -235,6 +240,7 @@ class SimulatedBroker(IBroker):
                 open_time=tick.timestamp
             )
             self.open_positions[t] = pos
+            print(f">>> Broker[{id(self)}]: ACTivating order {t} at {tick.timestamp} (Price {tick.bid}/{tick.ask})")
             logger.info(f"Order {t} activated at {tick.timestamp}")
 
         # 2. Actualizar P&L y procesar TPs

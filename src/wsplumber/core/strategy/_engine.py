@@ -129,12 +129,14 @@ class WallStreetPlumberStrategy(IStrategy):
         timestamp: datetime,
     ) -> StrategySignal:
         """Procesa take profit alcanzado."""
+        print(f">>> Strategy: process_tp_hit called for {operation_id}")
         logger.info("TP hit", operation_id=operation_id, profit_pips=profit_pips)
-        # Señal genérica, el orquestador decidirá si renovar ciclo
+        
+        # Según Documento Madre: al tocar TP de una main, se renueva ciclo
         return StrategySignal(
-            signal_type=SignalType.NO_ACTION,
+            signal_type=SignalType.OPEN_CYCLE, # Provoca renovación
             pair=CurrencyPair(""),
-            metadata={"tp_operation": operation_id, "profit_pips": profit_pips}
+            metadata={"tp_operation": operation_id, "profit_pips": profit_pips, "reason": "tp_renewal"}
         )
 
     def get_current_state(self) -> Dict[str, Any]:

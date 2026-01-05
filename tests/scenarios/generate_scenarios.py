@@ -55,17 +55,18 @@ generate_csv(
 )
 
 # 3. Scenario: Recovery N1 Success
-# Main SL -> Recovery N1 -> Recovery TP (+80 pips)
+# Starts 1.1000. Tick 1 (1.1000/02) -> Orders: B:1.1002, S:1.1000
 generate_csv(
     'tests/scenarios/scenario_recovery_win.csv',
     'EURUSD',
     1.1000,
     [
-        (0, "Start"),
-        (0.0005, "Buy Activated"),
-        (-0.0050, "Moving down"),
-        (-0.0050, "Buy SL hit / Recovery Starts at 1.0905 approx"),
-        (0.0080, "Moving up 80 pips"),
+        (0.0000, "Start at 1.1000/02"),
+        (0.0003, "Move to 1.1003/05: Activates BUY (1.1002)"),
+        (-0.0006, "Move to 1.0997/99: Activates SELL (1.1000) -> BOTH ACTIVE (HEDGE)"),
+        (0.0010, "Move to 1.1007/09: Stay in HEDGE"),
+        (0.0020, "Move to 1.1027/29: BUY TP (1.1002 + 10 = 1.1012) Hit -> RECOVERY START"),
+        (-0.0100, "Move to 1.0927/29: Recovery TP Hit (Relative move 80 pips - cost)"),
         (0.0010, "Final")
     ]
 )

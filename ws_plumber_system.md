@@ -116,6 +116,18 @@ Es crítico relacionar las operaciones entre ellas para:
 - Esto deja un flotante negativo de **-40 pips**
 - Si falla la cobertura (mercado gira): se inicia **nuevo Recovery**
 
+### Gaps Identificados y Refinamientos del Core
+
+Recientemente se han identificado y corregido los siguientes gaps en la implementación para alinearla con la teoría:
+
+1. **Estado PENDING del Ciclo**: Los ciclos ahora se inician en estado `PENDING` hasta que al menos una orden es confirmada como `ACTIVE` por el broker.
+2. **Creación Real de Coberturas**: Anteriormente, el sistema solo cambiaba el estado a `HEDGED` sin abrir las órdenes. Ahora se abren órdenes `HEDGE_BUY` y `HEDGE_SELL` con el mismo lotaje para bloquear la pérdida.
+3. **Deuda Inicial de Cobertura**: Al entrar en `HEDGED`, se registra una deuda bloqueada (`pips_locked`) de **20 pips** (10 pips de separación entre mains + 10 pips hasta el TP de la primera main).
+4. **Cierre FIFO Iterativo**: Un Recovery exitoso (+80 pips) puede cerrar múltiples deudas. La primera cuesta **20 pips** (deuda de mains) y las siguientes **40 pips** cada una. El sistema ahora procesa esto iterativamente hasta agotar el profit del recovery.
+5. **Cancelación de Contra-órdenes Main**: Cuando una operación Main toca TP, la orden pendiente del lado opuesto se cancela inmediatamente para evitar entradas no deseadas.
+6. **Sincronización Robusta**: El `TradingService` ahora verifica el historial del broker para detectar operaciones que se activan y cierran (por TP) en el mismo tick, evitando que queden "huérfanas" en la base de datos.
+
+
 ### Contador de Equity (Lógica de Control)
 
 Debe existir un **contador global** que trackee:

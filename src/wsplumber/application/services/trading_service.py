@@ -118,6 +118,7 @@ class TradingService:
             return Result.fail("Could not get positions from broker", "SYNC_ERROR")
         
         broker_positions = {str(p["ticket"]): p for p in broker_positions_res.value}
+        print(f">>> Sync All: Broker Tickets found: {list(broker_positions.keys())}")
 
         # 2. Obtener operaciones del repo (Activas y Pendientes)
         repo_active_res = await self.repository.get_active_operations(pair)
@@ -129,12 +130,18 @@ class TradingService:
         print(f">>> Sync All: Pending={len(repo_pending_res.value)}, Active={len(repo_active_res.value)}, BrokerPos={len(broker_positions)}")
         sync_count = 0
 
-        # 3. Sincronizar Pendientes -> Activas (Detección de activación)
+        # 3. Sincronizar Pendientes -> Activas/Cerradas (Detección de activación)
         for op in repo_pending_res.value:
             print(f">>> Checking pending {op.id} (Ticket {op.broker_ticket})")
-            if op.broker_ticket and str(op.broker_ticket) in broker_positions:
-                print(f">>>   Found in broker! Activating {op.id}")
-                broker_pos = broker_positions[str(op.broker_ticket)]
+            if not op.broker_ticket:
+                continue
+                
+            ticket_str = str(op.broker_ticket)
+            
+            # Caso A: Está en posiciones abiertas
+            if ticket_str in broker_positions:
+                print(f">>>   Found in open positions! Activating {op.id}")
+                broker_pos = broker_positions[ticket_str]
                 op.activate(
                     broker_ticket=op.broker_ticket,
                     fill_price=broker_pos.get("entry_price") or broker_pos.get("fill_price"),
@@ -142,6 +149,29 @@ class TradingService:
                 )
                 await self.repository.save_operation(op)
                 sync_count += 1
+            
+            # Caso B: No está en abiertas, ¿está en el historial? (Activación y Cierre inmediato)
+            else:
+                history_res = await self.broker.get_order_history()
+                if history_res.success:
+                    for h_pos in history_res.value:
+                        if str(h_pos.get("ticket")) == ticket_str:
+                            print(f">>>   Found in history! Op {op.id} was activated and closed.")
+                            # Primero activamos formalmente en el objeto
+                            op.activate(
+                                broker_ticket=op.broker_ticket,
+                                fill_price=h_pos.get("entry_price") or op.entry_price,
+                                timestamp=h_pos.get("open_time") or datetime.now()
+                            )
+                            # Luego cerramos (el bucle de Sync Activas lo detectará o lo hacemos aquí)
+                            # Lo hacemos aquí para ahorrar un ciclo de sync
+                            close_price = h_pos.get("actual_close_price") or h_pos.get("close_price") or op.tp_price
+                            close_time = h_pos.get("closed_at") or h_pos.get("close_time") or datetime.now()
+                            op.close(price=close_price, timestamp=close_time)
+                            
+                            await self.repository.save_operation(op)
+                            sync_count += 1
+                            break
 
         # 4. Sincronizar Activas -> Cerradas (Detección de cierre)
         for op in repo_active_res.value:

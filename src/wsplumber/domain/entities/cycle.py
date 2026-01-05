@@ -73,14 +73,16 @@ class CycleAccounting:
 
     def get_recovery_cost(self) -> Pips:
         """
-        Calcula el costo del próximo recovery.
-
-        Returns:
-            20 pips si es el primer recovery, 40 pips si no.
+        Calcula el costo del próximo recovery en la cola.
+        
+        Según la teoría:
+        - El primer recovery gestionado cuesta 20 pips (cubre deuda de mains).
+        - Los siguientes cuestan 40 pips cada uno.
         """
-        if len(self.recovery_queue) == 0:
-            return Pips(20.0)  # Primer recovery incluye mains
-        return Pips(40.0)  # Recoveries adicionales
+        # Si pips_recovered is 0, significa que aún no hemos cerrado el 'primero'
+        if float(self.pips_recovered) < 20.0:
+            return Pips(20.0)
+        return Pips(40.0)
 
     def get_recoveries_needed(self) -> int:
         """
@@ -319,6 +321,9 @@ class Cycle:
 
         self.status = CycleStatus.HEDGED
         self.metadata["hedged_at"] = datetime.now().isoformat()
+        
+        # Al activar hedge, bloqueamos la deuda inicial de las mains (20 pips)
+        self.accounting.add_locked_pips(Pips(20.0))
 
     def start_recovery(self) -> None:
         """

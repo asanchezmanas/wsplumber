@@ -35,6 +35,9 @@ from wsplumber.domain.types import (
 from wsplumber.domain.entities.cycle import Cycle, CycleStatus
 from wsplumber.domain.entities.operation import Operation
 from wsplumber.application.services.trading_service import TradingService
+from wsplumber.core.strategy._params import (
+    MAIN_TP_PIPS, RECOVERY_TP_PIPS, RECOVERY_DISTANCE_PIPS, RECOVERY_LEVEL_STEP
+)
 from wsplumber.infrastructure.logging.safe_logger import get_logger
 
 logger = get_logger(__name__)
@@ -103,7 +106,7 @@ class CycleOrchestrator:
             print(f">>> Processing tick for {pair} at {tick.bid}/{tick.ask}")
 
             # 2. Monitorear estado de operaciones activas (detección de activación y TP)
-            await self._check_operations_status(pair)
+            await self._check_operations_status(pair, tick)
 
             # 3. Consultar a la estrategia core (Secreto)
             signal: StrategySignal = self.strategy.process_tick(
@@ -127,7 +130,7 @@ class CycleOrchestrator:
         except Exception as e:
             logger.error("Error processing tick", exception=e, pair=pair)
 
-    async def _check_operations_status(self, pair: CurrencyPair):
+    async def _check_operations_status(self, pair: CurrencyPair, tick: TickData):
         """
         Detecta cierres de operaciones y notifica a la estrategia.
         """
@@ -154,31 +157,98 @@ class CycleOrchestrator:
         print(f">>> _check_operations_status for {cycle.id}: Found {len(ops_res.value)} total operations")
         for op in ops_res.value:
             print(f">>>   Op {op.id} status: {op.status}")
-            if op.status == OperationStatus.CLOSED or op.status == OperationStatus.TP_HIT:
+            
+            # 1. Manejo de ACTIVACIÓN de órdenes
+            if op.status == OperationStatus.ACTIVE:
+                # Si es la primera activación de un ciclo PENDING, pasar a ACTIVE
+                if cycle.status == CycleStatus.PENDING:
+                    print(f">>> First operation activated! Transitioning {cycle.id} to ACTIVE")
+                    cycle.status = CycleStatus.ACTIVE
+                    await self.repository.save_cycle(cycle)
+
+                # Verificar si ambas principales se activaron para pasar a HEDGED
+                main_ops = [o for o in ops_res.value if o.is_main]
+                active_main_ops = [o for o in main_ops if o.status == OperationStatus.ACTIVE]
+                
+                if len(active_main_ops) >= 2 and cycle.status == CycleStatus.ACTIVE:
+                    print(f">>> Both main operations active! Transitioning {cycle.id} to HEDGED")
+                    cycle.activate_hedge()
+                    
+                    # ABRIR OPERACIONES DE HEDGE REALES Y NEUTRALIZAR MAINS
+                    hedge_tasks = []
+                    for main_op in main_ops:
+                        hedge_type = OperationType.HEDGE_SELL if main_op.op_type == OperationType.MAIN_BUY else OperationType.HEDGE_BUY
+                        hedge_id = f"{cycle.id}_H_{main_op.op_type.value}"
+                        
+                        hedge_op = Operation(
+                            id=hedge_id,
+                            cycle_id=cycle.id,
+                            pair=pair,
+                            op_type=hedge_type,
+                            status=OperationStatus.PENDING,
+                            entry_price=main_op.entry_price, # Precio ideal para hedge
+                            lot_size=main_op.lot_size
+                        )
+                        cycle.add_operation(hedge_op)
+                        
+                        # Neutralizar la principal inmediatamente vinculándola al hedge
+                        main_op.neutralize(hedge_id)
+                        await self.repository.save_operation(main_op)
+                        
+                        request = OrderRequest(
+                            operation_id=hedge_op.id,
+                            pair=pair,
+                            order_type=hedge_type,
+                            entry_price=hedge_op.entry_price,
+                            lot_size=hedge_op.lot_size
+                        )
+                        hedge_tasks.append(self.trading_service.open_operation(request, hedge_op))
+                    
+                    if hedge_tasks:
+                        await asyncio.gather(*hedge_tasks)
+
+                    await self.repository.save_cycle(cycle)
+            
+            # 2. Manejo de CIERRE de órdenes (TP Hit)
+            if op.status == OperationStatus.TP_HIT or op.status == OperationStatus.CLOSED:
+                # Si el ciclo estaba PENDING, activarlo (aunque ya esté cerrándose una orden)
+                if cycle.status == CycleStatus.PENDING:
+                    print(f">>> Operation closed while PENDING! Transitioning {cycle.id} to ACTIVE")
+                    cycle.status = CycleStatus.ACTIVE
+                    await self.repository.save_cycle(cycle)
+
                 # Notificar a la estrategia
-                logger.info("Operation closed, notifying strategy", op_id=op.id, ticket=op.broker_ticket)
+                print(f">>> Notifying strategy about closure of {op.id}...")
                 signal = self.strategy.process_tp_hit(
                     operation_id=op.id,
                     profit_pips=float(op.profit_pips or 0),
                     timestamp=datetime.now()
                 )
+                print(f">>> Strategy returned signal: {signal.signal_type}")
+                
+                # Si una principal toca TP, cancelar la contraria pendiente (Escenario 1)
+                if op.is_main:
+                    print(f">>> Main TP detected! Checking for counter-order cancellation for {cycle.id}")
+                    for other_op in ops_res.value:
+                        if other_op.is_main and other_op.status == OperationStatus.PENDING:
+                            print(f">>>   Cancelling counter-order {other_op.id}")
+                            if other_op.broker_ticket:
+                                await self.trading_service.broker.cancel_order(other_op.broker_ticket)
+                            other_op.status = OperationStatus.CANCELLED
+                            await self.repository.save_operation(other_op)
+
                 if signal.signal_type != SignalType.NO_ACTION:
-                    await self._handle_signal(signal, TickData(pair=pair, bid=Decimal("0"), ask=Decimal("0"), timestamp=datetime.now()))
-            
-            elif op.status == OperationStatus.ACTIVE and cycle.status == CycleStatus.ACTIVE:
-                # Verificar si ambas principales se activaron para pasar a HEDGED
-                main_ops = [o for o in ops_res.value if o.is_main]
-                if all(o.status == OperationStatus.ACTIVE for o in main_ops) and len(main_ops) >= 2:
-                    print(f">>> Both main operations active! Transitioning {cycle.id} to HEDGED")
-                    cycle.activate_hedge()
-                    await self.repository.save_cycle(cycle)
-                    # Sincronizar con la estrategia si es necesario
-                    if hasattr(self.strategy, 'register_cycle'):
-                        self.strategy.register_cycle(cycle)
+                    # Sobrescribir el pair de la señal si viene vacío
+                    if not signal.pair:
+                        signal.pair = pair
+                    print(f">>> Triggering signal handler for {signal.signal_type}...")
+                    await self._handle_signal(signal, tick)
+                    print(f">>> Signal handler finished.")
 
     async def _handle_signal(self, signal: StrategySignal, tick: TickData):
         """Maneja las señales emitidas por la estrategia."""
         logger.info("Signal received", type=signal.signal_type, pair=signal.pair)
+        print(f">>> Signal received: {signal.signal_type} for {signal.pair}")
 
         if signal.signal_type == SignalType.OPEN_CYCLE:
             await self._open_new_cycle(signal, tick)
@@ -195,6 +265,7 @@ class CycleOrchestrator:
     async def _open_new_cycle(self, signal: StrategySignal, tick: TickData):
         """Inicia un nuevo ciclo de trading con dos operaciones (Buy + Sell)."""
         pair = signal.pair
+        print(f">>> Opening new cycle for {pair}...")
         
         # 1. Obtener métricas de exposición reales
         exposure_pct, num_recoveries = await self._get_exposure_metrics(pair)
@@ -215,14 +286,22 @@ class CycleOrchestrator:
         lot = self.risk_manager.calculate_lot_size(pair, balance)
 
         # 3. Crear Entidad Ciclo
-        # Usamos un ID descriptivo o UUID
-        cycle_id = f"CYC_{pair}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        cycle = Cycle(id=cycle_id, pair=pair)
+        # Usamos un ID con sufijo aleatorio para evitar colisiones en renovaciones rápidas
+        import random
+        suffix = random.randint(100, 999)
+        cycle_id = f"CYC_{pair}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{suffix}"
+        
+        # Si ya hay un ciclo activo del par en cache, lo reemplazamos
+        old_cycle = self._active_cycles.get(pair)
+        if old_cycle:
+            print(f">>> Replaced old cycle {old_cycle.id} with new cycle {cycle_id}")
+
+        cycle = Cycle(id=cycle_id, pair=pair, status=CycleStatus.PENDING)
+        self._active_cycles[pair] = cycle # Guardar en caché local
         
         # 4. Crear Operaciones Duales (Buy y Sell)
-        # La estrategia dice: TP a 10 pips. 
-        # NOTA: En una implementación real, esto vendría parametrizado o del core.
-        tp_distance = Decimal("0.0010") # 10 pips
+        multiplier = Decimal("0.01") if "JPY" in str(pair) else Decimal("0.0001")
+        tp_distance = Decimal(str(MAIN_TP_PIPS)) * multiplier
         
         # Operación BUY
         op_buy = Operation(
@@ -348,8 +427,9 @@ class CycleOrchestrator:
             return
 
         # 2. Configuración de Recovery
-        recovery_distance = Decimal("0.0020")  # 20 pips
-        tp_distance = Decimal("0.0080")  # 80 pips
+        multiplier = Decimal("0.01") if "JPY" in str(pair) else Decimal("0.0001")
+        recovery_distance = Decimal(str(RECOVERY_DISTANCE_PIPS)) * multiplier
+        tp_distance = Decimal(str(RECOVERY_TP_PIPS)) * multiplier
         lot = Decimal("0.01")  # En prod vendría del risk manager
 
         # 3. Crear ciclo de Recovery
@@ -422,34 +502,52 @@ class CycleOrchestrator:
 
     async def _handle_recovery_tp(self, recovery_cycle: Cycle, tick: TickData):
         """
-        Maneja el TP de un ciclo Recovery: neutraliza deudas FIFO.
-        
-        Según el Documento Madre (líneas 84-86):
-        - 'Los 80 pips de beneficio se usan para cerrar ciclos recovery antiguos'
+        Maneja el evento de un Recovery que toca TP.
+        Aplica la lógica FIFO para cerrar operaciones neutralizadas.
         """
-        parent_cycle_id = recovery_cycle.parent_cycle_id
-        if not parent_cycle_id:
+        pair = recovery_cycle.pair
+        parent_cycle = self._active_cycles.get(pair)
+        
+        if not parent_cycle:
+            # Si no está en cache, intentar repo
+            if recovery_cycle.parent_cycle_id:
+                parent_res = await self.repository.get_cycle(recovery_cycle.parent_cycle_id)
+                if parent_res.success:
+                    parent_cycle = parent_res.value
+        
+        if not parent_cycle:
+            logger.warning("No parent cycle found for recovery TP", recovery_id=recovery_cycle.id)
             return
+
+        print(f">>> Recovery TP hit for {recovery_cycle.id}! Applying FIFO logic.")
         
-        # Obtener ciclo padre
-        parent_res = await self.repository.get_cycle(parent_cycle_id)
-        if not parent_res.success:
-            return
+        # 1. Neutralizar profit contra deudas FIFO
+        # RECOVERY_TP_PIPS (80) cierran deudas: 20 la primera, 40 las siguientes
+        pips_available = float(RECOVERY_TP_PIPS)
+        closed_count = 0
         
-        parent_cycle = parent_res.value
+        while pips_available > 0 and parent_cycle.accounting.recovery_queue:
+            cost = float(parent_cycle.accounting.get_recovery_cost())
+            if pips_available >= cost:
+                closed_rec_id = parent_cycle.close_oldest_recovery()
+                print(f">>>   FIFO: Closing {closed_rec_id} (Cost: {cost}, Remaining Pips: {pips_available - cost})")
+                pips_available -= cost
+                closed_count += 1
+            else:
+                print(f">>>   FIFO: Not enough pips to close next recovery (Need: {cost}, Has: {pips_available})")
+                break
         
-        # Neutralizar el recovery más antiguo (FIFO)
-        closed_recovery_id = parent_cycle.close_oldest_recovery()
-        if closed_recovery_id:
-            logger.info("Neutralized oldest recovery (FIFO)", closed_id=closed_recovery_id)
-            parent_cycle.record_recovery_tp(Pips(80.0))
-            await self.repository.save_cycle(parent_cycle)
+        # 2. Registrar progreso
+        recovered_this_time = float(RECOVERY_TP_PIPS) - pips_available
+        parent_cycle.accounting.add_recovered_pips(Pips(recovered_this_time))
         
-        # Verificar si se completó la recuperación
+        # 3. Guardar cambios
+        await self.repository.save_cycle(parent_cycle)
+        
+        # 4. Verificar cierre total
         if parent_cycle.accounting.is_fully_recovered:
-            logger.info("Cycle fully recovered!", cycle_id=parent_cycle.id)
-            parent_cycle.status = CycleStatus.CLOSED
-            await self.repository.save_cycle(parent_cycle)
+            print(f">>> Cycle {parent_cycle.id} FULLY RECOVERED! Closing.")
+            await self._close_cycle_operations(StrategySignal(signal_type=SignalType.CLOSE_OPERATIONS, pair=pair))
 
     # ============================================
     # UTILIDADES DE RIESGO

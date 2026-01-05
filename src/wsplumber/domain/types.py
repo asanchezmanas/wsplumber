@@ -142,6 +142,7 @@ class CycleType(str, Enum):
 class CycleStatus(str, Enum):
     """Estados posibles de un ciclo."""
 
+    PENDING = "pending"  # Creado pero sin órdenes confirmadas
     ACTIVE = "active"  # Operando normalmente
     HEDGED = "hedged"  # Con cobertura activa
     IN_RECOVERY = "in_recovery"  # En proceso de recovery
