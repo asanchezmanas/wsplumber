@@ -105,6 +105,103 @@ Es crítico relacionar las operaciones entre ellas para:
 - Operaciones de cada ciclo recovery entre ellas
 - Ciclos completos identificables para cierre conjunto
 
+### Mecánica de Coberturas
+
+**¿Cuándo aparecen?**
+- Cuando se activa la operación CONTRARIA (la opuesta a la que tocó TP)
+
+**¿Tienen SL las coberturas?**
+- NO tienen SL tradicional
+- El "SL implícito" es cuando la operación opuesta se activa
+- Esto deja un flotante negativo de **-40 pips**
+- Si falla la cobertura (mercado gira): se inicia **nuevo Recovery**
+
+### Contador de Equity (Lógica de Control)
+
+Debe existir un **contador global** que trackee:
+- Equity del ciclo main
+- Ciclos activos
+- Operaciones por neutralizar
+- Comisiones acumuladas
+
+**Regla:** El sistema abre nuevos ciclos principales **SOLO** cuando el contador sea **≥ 20 pips**.
+- Si contador < 20 pips: pausar nuevos ciclos
+- Si contador ≥ 20 pips: operar normalmente
+
+**¿Por qué 20 pips?**
+
+El umbral de 20 pips permite compensar situaciones complejas:
+
+```
+Escenario de máxima compensación:
+├── 2 Mains abiertas flotando: -10 pips c/u = -20 pips
+│   (10 pips = avance mercado hasta TP + SL 5+5)
+├── 1 Recovery activo: -40 pips
+├── TOTAL flotante: -60 pips
+└── Si Recovery toca TP (+80 pips): sobra +20 pips ✓
+```
+
+**Activación de Recoverys:**
+
+- **Primer Recovery (del Main):** Se activa en el TP de uno de los mains
+  - Se abre otra operación para compensar
+  - Queda a 20 pips de separación
+  
+- **Recovery posteriores (Cascada):**
+  1. Recovery BUY activado
+  2. Precio gira → SELL de cobertura se activa
+  3. El Recovery BUY queda en flotante negativo (-40 pips)
+  4. **Nuevo ciclo Recovery** se abre a 20 pips del precio actual:
+     - BUY STOP a +20 pips
+     - SELL STOP a -20 pips
+  5. El proceso se repite hasta que uno toque TP (+80 pips)
+
+**Filosofía de Adaptación:**
+
+> *"El sistema se mueve CON el precio, no se queda fijo en un punto del gráfico"*
+
+- Evita quedar atrapado en suelos/resistencias
+- Cada Recovery permite reposicionarse
+- Compensación dinámica: una operación exitosa neutraliza situaciones complejas
+- El precio puede ir a cualquier parte, el sistema se adapta
+
+### Escenario de Mala Racha (4-6 Recovery Acumuladas)
+
+**Acumulación:**
+```
+Recovery 1: -40 pips (Main original)
+Recovery 2: -40 pips
+Recovery 3: -40 pips
+Recovery 4: -40 pips
+─────────────────────
+TOTAL: -160 pips flotantes
+```
+
+**Resolución (Ratio 2:1 FIFO):**
+```
+1. Recovery 5 toca TP (+80 pips) → Cierra Recovery 1 y 2 (-80 pips)
+   Quedan: R3, R4 = -80 pips
+
+2. Recovery 6 toca TP (+80 pips) → Cierra Recovery 3 y 4 (-80 pips)
+   Quedan: 0 pips pendientes
+
+3. Cierre final: Main + Cobertura
+   Resultado: +20 pips de beneficio ✓
+```
+
+**Matemática:** Por cada 2 Recovery fallidas, solo necesitas 1 exitosa.
+- Tasa de acierto requerida: **33.3%** para breakeven (L255)
+
+**Ventaja clave del sistema dual:**
+
+| Factor                | Valor (0.01 lote)                                  |
+| --------------------- | -------------------------------------------------- |
+| 10 Recovery en contra | ~40€ exposición máxima                             |
+| Mains cerrando TP     | +1€ cada uno (~5-15/día)                           |
+| **Resultado**         | Flujo de caja POSITIVO mientras esperas resolución |
+
+> *"Incluso arrastrando 10 Recovery, sigues recaudando con los Mains"*
+
 ---
 
 ## Los Tres Pilares del Sistema
@@ -281,6 +378,80 @@ Es crítico relacionar las operaciones entre ellas para:
 - Trigger: cierre exitoso de Recovery que libera margen
 - Recalibración desde precio actual ±20 pips
 - Reanudación de ciclos principales
+
+---
+
+## Money Management (Gestión de Capital)
+
+### Filosofía de Testing
+
+Para simplificar cálculos durante el desarrollo y testing:
+
+| Parámetro               | Valor  | Resultado                   |
+| ----------------------- | ------ | --------------------------- |
+| **Lote base**           | 0.01   | ~$0.10 por pip              |
+| **10 pips TP**          | × 0.01 | ~$1.00 por TP               |
+| **50 pips SL**          | × 0.01 | ~$5.00 por SL               |
+| **80 pips Recovery TP** | × 0.01 | ~$8.00 por Recovery exitosa |
+
+### Límite Basado en Recovery Acumulados
+
+El sistema escala basándose en el número de Recovery activos, NO en % de cuenta:
+
+| Recovery Acumulados | Exposición Estimada | Acción                        |
+| ------------------- | ------------------- | ----------------------------- |
+| 1-5                 | ~20€                | ✅ Operar normal               |
+| 6-10                | ~40€                | ⚠️ Precaución, no añadir pares |
+| 11-20               | ~80€                | 🔴 Pausar nuevos ciclos        |
+| >20                 | >80€                | 🛑 Solo gestionar Recovery     |
+
+**Cálculo (según documento L45-48, L86):**
+- Recovery: separación **20 pips**, TP **80 pips**
+- Ratio aparente: 1:4 → Con activación opuesta: **1:2**
+- 1 Recovery exitosa (+80 pips) = cancela 2 fallidas (2 × -40 = -80 pips)
+
+**Por nivel de Recovery (con 0.01 lote):**
+- Neutralización inicial (main): -20 pips × $0.10 = **~$2**
+- Recovery fallida: -40 pips × $0.10 = **~$4**
+- **Total por fallo completo: ~$6 (~6€)**
+
+**Exposición por Recovery acumulados:**
+- 10 Recovery fallidas = 10 × 40 pips = **400 pips = ~$40 (~40€)**
+- Pero con ratio 2:1, solo necesitas 5 exitosas para neutralizar las 10
+
+### Escalado Progresivo
+
+**Fase 1: Testing (Actual)**
+- 0.01 lote fijo
+- 1 par (EURUSD)
+- Objetivo: Validar lógica
+
+**Fase 2: Validación**
+- 0.01 lote fijo
+- 2-3 pares descorrelacionados
+- Objetivo: Confirmar sistema con múltiples pares
+
+**Fase 3: Escalado**
+- Subir a 0.02-0.05 lotes (según capital disponible por Recovery)
+- O mantener 0.01 y añadir más pares
+- Fórmula: `lotaje_nuevo = capital_disponible / (max_recovery × 4€)`
+
+### Capital Recomendado por Configuración
+
+| Configuración  | Capital Mínimo | Justificación       |
+| -------------- | -------------- | ------------------- |
+| 1 par × 0.01   | ~100€          | 10 Recovery buffer  |
+| 1 par × 0.02   | ~200€          | 10 Recovery × 2     |
+| 2 pares × 0.01 | ~200€          | 10 Recovery por par |
+| 3 pares × 0.01 | ~300€          | Conservador         |
+
+### Métricas a Capturar en Testing
+
+Para determinar capital óptimo por lote/par:
+1. **Max Recovery simultáneos** en peor escenario
+2. **Tiempo promedio** de resolución de Recovery
+3. **TPs por día** × beneficio = flujo de caja
+4. **Ratio Recovery/TP** en diferentes condiciones de mercado
 
 ---
 
