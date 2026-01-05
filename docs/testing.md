@@ -219,6 +219,58 @@ RESULTADO ESPERADO:
 
 ---
 
+## Mapeo de Escenarios a Código
+
+Cada escenario está vinculado al archivo y función específica donde ocurre la lógica:
+
+### Entrada de Datos (Tick Processing)
+
+| Punto          | Archivo                                                                                                                  | Función                  | Línea |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------ | ----- |
+| Obtener tick   | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L97)  | `_process_tick_for_pair` | 97    |
+| Procesar señal | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L104) | `strategy.process_tick`  | 104   |
+
+### Detección de Cierre (TP/SL Hit)
+
+| Punto                  | Archivo                                                                                                                  | Función                    | Línea |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ----- |
+| Sincronizar posiciones | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L128) | `_check_operations_status` | 128   |
+| Detectar TP            | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L148) | `op.status == TP_HIT`      | 148   |
+| Notificar estrategia   | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L151) | `strategy.process_tp_hit`  | 151   |
+
+### Gestión de Ciclos
+
+| Escenario           | Archivo                                                                                                                  | Función                   | Línea |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------- | ----- |
+| CY01: Abrir ciclo   | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L175) | `_open_new_cycle`         | 175   |
+| CY02: Renovar ciclo | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L281) | `_renew_cycle`            | 281   |
+| CY03: Cerrar ciclo  | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L255) | `_close_cycle_operations` | 255   |
+
+### Recovery
+
+| Escenario                | Archivo                                                                                                                  | Función                 | Línea |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ----------------------- | ----- |
+| R01: Abrir Recovery      | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L298) | `_open_recovery_cycle`  | 298   |
+| R02: TP Recovery         | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L400) | `_handle_recovery_tp`   | 400   |
+| R03: FIFO neutralización | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L419) | `close_oldest_recovery` | 419   |
+
+### Risk Management
+
+| Escenario               | Archivo                                                                                          | Función                | Línea |
+| ----------------------- | ------------------------------------------------------------------------------------------------ | ---------------------- | ----- |
+| RM01: Límite exposición | [risk_manager.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/core/risk/risk_manager.py#L53)  | `can_open_position`    | 53-56 |
+| RM02: Límite recovery   | [risk_manager.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/core/risk/risk_manager.py#L60)  | `can_open_position`    | 60-63 |
+| RM03: Emergency stop    | [risk_manager.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/core/risk/risk_manager.py#L102) | `check_emergency_stop` | 102   |
+
+### Validación antes de Abrir
+
+| Punto              | Archivo                                                                                                                  | Línea   | Descripción                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------- | --------------------------------- |
+| Validar exposición | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L185) | 185-192 | `risk_manager.can_open_position`  |
+| Calcular lote      | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L195) | 195     | `risk_manager.calculate_lot_size` |
+
+---
+
 ## Archivos CSV por Escenario
 
 ```
