@@ -126,12 +126,14 @@ class TradingService:
         if not repo_active_res.success or not repo_pending_res.success:
             return Result.fail("Could not get operations from repo", "SYNC_ERROR")
         
+        print(f">>> Sync All: Pending={len(repo_pending_res.value)}, Active={len(repo_active_res.value)}, BrokerPos={len(broker_positions)}")
         sync_count = 0
 
         # 3. Sincronizar Pendientes -> Activas (Detección de activación)
         for op in repo_pending_res.value:
+            print(f">>> Checking pending {op.id} (Ticket {op.broker_ticket})")
             if op.broker_ticket and str(op.broker_ticket) in broker_positions:
-                logger.info("Pending operation activated in broker. Syncing.", operation_id=op.id)
+                print(f">>>   Found in broker! Activating {op.id}")
                 broker_pos = broker_positions[str(op.broker_ticket)]
                 op.activate(
                     broker_ticket=op.broker_ticket,

@@ -100,9 +100,9 @@ class CycleOrchestrator:
                 return
 
             tick: TickData = tick_res.value
+            print(f">>> Processing tick for {pair} at {tick.bid}/{tick.ask}")
 
             # 2. Monitorear estado de operaciones activas (detección de activación y TP)
-            # DEBE ocurrir antes de consultar la estrategia para que esta vea el estado real
             await self._check_operations_status(pair)
 
             # 3. Consultar a la estrategia core (Secreto)
@@ -116,7 +116,7 @@ class CycleOrchestrator:
             # Solo para debug
             current_cycle = self._active_cycles.get(pair)
             if current_cycle:
-                logger.info(f"Cycle {current_cycle.id} status: {current_cycle.status}, Signal: {signal.signal_type}")
+                print(f">>> Cycle {current_cycle.id} Status: {current_cycle.status}, Signal: {signal.signal_type}")
 
             if signal.signal_type == SignalType.NO_ACTION:
                 return
@@ -151,7 +151,9 @@ class CycleOrchestrator:
         if not ops_res.success:
             return
 
+        print(f">>> _check_operations_status for {cycle.id}: Found {len(ops_res.value)} total operations")
         for op in ops_res.value:
+            print(f">>>   Op {op.id} status: {op.status}")
             if op.status == OperationStatus.CLOSED or op.status == OperationStatus.TP_HIT:
                 # Notificar a la estrategia
                 logger.info("Operation closed, notifying strategy", op_id=op.id, ticket=op.broker_ticket)
@@ -167,7 +169,7 @@ class CycleOrchestrator:
                 # Verificar si ambas principales se activaron para pasar a HEDGED
                 main_ops = [o for o in ops_res.value if o.is_main]
                 if all(o.status == OperationStatus.ACTIVE for o in main_ops) and len(main_ops) >= 2:
-                    logger.info("Both main operations active. Activating hedge.", cycle_id=cycle.id)
+                    print(f">>> Both main operations active! Transitioning {cycle.id} to HEDGED")
                     cycle.activate_hedge()
                     await self.repository.save_cycle(cycle)
                     # Sincronizar con la estrategia si es necesario
