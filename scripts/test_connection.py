@@ -174,7 +174,7 @@ def test_config_loading() -> bool:
     print_header("Configuración")
 
     try:
-        from fontanero.config.settings import get_settings, validate_configuration
+        from wsplumber.config.settings import get_settings, validate_configuration
 
         settings = get_settings()
         print_result("Settings cargados", True, f"Entorno: {settings.environment.environment}")
@@ -199,7 +199,7 @@ def test_logging() -> bool:
     print_header("Sistema de Logging")
 
     try:
-        from fontanero.infrastructure.logging.safe_logger import (
+        from wsplumber.infrastructure.logging.safe_logger import (
             get_logger,
             setup_logging,
         )

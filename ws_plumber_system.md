@@ -7265,6 +7265,9 @@ def emergency_shutdown(reason: str):
 ### ✅ Logros Técnicos
 - **[2026-01-05]** Creación de `requirements.txt` con todas las dependencias (Supabase, FastAPI, MT5, etc.).
 - **[2026-01-05]** Instalación exitosa de dependencias en el entorno virtual `venv`.
+- **[2026-01-05]** Limpieza profunda del repositorio: Eliminación de directorios redundantes (`core/`, `config/` en raíz) y del directorio temporal `new/`.
+- **[2026-01-05]** Organización de scripts y documentación técnica: Creación de `/scripts` y `/docs/schema`.
+- **[2026-01-05]** Configuración global del proyecto: Creación de `pyproject.toml` en la raíz con configuraciones para `black`, `ruff`, `mypy` y `pytest`.
 - **[2026-01-05]** Implementación de la capa de aplicación y orquestación: **TradingService**, **RiskManager** y **CycleOrchestrator**.
 - **[2026-01-05]** Creación del punto de entrada principal `main.py` para el arranque coordinado del sistema.
 - **[2026-01-05]** Alineación técnica con la arquitectura de "Core Secreto": Actualización de `.gitignore` y estandarización de nombres con prefijo `_`.
