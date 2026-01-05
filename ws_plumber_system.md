@@ -7299,8 +7299,37 @@ Para asegurar la longevidad y mantenibilidad del sistema sin depender de ciclos 
 - **[2026-01-05]** Creación de la estructura de directorios (`src/wsplumber/domain`, `infrastructure`, etc.) siguiendo Clean Architecture.
 
 ### 🚀 Próximos Pasos (Pendientes)
-- [ ] **Fase 2: Operativa Normal**: Renovación automática de ciclos y gestión de Recovery.
-- [ ] Configuración del servidor API (FastAPI) y dashboard en tiempo real.
+- [ ] Configuración del dashboard en tiempo real (WebSockets).
+
+---
+
+## 🔍 Validación de Integridad (System Checks)
+
+Este apartado detalla la correspondencia entre los requisitos teóricos y la implementación real del sistema.
+
+### 1. Núcleo Algorítmico (Core Secreto)
+
+| Requisito Teórico               | Parámetro en Código              | Estado |
+| :------------------------------ | :------------------------------- | :----- |
+| **TP Principal: 10 pips**       | `MAIN_TP_PIPS = 10.0`            | ✅      |
+| **Entrada Recovery: +20 pips**  | `RECOVERY_DISTANCE_PIPS = 20.0`  | ✅      |
+| **TP Recovery: 80 pips**        | `RECOVERY_TP_PIPS = 80.0`        | ✅      |
+| **Separación Niveles: 40 pips** | `RECOVERY_LEVEL_STEP = 40.0`     | ✅      |
+| **Neutralización 2:1**          | Ratio definido en `_formulas.py` | ✅      |
+
+### 2. Control de Riesgos y Límites
+
+| Límite Teórico             | Implementación Real                           | Estado |
+| :------------------------- | :-------------------------------------------- | :----- |
+| **Exposición Máxima: 30%** | `EMERGENCY_LIMITS['max_exposure_percent']`    | ✅      |
+| **Recovery Máximos: 20**   | `EMERGENCY_LIMITS['max_concurrent_recovery']` | ✅      |
+
+### 3. Flujos de Operación (Verificados via Pytest) ✅
+
+- `test_strategy_core.py`: Verifica cálculos de pips y niveles para pares estándar y JPY. [PASSED]
+- `test_cycle_accounting.py`: Verifica la integridad de la cola FIFO y la neutralización matemática de deudas. [PASSED]
+
+---
 
 ### 📝 Notas y Observaciones (Lo que falta o se ha pasado por alto)
 - *Nota:* Debemos asegurar que el compilador de Cython esté configurado correctamente para la protección del core en la fase de distribución.
