@@ -1,13 +1,14 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 
 <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect" />
     <link as="style"
         href="https://fonts.googleapis.com/css2?display=swap&amp;family=Inter%3Awght%40400%3B500%3B600%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900"
         onload="this.rel='stylesheet'" rel="stylesheet" />
-    <title>Linker Dashboard</title>
+    <title>WSPlumber - El Fontanero de Wall Street</title>
     <link href="data:image/x-icon;base64," rel="icon" type="image/x-icon" />
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link
@@ -73,60 +74,60 @@
     <div class="flex min-h-screen relative">
         <aside class="w-64 bg-white border-r border-slate-200 fixed h-screen z-20 flex flex-col overflow-y-auto">
             <div class="p-6 flex items-center gap-3">
-                <div class="flex items-center justify-center rounded-full bg-indigo-600 w-8 h-8 text-white font-bold">L
+                <div class="flex items-center justify-center rounded-full bg-indigo-600 w-8 h-8 text-white font-bold">🔧
                 </div>
-                <h1 class="text-xl font-bold text-slate-900">Linker</h1>
+                <h1 class="text-xl font-bold text-slate-900">WSPlumber</h1>
             </div>
             <div class="px-4 py-2 flex flex-col gap-1">
-                <p class="px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Main</p>
+                <p class="px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Principal</p>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-600 font-medium text-sm"
                     href="#">
                     <span class="material-symbols-outlined text-[20px]">dashboard</span> Dashboard
                 </a>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
                     href="#">
-                    <span class="material-symbols-outlined text-[20px]">campaign</span> Campaigns
+                    <span class="material-symbols-outlined text-[20px]">cycle</span> Ciclos
                 </a>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
                     href="#">
-                    <span class="material-symbols-outlined text-[20px]">local_offer</span> Offers
+                    <span class="material-symbols-outlined text-[20px]">currency_exchange</span> Pares
                 </a>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
                     href="#">
-                    <span class="material-symbols-outlined text-[20px]">description</span> Reports
+                    <span class="material-symbols-outlined text-[20px]">analytics</span> Reportes
                 </a>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
                     href="#">
-                    <span class="material-symbols-outlined text-[20px]">payments</span> Payments
+                    <span class="material-symbols-outlined text-[20px]">history</span> Historial
                 </a>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
                     href="#">
-                    <span class="material-symbols-outlined text-[20px]">build</span> Tools
+                    <span class="material-symbols-outlined text-[20px]">science</span> Backtest
                 </a>
             </div>
             <div class="px-4 py-2 mt-2 flex flex-col gap-1">
-                <p class="px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Other</p>
+                <p class="px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Sistema</p>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
                     href="#">
-                    <span class="material-symbols-outlined text-[20px]">settings</span> Settings
+                    <span class="material-symbols-outlined text-[20px]">settings</span> Configuración
                 </a>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
                     href="#">
-                    <span class="material-symbols-outlined text-[20px]">person</span> Account
+                    <span class="material-symbols-outlined text-[20px]">account_balance</span> Cuenta MT5
                 </a>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
                     href="#">
-                    <span class="material-symbols-outlined text-[20px]">support_agent</span> Support
+                    <span class="material-symbols-outlined text-[20px]">terminal</span> Logs
                 </a>
                 <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
                     href="#">
-                    <span class="material-symbols-outlined text-[20px]">feedback</span> Feedback
+                    <span class="material-symbols-outlined text-[20px]">menu_book</span> Manual
                 </a>
             </div>
             <div class="mt-auto p-4 border-t border-slate-100">
-                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-red-600 hover:bg-red-50 font-medium text-sm"
                     href="#">
-                    <span class="material-symbols-outlined text-[20px]">logout</span> Logout
+                    <span class="material-symbols-outlined text-[20px]">power_settings_new</span> Desconectar
                 </a>
             </div>
         </aside>
@@ -134,264 +135,282 @@
             <main class="flex-1 min-w-0 flex flex-col gap-6">
                 <header class="flex items-center justify-between mb-2">
                     <div>
-                        <h2 class="text-2xl font-bold text-slate-900">Jason Bourne</h2>
-                        <p class="text-slate-500 text-sm">User ID: 17516</p>
+                        <h2 class="text-2xl font-bold text-slate-900">MetaTrader 5</h2>
+                        <p class="text-slate-500 text-sm">Cuenta: <span id="header-account">12345678</span> • <span
+                                class="text-green-600 font-medium">Conectado</span></p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button class="p-2 text-slate-400 hover:text-slate-600"><span
+                        <button class="p-2 text-slate-400 hover:text-slate-600" title="Configuración"><span
                                 class="material-symbols-outlined">settings</span></button>
-                        <button class="p-2 text-slate-400 hover:text-slate-600"><span
+                        <button class="p-2 text-slate-400 hover:text-slate-600" title="Pares favoritos"><span
                                 class="material-symbols-outlined">star</span></button>
-                        <button class="p-2 text-slate-400 hover:text-slate-600"><span
-                                class="material-symbols-outlined">notifications</span></button>
-                        <button class="p-2 text-slate-400 hover:text-slate-600"><span
+                        <button class="p-2 text-slate-400 hover:text-slate-600 relative" title="Alertas">
+                            <span class="material-symbols-outlined">notifications</span>
+                            <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                        </button>
+                        <button class="p-2 text-slate-400 hover:text-slate-600" title="Pantalla completa"><span
                                 class="material-symbols-outlined">fullscreen</span></button>
                     </div>
                 </header>
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+                    <!-- CARD 1: BALANCE -->
+                    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200" id="card-balance">
                         <div class="flex justify-between items-start mb-2">
                             <div>
-                                <p class="text-sm text-slate-500 font-medium">Clicks <span
-                                        class="text-xs font-normal text-slate-400">This Month</span></p>
-                                <h3 class="text-2xl font-bold text-slate-900 mt-1">6,896</h3>
+                                <p class="text-sm text-slate-500 font-medium">Balance <span
+                                        class="text-xs font-normal text-slate-400">Cuenta</span></p>
+                                <h3 class="text-2xl font-bold text-slate-900 mt-1" id="balance-value">€10,543.25</h3>
+                            </div>
+                            <span
+                                class="bg-green-50 text-green-600 text-[11px] px-2 py-1 rounded font-medium flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">trending_up</span> <span
+                                    id="balance-change">+€54.10</span>
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-6">Comparado con ayer</p>
+                        <div class="flex flex-col items-center justify-center mb-4 relative h-32">
+                            <svg class="w-48 h-28 overflow-visible" viewBox="0 0 200 110">
+                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0"
+                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15"></path>
+                                <path d="M 20 100 A 80 80 0 0 1 165 60" fill="none" stroke="#4f46e5"
+                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15" id="balance-gauge">
+                                </path>
+                                <text class="fill-indigo-600" style="font-size: 32px; font-weight: bold;"
+                                    text-anchor="middle" x="100" y="85" id="balance-percent">92%</text>
+                            </svg>
+                            <p class="text-[11px] font-medium text-slate-500 -mt-2">Objetivo mensual</p>
+                            <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-4">
+                                <span id="balance-current">€10,543</span>
+                                <span id="balance-target">€12,000</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs mt-4">
+                            <div
+                                class="bg-white border border-slate-200 shadow-sm p-2 rounded text-center font-bold text-slate-800 cursor-pointer">
+                                Balance</div>
+                            <div
+                                class="bg-slate-50 p-2 rounded text-center font-medium text-slate-500 cursor-pointer hover:bg-slate-100">
+                                Equity</div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-50 text-[11px] text-slate-600 space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="flex items-center gap-1"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> EURUSD</span>
+                                <span class="font-bold">+€32.40 <span
+                                        class="text-green-500 text-[10px]">▲+12</span></span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="flex items-center gap-1"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-red-500"></span> GBPUSD</span>
+                                <span class="font-bold">-€8.20 <span class="text-red-500 text-[10px]">▼-5</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- CARD 2: PIPS GANADOS -->
+                    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200" id="card-pips">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <p class="text-sm text-slate-500 font-medium">Pips <span
+                                        class="text-xs font-normal text-slate-400">Este Mes</span></p>
+                                <h3 class="text-2xl font-bold text-green-600 mt-1" id="pips-value">+245</h3>
+                            </div>
+                            <span
+                                class="bg-green-50 text-green-600 text-[11px] px-2 py-1 rounded font-medium flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">trending_up</span> <span
+                                    id="pips-change">+30%</span>
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-6">vs mes anterior</p>
+                        <div class="flex flex-col items-center justify-center mb-4 relative h-32">
+                            <svg class="w-48 h-28 overflow-visible" viewBox="0 0 200 110">
+                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0"
+                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15"></path>
+                                <path d="M 20 100 A 80 80 0 0 1 140 40" fill="none" stroke="#22c55e"
+                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15" id="pips-gauge">
+                                </path>
+                                <text class="fill-green-600" style="font-size: 32px; font-weight: bold;"
+                                    text-anchor="middle" x="100" y="85" id="pips-percent">122%</text>
+                            </svg>
+                            <p class="text-[11px] font-medium text-slate-500 -mt-2">Objetivo: 200 pips</p>
+                            <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-4">
+                                <span id="pips-current">245</span>
+                                <span id="pips-target">200</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs mt-4">
+                            <div
+                                class="bg-white border border-slate-200 shadow-sm p-2 rounded text-center font-bold text-slate-800 cursor-pointer">
+                                Brutos</div>
+                            <div
+                                class="bg-slate-50 p-2 rounded text-center font-medium text-slate-500 cursor-pointer hover:bg-slate-100">
+                                Netos</div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-50 text-[11px] text-slate-600 space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="flex items-center gap-1"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> EURUSD</span>
+                                <span class="font-bold">+120 pips <span
+                                        class="text-green-500 text-[10px]">▲</span></span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="flex items-center gap-1"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-purple-500"></span> USDJPY</span>
+                                <span class="font-bold">+85 pips <span
+                                        class="text-green-500 text-[10px]">▲</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- CARD 3: EXPOSICIÓN -->
+                    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200" id="card-exposure">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <p class="text-sm text-slate-500 font-medium">Exposición <span
+                                        class="text-xs font-normal text-slate-400">Actual</span></p>
+                                <h3 class="text-2xl font-bold text-slate-900 mt-1" id="exposure-value">2.5 lotes</h3>
+                            </div>
+                            <span
+                                class="bg-amber-50 text-amber-600 text-[11px] px-2 py-1 rounded font-medium flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">warning</span> <span
+                                    id="exposure-percent-badge">34%</span>
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mb-6">del margen disponible</p>
+                        <div class="flex flex-col items-center justify-center mb-4 relative h-32">
+                            <svg class="w-48 h-28 overflow-visible" viewBox="0 0 200 110">
+                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0"
+                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15"></path>
+                                <path d="M 20 100 A 80 80 0 0 1 85 30" fill="none" stroke="#f59e0b"
+                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15" id="exposure-gauge">
+                                </path>
+                                <text class="fill-amber-500" style="font-size: 32px; font-weight: bold;"
+                                    text-anchor="middle" x="100" y="85" id="exposure-percent">34%</text>
+                            </svg>
+                            <p class="text-[11px] font-medium text-slate-500 -mt-2">Límite seguro: 50%</p>
+                            <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-4">
+                                <span id="exposure-used">€3,400</span>
+                                <span id="exposure-total">€10,000</span>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs mt-4">
+                            <div
+                                class="bg-white border border-slate-200 shadow-sm p-2 rounded text-center font-bold text-slate-800 cursor-pointer">
+                                Usado</div>
+                            <div
+                                class="bg-slate-50 p-2 rounded text-center font-medium text-slate-500 cursor-pointer hover:bg-slate-100">
+                                Libre</div>
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-50 text-[11px] text-slate-600 space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="flex items-center gap-1"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> EURUSD</span>
+                                <span class="font-bold">1.2 lotes</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="flex items-center gap-1"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-red-500"></span> GBPUSD</span>
+                                <span class="font-bold">0.8 lotes</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- CARD 4: RECOVERY (Pips por Recuperar) -->
+                    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200" id="card-recovery">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <p class="text-sm text-slate-500 font-medium">Por Recuperar <span
+                                        class="text-xs font-normal text-slate-400">Bloqueados</span></p>
+                                <h3 class="text-2xl font-bold text-red-600 mt-1" id="recovery-value">-120 pips</h3>
                             </div>
                             <span
                                 class="bg-red-50 text-red-600 text-[11px] px-2 py-1 rounded font-medium flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[14px]">trending_down</span> -3.382 (33%)
+                                <span class="material-symbols-outlined text-[14px]">sync</span> <span
+                                    id="recovery-cycles">3 ciclos</span>
                             </span>
                         </div>
-                        <p class="text-[11px] text-slate-400 mb-6">Compared to yesterday</p>
+                        <p class="text-[11px] text-slate-400 mb-6">en recovery activa</p>
                         <div class="flex flex-col items-center justify-center mb-4 relative h-32">
                             <svg class="w-48 h-28 overflow-visible" viewBox="0 0 200 110">
                                 <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0"
                                     stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15"></path>
-                                <path d="M 20 100 A 80 80 0 0 1 165 60" fill="none" stroke="#4f46e5"
-                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15"></path>
-                                <text class="text-3xl font-bold fill-indigo-600"
-                                    style="font-size: 32px; font-weight: bold;" text-anchor="middle" x="100"
-                                    y="85">92%</text>
+                                <path d="M 20 100 A 80 80 0 0 1 100 20" fill="none" stroke="#ef4444"
+                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15" id="recovery-gauge">
+                                </path>
+                                <text class="fill-red-500" style="font-size: 32px; font-weight: bold;"
+                                    text-anchor="middle" x="100" y="85" id="recovery-percent">60%</text>
                             </svg>
-                            <p class="text-[11px] font-medium text-slate-500 -mt-2">Month Target achieved</p>
+                            <p class="text-[11px] font-medium text-slate-500 -mt-2">Recuperado vs Bloqueado</p>
                             <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-4">
-                                <span>389K</span>
-                                <span>425K</span>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 text-xs mt-4">
-                            <div
-                                class="bg-slate-50 p-2 rounded text-center font-medium text-slate-500 cursor-pointer hover:bg-slate-100">
-                                Impressions</div>
-                            <div
-                                class="bg-white border border-slate-200 shadow-sm p-2 rounded text-center font-bold text-slate-800 cursor-pointer">
-                                Clicks</div>
-                        </div>
-                        <div class="mt-4 pt-4 border-t border-slate-50 text-[11px] text-slate-600 space-y-2">
-                            <div class="flex justify-between items-center">
-                                <span class="flex items-center gap-1"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Zara</span>
-                                <span class="font-bold">81 Sales <span
-                                        class="text-red-500 text-[10px]">▼-46</span></span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="flex items-center gap-1"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> AliExpress</span>
-                                <span class="font-bold">131 Leads <span
-                                        class="text-red-500 text-[10px]">▼-40</span></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <p class="text-sm text-slate-500 font-medium">Leads <span
-                                        class="text-xs font-normal text-slate-400">This Month</span></p>
-                                <h3 class="text-2xl font-bold text-slate-900 mt-1">6,896</h3>
-                            </div>
-                            <span
-                                class="bg-green-50 text-green-600 text-[11px] px-2 py-1 rounded font-medium flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[14px]">trending_up</span> 246 (+130%)
-                            </span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-6">Compared to yesterday</p>
-                        <div class="flex flex-col items-center justify-center mb-4 relative h-32">
-                            <svg class="w-48 h-28 overflow-visible" viewBox="0 0 200 110">
-                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0"
-                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15"></path>
-                                <path d="M 20 100 A 80 80 0 0 1 140 40" fill="none" stroke="#f97316"
-                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15"></path>
-                                <text class="text-3xl font-bold fill-orange-500"
-                                    style="font-size: 32px; font-weight: bold;" text-anchor="middle" x="100"
-                                    y="85">200+%</text>
-                            </svg>
-                            <p class="text-[11px] font-medium text-slate-500 -mt-2">Month Target achieved</p>
-                            <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-4">
-                                <span>435</span>
-                                <span>10</span>
+                                <span id="recovery-done">80 pips</span>
+                                <span id="recovery-pending">200 pips</span>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-2 text-xs mt-4">
                             <div
                                 class="bg-white border border-slate-200 shadow-sm p-2 rounded text-center font-bold text-slate-800 cursor-pointer">
-                                Leads</div>
+                                Bloqueados</div>
                             <div
                                 class="bg-slate-50 p-2 rounded text-center font-medium text-slate-500 cursor-pointer hover:bg-slate-100">
-                                Sales</div>
+                                Recuperados</div>
                         </div>
                         <div class="mt-4 pt-4 border-t border-slate-50 text-[11px] text-slate-600 space-y-2">
                             <div class="flex justify-between items-center">
                                 <span class="flex items-center gap-1"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Three Mobile</span>
-                                <span class="font-bold">95 Sales <span
-                                        class="text-red-500 text-[10px]">▼-36</span></span>
+                                        class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Nivel 1</span>
+                                <span class="font-bold">-40 pips <span
+                                        class="text-amber-500 text-[10px]">⏳</span></span>
                             </div>
                             <div class="flex justify-between items-center">
                                 <span class="flex items-center gap-1"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Three Mobile</span>
-                                <span class="font-bold">145 Leads <span
-                                        class="text-red-500 text-[10px]">▼-40</span></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <p class="text-sm text-slate-500 font-medium">Video Starts <span
-                                        class="text-xs font-normal text-slate-400">today</span></p>
-                                <h3 class="text-2xl font-bold text-slate-900 mt-1">0</h3>
-                            </div>
-                            <span
-                                class="bg-slate-100 text-slate-400 text-[11px] px-2 py-1 rounded font-medium flex items-center gap-1">
-                                -
-                            </span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-6">Compared to yesterday</p>
-                        <div class="flex flex-col items-center justify-center mb-4 relative h-32">
-                            <svg class="w-48 h-28 overflow-visible" viewBox="0 0 200 110">
-                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0"
-                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15"></path>
-                                <path d="M 20 100 A 80 80 0 0 1 60 45" fill="none" stroke="#94a3b8"
-                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15"></path>
-                                <text class="text-3xl font-bold fill-slate-300"
-                                    style="font-size: 32px; font-weight: bold;" text-anchor="middle" x="100"
-                                    y="85">68%</text>
-                            </svg>
-                            <p class="text-[11px] font-medium text-slate-500 -mt-2 opacity-0">Target</p>
-                            <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-4 opacity-0">
-                                <span>0</span>
-                                <span>0</span>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 text-xs mt-4">
-                            <div
-                                class="bg-white border border-slate-200 shadow-sm p-2 rounded text-center font-bold text-slate-800 cursor-pointer">
-                                Video Clicks</div>
-                            <div
-                                class="bg-slate-50 p-2 rounded text-center font-medium text-slate-500 cursor-pointer hover:bg-slate-100">
-                                Video Starts</div>
-                        </div>
-                        <div class="mt-4 pt-4 border-t border-slate-50 text-[11px] text-slate-600 space-y-2">
-                            <div class="flex justify-between items-center">
-                                <span class="flex items-center gap-1"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> AliExpress</span>
-                                <span class="font-bold">83 Sales <span
-                                        class="text-red-500 text-[10px]">▼-37</span></span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="flex items-center gap-1"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Zara</span>
-                                <span class="font-bold">139 Leads <span
-                                        class="text-red-500 text-[10px]">▼-47</span></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <p class="text-sm text-slate-500 font-medium">Commission <span
-                                        class="text-xs font-normal text-slate-400">this month</span></p>
-                                <h3 class="text-2xl font-bold text-slate-900 mt-1">€94,10</h3>
-                            </div>
-                            <span
-                                class="bg-green-50 text-green-600 text-[11px] px-2 py-1 rounded font-medium flex items-center gap-1">
-                                <span class="material-symbols-outlined text-[14px]">trending_up</span> €54.10
-                            </span>
-                        </div>
-                        <p class="text-[11px] text-slate-400 mb-6">Compared to yesterday</p>
-                        <div class="flex flex-col items-center justify-center mb-4 relative h-32">
-                            <svg class="w-48 h-28 overflow-visible" viewBox="0 0 200 110">
-                                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0"
-                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15"></path>
-                                <path d="M 20 100 A 80 80 0 0 1 165 60" fill="none" stroke="#4f46e5"
-                                    stroke-dasharray="3 3" stroke-linecap="butt" stroke-width="15"></path>
-                                <text class="text-3xl font-bold fill-indigo-600"
-                                    style="font-size: 32px; font-weight: bold;" text-anchor="middle" x="100"
-                                    y="85">92%</text>
-                            </svg>
-                            <p class="text-[11px] font-medium text-slate-500 -mt-2">Month Target achieved</p>
-                            <div class="w-full flex justify-between text-[10px] text-slate-400 mt-1 px-4">
-                                <span>€94,10</span>
-                                <span>425K</span>
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2 text-xs mt-4">
-                            <div
-                                class="bg-slate-50 p-2 rounded text-center font-medium text-slate-500 cursor-pointer hover:bg-slate-100">
-                                Impressions</div>
-                            <div
-                                class="bg-white border border-slate-200 shadow-sm p-2 rounded text-center font-bold text-slate-800 cursor-pointer">
-                                Clicks</div>
-                        </div>
-                        <div class="mt-4 pt-4 border-t border-slate-50 text-[11px] text-slate-600 space-y-2">
-                            <div class="flex justify-between items-center">
-                                <span class="flex items-center gap-1"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Zara</span>
-                                <span class="font-bold">81 Sales <span
-                                        class="text-red-500 text-[10px]">▼-46</span></span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="flex items-center gap-1"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> AliExpress</span>
-                                <span class="font-bold">81 Sales <span
-                                        class="text-red-500 text-[10px]">▼-40</span></span>
+                                        class="w-1.5 h-1.5 rounded-full bg-red-700"></span> Nivel 2</span>
+                                <span class="font-bold">-80 pips <span
+                                        class="text-amber-500 text-[10px]">⏳</span></span>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="bg-black text-white px-4 py-2 text-[10px] rounded-lg overflow-hidden whitespace-nowrap">
+                <div class="bg-slate-900 text-white px-4 py-2 text-[10px] rounded-lg overflow-hidden whitespace-nowrap"
+                    id="news-ticker">
                     <div class="inline-flex gap-8 animate-marquee">
-                        <span class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                            New collection on sale</span>
-                        <span class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                            New promotion material for Virgin</span>
-                        <span class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                            Great incentive for 3</span>
-                        <span class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                            New collection on sale</span>
-                        <span class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                            New promotion material for Virgin</span>
-                        <span class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                            Great incentive for 3</span>
+                        <span class="flex items-center gap-2"><span
+                                class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                            🟢 EURUSD: Buy @ 1.0854 ejecutado (+10 pips)</span>
+                        <span class="flex items-center gap-2"><span
+                                class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                            🟢 GBPUSD: TP alcanzado +10 pips • €12.50</span>
+                        <span class="flex items-center gap-2"><span
+                                class="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                            ⚠️ USDJPY: Recovery activada nivel 1</span>
+                        <span class="flex items-center gap-2"><span class="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                            📊 Nuevo ciclo abierto en AUDUSD</span>
+                        <span class="flex items-center gap-2"><span
+                                class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                            💰 Balance actualizado: €10,598.50</span>
+                        <span class="flex items-center gap-2"><span
+                                class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                            🟢 EURUSD: Buy @ 1.0854 ejecutado (+10 pips)</span>
                     </div>
                 </div>
-                <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                <div class="bg-gradient-to-r from-indigo-50 to-slate-50 p-6 rounded-lg border border-slate-200"
+                    id="info-banner">
                     <div class="flex justify-between items-start mb-2">
-                        <h3 class="font-bold text-slate-800 text-sm">Boosting Affiliate Marketing through Social Media
-                            Strategies</h3>
-                        <span class="material-symbols-outlined text-slate-400 text-sm">keyboard_arrow_down</span>
+                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+                            <span class="material-symbols-outlined text-indigo-600 text-[18px]">insights</span>
+                            Estado del Mercado
+                        </h3>
+                        <span
+                            class="material-symbols-outlined text-slate-400 text-sm cursor-pointer hover:text-slate-600">keyboard_arrow_down</span>
                     </div>
-                    <p class="text-[10px] text-slate-400 mb-3">Thursday, 6 June 2024</p>
-                    <h4 class="text-xs font-bold text-slate-700 mb-2">Boosting Affiliate Marketing through Social Media
-                        Strategies</h4>
+                    <p class="text-[10px] text-slate-400 mb-3">Actualizado hace 5 minutos</p>
+                    <h4 class="text-xs font-bold text-slate-700 mb-2">📈 Mercado en rango - Condiciones óptimas</h4>
                     <p class="text-xs text-slate-500 leading-relaxed mb-4">
-                        Utilizing social media for affiliate promotions can significantly enhance your marketing
-                        efforts. Key to success is choosing the right platforms that align with your target audience.
-                        For instance, Instagram and Pinterest are ideal for visually-driven products, while Twitter and
-                        LinkedIn cater to content-rich offering.
+                        Los principales pares muestran volatilidad reducida hoy. Esta condición favorece la estrategia
+                        de "El Fontanero" ya que permite acumular pequeños TPs de 10 pips con mayor frecuencia.
+                        Se recomienda mantener exposición conservadora y aprovechar los ciclos cortos.
                     </p>
                     <p class="text-xs text-slate-500 leading-relaxed mb-4">
-                        Creating an in a content that seamlessly integrates affiliate links without overshadowing the
-                        message is crucial... <a class="text-indigo-600 hover:underline" href="#">Continue to read</a>
+                        <span class="font-semibold text-indigo-600">💡 Tip:</span> En días de baja volatilidad, los
+                        ciclos principales
+                        tienden a resolverse más rápido. <a class="text-indigo-600 hover:underline" href="#">Ver
+                            análisis completo</a>
                     </p>
                     <div class="flex justify-center gap-1 mt-4">
                         <span class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>
@@ -401,84 +420,83 @@
                 </div>
                 <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <div class="border-b border-slate-100 pb-4 mb-4">
-                        <h3 class="font-bold text-slate-900 text-lg mb-4">General Statistics</h3>
+                        <h3 class="font-bold text-slate-900 text-lg mb-4">Curva de Equity</h3>
                         <div class="flex flex-col lg:flex-row items-center justify-between gap-4">
                             <div class="flex items-center gap-2">
-                                <span class="text-slate-500 font-medium text-sm">Range:</span>
+                                <span class="text-slate-500 font-medium text-sm">Rango:</span>
                                 <div class="flex bg-slate-100/50 p-1 rounded-lg gap-1">
                                     <button
                                         class="px-3 py-1.5 rounded text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white transition-colors">1
-                                        day</button>
+                                        día</button>
                                     <button
                                         class="px-3 py-1.5 rounded text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white transition-colors">1
-                                        Week</button>
+                                        semana</button>
                                     <button
                                         class="px-3 py-1.5 rounded text-xs font-bold text-slate-800 bg-white shadow-sm border border-slate-200">1
-                                        Month</button>
+                                        mes</button>
                                     <button
                                         class="px-3 py-1.5 rounded text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white transition-colors">3
-                                        month</button>
+                                        meses</button>
                                     <button
                                         class="px-3 py-1.5 rounded text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white transition-colors">6
-                                        month</button>
+                                        meses</button>
                                     <button
                                         class="px-3 py-1.5 rounded text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white transition-colors">YTD</button>
                                     <button
                                         class="px-3 py-1.5 rounded text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white transition-colors">1
-                                        year</button>
+                                        año</button>
                                     <button
                                         class="px-3 py-1.5 rounded text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white transition-colors">2
-                                        Year</button>
+                                        años</button>
                                     <button
-                                        class="px-3 py-1.5 rounded text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white transition-colors">5
-                                        Year</button>
+                                        class="px-3 py-1.5 rounded text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-white transition-colors">Todo</button>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="mb-6">
                         <div class="flex justify-between items-center mb-4">
-                            <h4 class="font-semibold text-slate-800 text-sm">Volume</h4>
+                            <h4 class="font-semibold text-slate-800 text-sm">Evolución</h4>
                             <div class="flex gap-4 text-xs font-medium">
                                 <div class="flex items-center gap-1.5 text-slate-600">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-[#4f46e5]"></span> Impressions
+                                    <span class="w-2.5 h-2.5 rounded-full bg-[#4f46e5]"></span> Equity
                                 </div>
                                 <div class="flex items-center gap-1.5 text-slate-600">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-[#10b981]"></span> Clicks
+                                    <span class="w-2.5 h-2.5 rounded-full bg-[#10b981]"></span> Balance
                                 </div>
                                 <div class="flex items-center gap-1.5 text-slate-600">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-[#f97316]"></span> Leads
+                                    <span class="w-2.5 h-2.5 rounded-full bg-[#ef4444]"></span> Drawdown
                                 </div>
                                 <div class="flex items-center gap-1.5 text-slate-600">
-                                    <span class="w-2.5 h-2.5 rounded-full bg-[#3b82f6]"></span> Sales
+                                    <span class="w-2.5 h-2.5 rounded-full bg-[#3b82f6]"></span> Pips
                                 </div>
                             </div>
                         </div>
                         <div class="h-[280px] w-full relative pl-8 pr-8">
                             <div
                                 class="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[11px] text-slate-500 font-medium h-full items-end pr-2 w-8">
-                                <span>1,000</span>
-                                <span>800</span>
-                                <span>600</span>
-                                <span>400</span>
-                                <span>200</span>
-                                <span>0</span>
+                                <span>€12K</span>
+                                <span>€10K</span>
+                                <span>€8K</span>
+                                <span>€6K</span>
+                                <span>€4K</span>
+                                <span>€0</span>
                             </div>
                             <div
                                 class="absolute -left-8 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-semibold text-slate-600 whitespace-nowrap">
-                                Impressions/Clicks</div>
+                                Equity / Balance (€)</div>
                             <div
                                 class="absolute right-0 top-0 bottom-6 flex flex-col justify-between text-[11px] text-slate-500 font-medium h-full items-start pl-2 w-8">
-                                <span>50</span>
-                                <span>40</span>
-                                <span>30</span>
-                                <span>20</span>
-                                <span>10</span>
+                                <span>500</span>
+                                <span>400</span>
+                                <span>300</span>
+                                <span>200</span>
+                                <span>100</span>
                                 <span>0</span>
                             </div>
                             <div
                                 class="absolute -right-8 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-semibold text-slate-600 whitespace-nowrap">
-                                Lead/Sales</div>
+                                Pips Acumulados</div>
                             <div
                                 class="absolute inset-0 left-8 right-8 bottom-6 flex flex-col justify-between pointer-events-none">
                                 <div class="w-full border-t border-slate-100 h-0"></div>
@@ -679,608 +697,622 @@
                         </div>
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm" id="operations-table">
                     <div>
                         <div class="flex space-x-6 border-b border-slate-200 mb-4">
                             <button
-                                class="border-b-2 border-slate-900 text-slate-900 font-semibold px-1 py-2 text-xs">Clicks</button>
+                                class="border-b-2 border-slate-900 text-slate-900 font-semibold px-1 py-2 text-xs">Operaciones</button>
                             <button
-                                class="border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium px-1 py-2 text-xs">Leads</button>
+                                class="border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium px-1 py-2 text-xs">Ciclos</button>
                             <button
-                                class="border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium px-1 py-2 text-xs">Sales</button>
+                                class="border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium px-1 py-2 text-xs">Recovery</button>
                             <button
-                                class="border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium px-1 py-2 text-xs">Conversions</button>
+                                class="border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-medium px-1 py-2 text-xs">Historial</button>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="min-w-full text-xs text-left">
                                 <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                                     <tr>
                                         <th class="px-4 py-3 w-8"></th>
-                                        <th class="px-4 py-3">Campaign</th>
-                                        <th class="px-4 py-3">Affiliate Site</th>
-                                        <th class="px-4 py-3">Product</th>
-                                        <th class="px-4 py-3">Commission</th>
-                                        <th class="px-4 py-3 text-right">Time</th>
+                                        <th class="px-4 py-3">Par</th>
+                                        <th class="px-4 py-3">Tipo</th>
+                                        <th class="px-4 py-3">Estado</th>
+                                        <th class="px-4 py-3">P&L</th>
+                                        <th class="px-4 py-3 text-right">Hora</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
                                     <tr class="hover:bg-slate-50">
                                         <td class="px-4 py-3"><span
-                                                class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                                class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[10px] font-bold">▲</span>
                                         </td>
-                                        <td class="px-4 py-3 text-indigo-600">Three Mobile <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                        <td class="px-4 py-3 text-slate-900 font-medium">EURUSD</td>
+                                        <td class="px-4 py-3 text-blue-600">Main Buy</td>
+                                        <td class="px-4 py-3"><span
+                                                class="px-2 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-medium">Active</span>
                                         </td>
-                                        <td class="px-4 py-3 text-indigo-600">The Daily Telegraph <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
-                                        </td>
-                                        <td class="px-4 py-3 text-slate-500">Default</td>
-                                        <td class="px-4 py-3 text-slate-900">€0.00</td>
-                                        <td class="px-4 py-3 text-slate-500 text-right">01 Jul 2024, 08:39:17</td>
+                                        <td class="px-4 py-3 text-green-600 font-medium">+€12.50</td>
+                                        <td class="px-4 py-3 text-slate-500 text-right">14:32:05</td>
                                     </tr>
                                     <tr class="hover:bg-slate-50">
                                         <td class="px-4 py-3"><span
-                                                class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                                class="w-4 h-4 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-[10px] font-bold">▼</span>
                                         </td>
-                                        <td class="px-4 py-3 text-indigo-600">AliExpress <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                        <td class="px-4 py-3 text-slate-900 font-medium">GBPUSD</td>
+                                        <td class="px-4 py-3 text-purple-600">Hedge Sell</td>
+                                        <td class="px-4 py-3"><span
+                                                class="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium">Pending</span>
                                         </td>
-                                        <td class="px-4 py-3 text-indigo-600">The Daily Telegraph <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
-                                        </td>
-                                        <td class="px-4 py-3 text-slate-500">Default</td>
-                                        <td class="px-4 py-3 text-slate-900">€0.00</td>
-                                        <td class="px-4 py-3 text-slate-500 text-right">30 Jun 2024, 05:13:05</td>
+                                        <td class="px-4 py-3 text-red-600 font-medium">-€3.20</td>
+                                        <td class="px-4 py-3 text-slate-500 text-right">14:28:12</td>
                                     </tr>
                                     <tr class="hover:bg-slate-50">
                                         <td class="px-4 py-3"><span
-                                                class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                                class="w-4 h-4 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-[10px] font-bold">⟳</span>
                                         </td>
-                                        <td class="px-4 py-3 text-indigo-600">Three Mobile <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                        <td class="px-4 py-3 text-slate-900 font-medium">USDJPY</td>
+                                        <td class="px-4 py-3 text-orange-600">Recovery L1</td>
+                                        <td class="px-4 py-3"><span
+                                                class="px-2 py-0.5 bg-orange-100 text-orange-700 rounded text-[10px] font-medium">Recovery</span>
                                         </td>
-                                        <td class="px-4 py-3 text-indigo-600">BBC <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
-                                        </td>
-                                        <td class="px-4 py-3 text-slate-500">Default</td>
-                                        <td class="px-4 py-3 text-slate-900">€0.00</td>
-                                        <td class="px-4 py-3 text-slate-500 text-right">27 Jun 2024, 02:43:03</td>
+                                        <td class="px-4 py-3 text-slate-600 font-medium">-€8.40</td>
+                                        <td class="px-4 py-3 text-slate-500 text-right">13:45:33</td>
                                     </tr>
                                     <tr class="hover:bg-slate-50">
                                         <td class="px-4 py-3"><span
-                                                class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                                class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[10px] font-bold">✓</span>
                                         </td>
-                                        <td class="px-4 py-3 text-indigo-600">Zara <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                        <td class="px-4 py-3 text-slate-900 font-medium">AUDUSD</td>
+                                        <td class="px-4 py-3 text-blue-600">Main Buy</td>
+                                        <td class="px-4 py-3"><span
+                                                class="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-medium">Closed</span>
                                         </td>
-                                        <td class="px-4 py-3 text-indigo-600">The Daily Telegraph <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
-                                        </td>
-                                        <td class="px-4 py-3 text-slate-500">Default</td>
-                                        <td class="px-4 py-3 text-slate-900">€0.00</td>
-                                        <td class="px-4 py-3 text-slate-500 text-right">23 Jun 2024, 22:05:12</td>
+                                        <td class="px-4 py-3 text-green-600 font-medium">+€10.00</td>
+                                        <td class="px-4 py-3 text-slate-500 text-right">12:15:08</td>
                                     </tr>
                                     <tr class="hover:bg-slate-50">
                                         <td class="px-4 py-3"><span
-                                                class="w-4 h-4 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px] font-bold">?</span>
+                                                class="w-4 h-4 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[10px] font-bold">▲</span>
                                         </td>
-                                        <td class="px-4 py-3 text-indigo-600">Zara <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
+                                        <td class="px-4 py-3 text-slate-900 font-medium">NZDUSD</td>
+                                        <td class="px-4 py-3 text-blue-600">Main Buy</td>
+                                        <td class="px-4 py-3"><span
+                                                class="px-2 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-medium">Active</span>
                                         </td>
-                                        <td class="px-4 py-3 text-indigo-600">Sky News <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
-                                        </td>
-                                        <td class="px-4 py-3 text-slate-500">Default</td>
-                                        <td class="px-4 py-3 text-slate-900">€0.00</td>
-                                        <td class="px-4 py-3 text-slate-500 text-right">20 Jun 2024, 17:05:22</td>
+                                        <td class="px-4 py-3 text-green-600 font-medium">+€5.80</td>
+                                        <td class="px-4 py-3 text-slate-500 text-right">11:22:45</td>
                                     </tr>
                                 </tbody>
                             </table>
                             <div class="mt-4 text-center">
-                                <a class="text-xs text-indigo-600 hover:underline" href="#">More sale transactions</a>
+                                <a class="text-xs text-indigo-600 hover:underline" href="#">Ver todas las
+                                    operaciones</a>
                             </div>
                         </div>
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Top 10 impressions &amp; clicks</h3>
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm" id="top-pairs-tables">
+                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Ranking de Pares</h3>
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div class="overflow-x-auto">
+                            <p class="text-xs text-slate-500 mb-2 font-medium">📈 Por Pips Ganados</p>
                             <table class="min-w-full text-[11px] text-left">
                                 <thead class="text-slate-500 border-b border-slate-200 bg-slate-50 font-medium">
                                     <tr>
-                                        <th class="py-2 px-2">TM</th>
-                                        <th class="py-2 px-2">TM</th>
-                                        <th class="py-2 px-2">Campaign</th>
-                                        <th class="py-2 px-2">Impressions</th>
-                                        <th class="py-2 px-2">Change</th>
-                                        <th class="py-2 px-2">eCPM</th>
+                                        <th class="py-2 px-2">#</th>
+                                        <th class="py-2 px-2">Par</th>
+                                        <th class="py-2 px-2">Pips</th>
+                                        <th class="py-2 px-2">P&L</th>
+                                        <th class="py-2 px-2">Var</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
                                     <tr>
                                         <td class="py-2 px-2 text-green-600 font-bold">▲ 1</td>
-                                        <td class="py-2 px-2">1</td>
-                                        <td class="py-2 px-2 text-indigo-600">AliExpress <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
-                                        </td>
-                                        <td class="py-2 px-2">92,821</td>
-                                        <td class="py-2 px-2 text-red-500">-56,751</td>
-                                        <td class="py-2 px-2 text-slate-500">€0.59</td>
+                                        <td class="py-2 px-2 font-medium text-slate-900">EURUSD</td>
+                                        <td class="py-2 px-2 text-green-600">+85</td>
+                                        <td class="py-2 px-2 text-green-600">€125.00</td>
+                                        <td class="py-2 px-2 text-green-600">+24%</td>
                                     </tr>
                                     <tr>
                                         <td class="py-2 px-2 text-green-600 font-bold">▲ 2</td>
-                                        <td class="py-2 px-2">2</td>
-                                        <td class="py-2 px-2 text-indigo-600">Zara <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
-                                        </td>
-                                        <td class="py-2 px-2">92,821</td>
-                                        <td class="py-2 px-2 text-red-500">-46,364</td>
-                                        <td class="py-2 px-2 text-slate-500">€0.59</td>
+                                        <td class="py-2 px-2 font-medium text-slate-900">GBPUSD</td>
+                                        <td class="py-2 px-2 text-green-600">+62</td>
+                                        <td class="py-2 px-2 text-green-600">€89.50</td>
+                                        <td class="py-2 px-2 text-green-600">+18%</td>
                                     </tr>
                                     <tr>
-                                        <td class="py-2 px-2 text-green-600 font-bold">▲ 3</td>
-                                        <td class="py-2 px-2">3</td>
-                                        <td class="py-2 px-2 text-indigo-600">Tree Mobile <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
-                                        </td>
-                                        <td class="py-2 px-2">92,821</td>
-                                        <td class="py-2 px-2 text-red-500">-56,519</td>
-                                        <td class="py-2 px-2 text-slate-500">€0.59</td>
+                                        <td class="py-2 px-2 text-slate-500 font-bold">— 3</td>
+                                        <td class="py-2 px-2 font-medium text-slate-900">USDJPY</td>
+                                        <td class="py-2 px-2 text-green-600">+28</td>
+                                        <td class="py-2 px-2 text-green-600">€42.30</td>
+                                        <td class="py-2 px-2 text-slate-500">+8%</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
                         <div class="overflow-x-auto">
+                            <p class="text-xs text-slate-500 mb-2 font-medium">📊 Por Operaciones</p>
                             <table class="min-w-full text-[11px] text-left">
                                 <thead class="text-slate-500 border-b border-slate-200 bg-slate-50 font-medium">
                                     <tr>
-                                        <th class="py-2 px-2">TM</th>
-                                        <th class="py-2 px-2">TM</th>
-                                        <th class="py-2 px-2">Campaign</th>
-                                        <th class="py-2 px-2">Impressions</th>
-                                        <th class="py-2 px-2">Change</th>
-                                        <th class="py-2 px-2">eCPM</th>
+                                        <th class="py-2 px-2">#</th>
+                                        <th class="py-2 px-2">Par</th>
+                                        <th class="py-2 px-2">Trades</th>
+                                        <th class="py-2 px-2">Win%</th>
+                                        <th class="py-2 px-2">Factor</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
                                     <tr>
                                         <td class="py-2 px-2 text-green-600 font-bold">▲ 1</td>
-                                        <td class="py-2 px-2">3</td>
-                                        <td class="py-2 px-2 text-indigo-600">Zara <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
-                                        </td>
-                                        <td class="py-2 px-2">2,253</td>
-                                        <td class="py-2 px-2 text-red-500">-1,111</td>
-                                        <td class="py-2 px-2 text-slate-500">€0.59</td>
+                                        <td class="py-2 px-2 font-medium text-slate-900">EURUSD</td>
+                                        <td class="py-2 px-2">42</td>
+                                        <td class="py-2 px-2 text-green-600">92%</td>
+                                        <td class="py-2 px-2 text-green-600">3.8</td>
                                     </tr>
                                     <tr>
                                         <td class="py-2 px-2 text-red-500 font-bold">▼ 1</td>
-                                        <td class="py-2 px-2">1</td>
-                                        <td class="py-2 px-2 text-indigo-600">Tree Mobile <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
-                                        </td>
-                                        <td class="py-2 px-2">2,201</td>
-                                        <td class="py-2 px-2 text-red-500">-1,283</td>
-                                        <td class="py-2 px-2 text-slate-500">€0.59</td>
+                                        <td class="py-2 px-2 font-medium text-slate-900">GBPUSD</td>
+                                        <td class="py-2 px-2">28</td>
+                                        <td class="py-2 px-2 text-green-600">85%</td>
+                                        <td class="py-2 px-2 text-green-600">2.4</td>
                                     </tr>
                                     <tr>
-                                        <td class="py-2 px-2 text-red-500 font-bold">▼ 1</td>
-                                        <td class="py-2 px-2">1</td>
-                                        <td class="py-2 px-2 text-indigo-600">AliExpress <span
-                                                class="material-symbols-outlined text-[10px] align-middle">open_in_new</span>
-                                        </td>
-                                        <td class="py-2 px-2">2,146</td>
-                                        <td class="py-2 px-2 text-red-500">-1,284</td>
-                                        <td class="py-2 px-2 text-slate-500">€0.59</td>
+                                        <td class="py-2 px-2 text-green-600 font-bold">▲ 2</td>
+                                        <td class="py-2 px-2 font-medium text-slate-900">USDJPY</td>
+                                        <td class="py-2 px-2">15</td>
+                                        <td class="py-2 px-2 text-amber-600">73%</td>
+                                        <td class="py-2 px-2 text-amber-600">1.6</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Latest News</h3>
+                <!-- CONSEJOS DEL DÍA -->
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm" id="daily-tips">
+                    <h3 class="font-bold text-slate-900 mb-4 text-sm flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[18px] text-amber-500">lightbulb</span>
+                        Consejos del Día
+                    </h3>
                     <div class="mb-8">
-                        <h4 class="font-bold text-slate-800 text-xs">Mastering the Art of Blogging: Tips for Crafting
-                            Engaging Posts</h4>
-                        <p class="text-[10px] text-slate-400 mt-1 mb-2">Thursday, 6 June 2024</p>
+                        <h4 class="font-bold text-slate-800 text-xs">📈 Volatilidad moderada: Condiciones ideales para
+                            TPs de 10 pips</h4>
+                        <p class="text-[10px] text-slate-400 mt-1 mb-2">Actualizado hoy a las 09:32</p>
                         <p class="text-xs text-slate-500 leading-relaxed">
-                            Creating compelling blog content is essential for attracting and retaining readers. A great
-                            blog post starts with a captivating headline that grabs attention. It's crucial to engage
-                            the audience from the outset with a strong opening sentence.
+                            Los principales pares muestran volatilidad moderada hoy. Esta condición favorece
+                            la acumulación de TPs pequeños. Mantén exposición conservadora y aprovecha
+                            los rebotes en zonas de soporte/resistencia.
                         </p>
-                        <a class="text-[10px] text-indigo-600 hover:underline mt-2 inline-block" href="#">Continue to
-                            read &gt;</a>
+                        <a class="text-[10px] text-indigo-600 hover:underline mt-2 inline-block" href="#">Seguir leyendo
+                            &gt;</a>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 text-center">
-                        <div class="h-16 flex items-center justify-center mb-2 text-4xl font-serif font-bold italic">
-                            ZARA</div>
-                        <h4 class="font-bold text-slate-900 text-sm mb-2">New collection on sale</h4>
-                        <p class="text-[11px] text-slate-500 mb-4 leading-relaxed">Zara Launches Sale on Latest
-                            Collection In a highly anticipated move, Zara has launched a sale on their latest
-                            collection, drawing significant attention from fashio...</p>
-                        <a class="text-[11px] text-indigo-600 font-medium hover:underline" href="#">Learn More</a>
+                <!-- TARJETAS DE PARES ACTIVOS -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="pair-cards">
+                    <div
+                        class="bg-gradient-to-br from-blue-50 to-white p-6 rounded-xl border border-blue-200 text-center">
+                        <div class="h-16 flex items-center justify-center mb-2 text-3xl font-bold text-blue-600">
+                            🇪🇺 / 🇺🇸</div>
+                        <h4 class="font-bold text-slate-900 text-sm mb-2">EUR/USD</h4>
+                        <p class="text-[11px] text-slate-500 mb-4 leading-relaxed">Par principal del sistema.
+                            12 operaciones activas, 85% win rate este mes. Mejor rendimiento en horario europeo.</p>
+                        <span class="text-[11px] text-green-600 font-medium">+85 pips este mes</span>
                     </div>
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 text-center">
-                        <div class="h-16 flex items-center justify-center mb-2 text-4xl font-serif font-bold italic">
-                            ZARA</div>
-                        <h4 class="font-bold text-slate-900 text-sm mb-2">New collection on sale</h4>
-                        <p class="text-[11px] text-slate-500 mb-4 leading-relaxed">Zara Launches Sale on Latest
-                            Collection In a highly anticipated move, Zara has launched a sale on their latest
-                            collection, drawing significant attention from fashio...</p>
-                        <a class="text-[11px] text-indigo-600 font-medium hover:underline" href="#">Learn More</a>
+                    <div
+                        class="bg-gradient-to-br from-purple-50 to-white p-6 rounded-xl border border-purple-200 text-center">
+                        <div class="h-16 flex items-center justify-center mb-2 text-3xl font-bold text-purple-600">
+                            🇬🇧 / 🇺🇸</div>
+                        <h4 class="font-bold text-slate-900 text-sm mb-2">GBP/USD</h4>
+                        <p class="text-[11px] text-slate-500 mb-4 leading-relaxed">Alta volatilidad hoy.
+                            8 operaciones activas. 1 ciclo en recovery nivel 1. Precaución con noticias UK.</p>
+                        <span class="text-[11px] text-amber-600 font-medium">⚠️ 1 Recovery activa</span>
                     </div>
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 text-center">
-                        <div class="h-16 flex items-center justify-center mb-2 text-4xl font-serif font-bold italic">
-                            ZARA</div>
-                        <h4 class="font-bold text-slate-900 text-sm mb-2">New collection on sale</h4>
-                        <p class="text-[11px] text-slate-500 mb-4 leading-relaxed">Zara Launches Sale on Latest
-                            Collection In a highly anticipated move, Zara has launched a sale on their latest
-                            collection, drawing significant attention from fashio...</p>
-                        <a class="text-[11px] text-indigo-600 font-medium hover:underline" href="#">Learn More</a>
+                    <div
+                        class="bg-gradient-to-br from-orange-50 to-white p-6 rounded-xl border border-orange-200 text-center">
+                        <div class="h-16 flex items-center justify-center mb-2 text-3xl font-bold text-orange-600">
+                            🇺🇸 / 🇯🇵</div>
+                        <h4 class="font-bold text-slate-900 text-sm mb-2">USD/JPY</h4>
+                        <p class="text-[11px] text-slate-500 mb-4 leading-relaxed">Tendencia lateral.
+                            3 operaciones activas. 2 ciclos en recovery niveles 1-2. Atención sesión asiática.</p>
+                        <span class="text-[11px] text-red-600 font-medium">⛔ 2 Recovery activas</span>
                     </div>
                 </div>
+                <!-- ÚLTIMOS EVENTOS Y OPERACIONES CERRADAS -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 class="font-bold text-slate-900 mb-4 text-sm">Latest tickets</h3>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm" id="events-table">
+                        <h3 class="font-bold text-slate-900 mb-4 text-sm">Últimos Eventos</h3>
                         <table class="min-w-full text-xs text-left">
                             <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                                 <tr>
-                                    <th class="px-3 py-2">ID</th>
-                                    <th class="px-3 py-2">Subject</th>
-                                    <th class="px-3 py-2 text-right">Last Update</th>
+                                    <th class="px-3 py-2">Hora</th>
+                                    <th class="px-3 py-2">Evento</th>
+                                    <th class="px-3 py-2 text-right">Tipo</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 <tr class="hover:bg-slate-50">
-                                    <td class="px-3 py-2 text-indigo-600">#1943</td>
-                                    <td class="px-3 py-2">Payment issue - June</td>
-                                    <td class="px-3 py-2 text-slate-500 text-right">2 days ago</td>
+                                    <td class="px-3 py-2 text-slate-500">14:32</td>
+                                    <td class="px-3 py-2">TP alcanzado EURUSD +10 pips</td>
+                                    <td class="px-3 py-2 text-right"><span
+                                            class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded text-[9px]">✓
+                                            Success</span></td>
                                 </tr>
                                 <tr class="hover:bg-slate-50">
-                                    <td class="px-3 py-2 text-indigo-600">#1921</td>
-                                    <td class="px-3 py-2">Tracking not working</td>
-                                    <td class="px-3 py-2 text-slate-500 text-right">5 days ago</td>
+                                    <td class="px-3 py-2 text-slate-500">13:45</td>
+                                    <td class="px-3 py-2">Recovery activada USDJPY N1</td>
+                                    <td class="px-3 py-2 text-right"><span
+                                            class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px]">⚠️
+                                            Warning</span></td>
                                 </tr>
                                 <tr class="hover:bg-slate-50">
-                                    <td class="px-3 py-2 text-indigo-600">#1890</td>
-                                    <td class="px-3 py-2">New campaign request</td>
-                                    <td class="px-3 py-2 text-slate-500 text-right">1 week ago</td>
+                                    <td class="px-3 py-2 text-slate-500">11:22</td>
+                                    <td class="px-3 py-2">Nuevo ciclo abierto NZDUSD</td>
+                                    <td class="px-3 py-2 text-right"><span
+                                            class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[9px]">📊
+                                            Info</span></td>
                                 </tr>
                             </tbody>
                         </table>
                         <div class="mt-4 text-center">
-                            <a class="text-xs text-indigo-600 hover:underline" href="#">View all tickets</a>
+                            <a class="text-xs text-indigo-600 hover:underline" href="#">Ver todos los eventos</a>
                         </div>
                     </div>
-                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 class="font-bold text-slate-900 mb-4 text-sm">Last assessed transactions</h3>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm" id="closed-ops-table">
+                        <h3 class="font-bold text-slate-900 mb-4 text-sm">Últimas Operaciones Cerradas</h3>
                         <table class="min-w-full text-xs text-left">
                             <thead class="bg-slate-50 text-slate-500 font-semibold border-b border-slate-200">
                                 <tr>
-                                    <th class="px-3 py-2">ID</th>
-                                    <th class="px-3 py-2">Campaign</th>
-                                    <th class="px-3 py-2 text-right">Amount</th>
+                                    <th class="px-3 py-2">Ticket</th>
+                                    <th class="px-3 py-2">Par</th>
+                                    <th class="px-3 py-2 text-right">P&L</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 <tr class="hover:bg-slate-50">
-                                    <td class="px-3 py-2 text-slate-500">TRX-992</td>
-                                    <td class="px-3 py-2">Zara Summer Sale</td>
-                                    <td class="px-3 py-2 text-slate-900 text-right font-medium">€45.00</td>
+                                    <td class="px-3 py-2 text-slate-500">#458921</td>
+                                    <td class="px-3 py-2 font-medium">EURUSD</td>
+                                    <td class="px-3 py-2 text-green-600 text-right font-medium">+€12.50</td>
                                 </tr>
                                 <tr class="hover:bg-slate-50">
-                                    <td class="px-3 py-2 text-slate-500">TRX-991</td>
-                                    <td class="px-3 py-2">AliExpress Global</td>
-                                    <td class="px-3 py-2 text-slate-900 text-right font-medium">€12.50</td>
+                                    <td class="px-3 py-2 text-slate-500">#458918</td>
+                                    <td class="px-3 py-2 font-medium">GBPUSD</td>
+                                    <td class="px-3 py-2 text-green-600 text-right font-medium">+€8.30</td>
                                 </tr>
                                 <tr class="hover:bg-slate-50">
-                                    <td class="px-3 py-2 text-slate-500">TRX-990</td>
-                                    <td class="px-3 py-2">Three Mobile</td>
-                                    <td class="px-3 py-2 text-slate-900 text-right font-medium">€30.00</td>
+                                    <td class="px-3 py-2 text-slate-500">#458912</td>
+                                    <td class="px-3 py-2 font-medium">AUDUSD</td>
+                                    <td class="px-3 py-2 text-red-600 text-right font-medium">-€3.20</td>
                                 </tr>
                             </tbody>
                         </table>
                         <div class="mt-4 text-center">
-                            <a class="text-xs text-indigo-600 hover:underline" href="#">View all transactions</a>
+                            <a class="text-xs text-indigo-600 hover:underline" href="#">Ver historial completo</a>
                         </div>
                     </div>
                 </div>
-                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Top 10 leads &amp; sales</h3>
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm" id="top-pairs">
+                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Mejores Pares Este Mes</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div class="flex items-center gap-4 p-3 border border-slate-100 rounded-lg">
+                        <div class="flex items-center gap-4 p-3 border border-green-100 bg-green-50/30 rounded-lg">
                             <div
-                                class="w-12 h-12 flex items-center justify-center bg-slate-50 rounded text-xl font-bold italic font-serif">
-                                ZARA</div>
+                                class="w-12 h-12 flex items-center justify-center bg-blue-100 rounded text-xl font-bold text-blue-600">
+                                €/$</div>
                             <div class="flex-1">
-                                <h4 class="text-sm font-bold text-slate-900">Zara Fashion</h4>
-                                <p class="text-xs text-slate-500">245 Sales this month</p>
+                                <h4 class="text-sm font-bold text-slate-900">EUR/USD</h4>
+                                <p class="text-xs text-slate-500">+85 pips • €125.00</p>
                             </div>
-                            <span class="text-green-600 text-xs font-bold">+12%</span>
+                            <span class="text-green-600 text-xs font-bold">+24%</span>
+                        </div>
+                        <div class="flex items-center gap-4 p-3 border border-green-100 bg-green-50/30 rounded-lg">
+                            <div
+                                class="w-12 h-12 flex items-center justify-center bg-purple-100 rounded text-xl font-bold text-purple-600">
+                                £/$</div>
+                            <div class="flex-1">
+                                <h4 class="text-sm font-bold text-slate-900">GBP/USD</h4>
+                                <p class="text-xs text-slate-500">+62 pips • €89.50</p>
+                            </div>
+                            <span class="text-green-600 text-xs font-bold">+18%</span>
                         </div>
                         <div class="flex items-center gap-4 p-3 border border-slate-100 rounded-lg">
                             <div
-                                class="w-12 h-12 flex items-center justify-center bg-slate-50 rounded text-xl font-bold text-orange-500">
-                                Ali</div>
+                                class="w-12 h-12 flex items-center justify-center bg-orange-100 rounded text-xl font-bold text-orange-600">
+                                $/¥</div>
                             <div class="flex-1">
-                                <h4 class="text-sm font-bold text-slate-900">AliExpress</h4>
-                                <p class="text-xs text-slate-500">189 Sales this month</p>
+                                <h4 class="text-sm font-bold text-slate-900">USD/JPY</h4>
+                                <p class="text-xs text-slate-500">+28 pips • €42.30</p>
                             </div>
                             <span class="text-green-600 text-xs font-bold">+8%</span>
                         </div>
-                        <div class="flex items-center gap-4 p-3 border border-slate-100 rounded-lg">
+                        <div class="flex items-center gap-4 p-3 border border-red-100 bg-red-50/30 rounded-lg">
                             <div
-                                class="w-12 h-12 flex items-center justify-center bg-slate-50 rounded text-xl font-bold text-indigo-600">
-                                3</div>
+                                class="w-12 h-12 flex items-center justify-center bg-teal-100 rounded text-xl font-bold text-teal-600">
+                                AU$</div>
                             <div class="flex-1">
-                                <h4 class="text-sm font-bold text-slate-900">Three Mobile</h4>
-                                <p class="text-xs text-slate-500">156 Sales this month</p>
+                                <h4 class="text-sm font-bold text-slate-900">AUD/USD</h4>
+                                <p class="text-xs text-slate-500">-12 pips • -€18.00</p>
                             </div>
-                            <span class="text-red-500 text-xs font-bold">-2%</span>
-                        </div>
-                        <div class="flex items-center gap-4 p-3 border border-slate-100 rounded-lg">
-                            <div
-                                class="w-12 h-12 flex items-center justify-center bg-slate-50 rounded text-xl font-bold italic font-serif">
-                                ZARA</div>
-                            <div class="flex-1">
-                                <h4 class="text-sm font-bold text-slate-900">Zara Home</h4>
-                                <p class="text-xs text-slate-500">98 Sales this month</p>
-                            </div>
-                            <span class="text-green-600 text-xs font-bold">+5%</span>
+                            <span class="text-red-500 text-xs font-bold">-4%</span>
                         </div>
                     </div>
                 </div>
             </main>
             <aside class="w-[300px] flex-shrink-0 flex flex-col gap-6">
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Information</h3>
+                <!-- ALERTAS PENDIENTES -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm" id="sidebar-alerts">
+                    <h3 class="font-bold text-slate-900 mb-4 text-sm flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[18px] text-amber-500">notifications_active</span>
+                        Alertas Pendientes
+                    </h3>
                     <div class="mb-4">
-                        <p class="text-xs font-semibold text-slate-700 mb-2">To-do list</p>
+                        <p class="text-xs font-semibold text-slate-700 mb-2">Requieren atención</p>
                         <ul class="text-[11px] text-slate-500 space-y-2">
                             <li class="flex items-center justify-between">
                                 <span class="flex items-center gap-2"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Open unread tickets</span>
+                                        class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Recovery activas</span>
                                 <span
-                                    class="bg-red-500 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center">7</span>
+                                    class="bg-amber-500 text-white text-[9px] rounded-full w-4 h-4 flex items-center justify-center"
+                                    id="alert-recovery-count">3</span>
+                            </li>
+                            <li class="flex items-center justify-between">
+                                <span class="flex items-center gap-2"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Margen bajo</span>
+                                <span
+                                    class="bg-slate-200 text-slate-600 text-[9px] rounded-full w-4 h-4 flex items-center justify-center">0</span>
                             </li>
                         </ul>
                     </div>
                     <div>
-                        <p class="text-xs font-semibold text-slate-700 mb-2">Bookmarks</p>
+                        <p class="text-xs font-semibold text-slate-700 mb-2">Accesos rápidos</p>
                         <ul class="text-[11px] text-slate-500 space-y-2">
-                            <li class="flex items-center gap-2"><span
-                                    class="w-1.5 h-1.5 rounded-full bg-slate-300"></span> Financial &gt; Invoices</li>
+                            <li class="flex items-center gap-2 hover:text-indigo-600 cursor-pointer"><span
+                                    class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> 📊 Ver operaciones</li>
+                            <li class="flex items-center gap-2 hover:text-indigo-600 cursor-pointer"><span
+                                    class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span> 📈 Curva de equity</li>
                         </ul>
                     </div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Financial Overview</h3>
+                <!-- ESTADO FINANCIERO -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm" id="sidebar-financial">
+                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Estado Financiero</h3>
                     <div class="mb-4">
-                        <p class="text-[10px] text-slate-400">Total commission June 2024</p>
-                        <p class="text-xl font-bold text-slate-900">€72.63</p>
+                        <p class="text-[10px] text-slate-400">Balance</p>
+                        <p class="text-xl font-bold text-slate-900" id="sidebar-balance">€10,543.25</p>
                     </div>
                     <div class="mb-4">
-                        <p class="text-[10px] text-slate-400">Total outstanding</p>
-                        <p class="text-xl font-bold text-slate-900">€1,647,126.06</p>
+                        <p class="text-[10px] text-slate-400">Floating (P&L abierto)</p>
+                        <p class="text-xl font-bold text-red-600" id="sidebar-floating">-€32.10</p>
                     </div>
                     <div class="mb-6">
-                        <p class="text-[10px] text-slate-400">Next Payment</p>
-                        <p class="text-xl font-bold text-slate-900">€0.00</p>
+                        <p class="text-[10px] text-slate-400">Margen disponible</p>
+                        <p class="text-xl font-bold text-green-600" id="sidebar-margin">€6,543.15</p>
                     </div>
                     <button
-                        class="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 font-medium">Account
-                        balance overview&gt;</button>
+                        class="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 font-medium">Ver
+                        historial de balance &gt;</button>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 mb-2 text-sm">Devices</h3>
-                    <p class="text-[10px] text-slate-400 mb-4 text-center">Division of devices (Past 30 days)</p>
+                <!-- DISTRIBUCIÓN DE EXPOSICIÓN -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm" id="sidebar-exposure">
+                    <h3 class="font-bold text-slate-900 mb-2 text-sm">Distribución de Exposición</h3>
+                    <p class="text-[10px] text-slate-400 mb-4 text-center">Por par de divisas</p>
                     <div class="flex justify-center mb-4 relative">
                         <div
-                            class="w-32 h-32 rounded-full border-[10px] border-indigo-600 border-l-pink-300 border-b-slate-100 transform rotate-45 relative">
+                            class="w-32 h-32 rounded-full border-[10px] border-blue-500 border-l-purple-500 border-b-green-400 transform rotate-45 relative">
                         </div>
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
-                            <span class="font-bold text-slate-900 text-sm">0.5 BTC</span>
+                            <span class="font-bold text-slate-900 text-sm" id="total-exposure">2.5 lotes</span>
                         </div>
                     </div>
                     <div class="flex justify-center gap-3 text-[10px] mb-4 text-slate-500">
                         <span class="flex items-center gap-1"><span
-                                class="w-1.5 h-1.5 rounded-full bg-indigo-600"></span>Desktop</span>
+                                class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>EURUSD</span>
                         <span class="flex items-center gap-1"><span
-                                class="w-1.5 h-1.5 rounded-full bg-pink-300"></span>Mobile</span>
+                                class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>GBPUSD</span>
                         <span class="flex items-center gap-1"><span
-                                class="w-1.5 h-1.5 rounded-full bg-slate-200"></span>Tablet</span>
+                                class="w-1.5 h-1.5 rounded-full bg-green-400"></span>Otros</span>
                     </div>
                     <table class="w-full text-[10px] text-left mb-6">
                         <thead class="bg-slate-50 text-slate-500">
                             <tr>
-                                <th class="p-1.5 font-medium">Device</th>
-                                <th class="p-1.5 font-medium">Leads</th>
-                                <th class="p-1.5 font-medium">Sales</th>
+                                <th class="p-1.5 font-medium">Par</th>
+                                <th class="p-1.5 font-medium">Lotes</th>
+                                <th class="p-1.5 font-medium">% Exp</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 text-slate-600">
                             <tr>
-                                <td class="p-1.5">Desktop</td>
-                                <td class="p-1.5">53,15%</td>
-                                <td class="p-1.5">65,29%</td>
+                                <td class="p-1.5">EURUSD</td>
+                                <td class="p-1.5">1.2</td>
+                                <td class="p-1.5">48%</td>
                             </tr>
                             <tr>
-                                <td class="p-1.5">Mobile</td>
-                                <td class="p-1.5">23,13%</td>
-                                <td class="p-1.5">18,93%</td>
+                                <td class="p-1.5">GBPUSD</td>
+                                <td class="p-1.5">0.8</td>
+                                <td class="p-1.5">32%</td>
                             </tr>
                             <tr>
-                                <td class="p-1.5">Tablet</td>
-                                <td class="p-1.5">23,13%</td>
-                                <td class="p-1.5">18,93%</td>
+                                <td class="p-1.5">USDJPY</td>
+                                <td class="p-1.5">0.5</td>
+                                <td class="p-1.5">20%</td>
                             </tr>
                         </tbody>
                     </table>
                     <div class="mb-4">
-                        <p class="font-bold text-xs text-slate-800 mb-1">Most used operating systems</p>
-                        <p class="text-[10px] text-slate-400 mb-2">Based on Leads, Sales</p>
+                        <p class="font-bold text-xs text-slate-800 mb-1">Pares más activos</p>
+                        <p class="text-[10px] text-slate-400 mb-2">Por operaciones hoy</p>
                         <ul class="text-[10px] text-slate-600 space-y-1">
                             <li class="flex items-center gap-2"><span
-                                    class="material-symbols-outlined text-green-500 text-[14px]">check_circle</span>
-                                Android (49,48%)</li>
+                                    class="material-symbols-outlined text-green-500 text-[14px]">trending_up</span>
+                                EURUSD (12 ops)</li>
                             <li class="flex items-center gap-2"><span
-                                    class="material-symbols-outlined text-green-500 text-[14px]">check_circle</span> iOS
-                                (29,83%)</li>
+                                    class="material-symbols-outlined text-green-500 text-[14px]">trending_up</span>
+                                GBPUSD (8 ops)</li>
                             <li class="flex items-center gap-2"><span
-                                    class="material-symbols-outlined text-green-500 text-[14px]">check_circle</span>
-                                WinXP (20,69%)</li>
+                                    class="material-symbols-outlined text-amber-500 text-[14px]">trending_flat</span>
+                                USDJPY (3 ops)</li>
                         </ul>
                     </div>
                     <button
-                        class="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 font-medium">Full
-                        devices report&gt;</button>
+                        class="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 font-medium">Reporte
+                        completo &gt;</button>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Report today</h3>
+                <!-- RESUMEN DEL DÍA -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm" id="sidebar-daily-report">
+                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Resumen del Día</h3>
                     <div class="space-y-3">
                         <div class="flex justify-between items-baseline">
                             <div>
-                                <p class="text-[11px] font-semibold text-slate-700">Impressions</p>
-                                <p class="text-[9px] text-slate-400">11.896 (11.884 Unique)</p>
+                                <p class="text-[11px] font-semibold text-slate-700">TPs ejecutados</p>
+                                <p class="text-[9px] text-slate-400">Objetivo: 10 pips cada</p>
                             </div>
-                            <span class="text-xs font-bold text-slate-900">€0</span>
+                            <span class="text-xs font-bold text-green-600" id="tps-today">+€85.00</span>
                         </div>
                         <div class="flex justify-between items-baseline">
                             <div>
-                                <p class="text-[11px] font-semibold text-slate-700">Impressions</p>
-                                <p class="text-[9px] text-slate-400">319 (319 Unique)</p>
+                                <p class="text-[11px] font-semibold text-slate-700">Recovery cerradas</p>
+                                <p class="text-[9px] text-slate-400">De niveles 1-3</p>
                             </div>
-                            <span class="text-xs font-bold text-slate-900">€0</span>
+                            <span class="text-xs font-bold text-green-600">+€32.50</span>
                         </div>
                         <div class="flex justify-between items-baseline">
-                            <p class="text-[11px] font-semibold text-slate-700">Leads</p>
-                            <span class="text-xs font-bold text-slate-900">20</span>
-                            <span class="text-xs font-bold text-slate-900">€0</span>
+                            <p class="text-[11px] font-semibold text-slate-700">Ciclos abiertos</p>
+                            <span class="text-xs font-bold text-slate-900" id="cycles-open">5</span>
                         </div>
                         <div class="flex justify-between items-baseline">
-                            <p class="text-[11px] font-semibold text-slate-700">Sales</p>
-                            <span class="text-xs font-bold text-slate-900">14</span>
-                            <span class="text-xs font-bold text-slate-900">€0</span>
+                            <p class="text-[11px] font-semibold text-slate-700">Ciclos cerrados</p>
+                            <span class="text-xs font-bold text-green-600" id="cycles-closed">8</span>
                         </div>
                         <div class="flex justify-between items-baseline">
-                            <p class="text-[11px] font-semibold text-slate-700">App Installs</p>
-                            <span class="text-xs font-bold text-slate-900">0</span>
-                            <span class="text-xs font-bold text-slate-900">€0</span>
+                            <p class="text-[11px] font-semibold text-slate-700">Recovery activas</p>
+                            <span class="text-xs font-bold text-amber-600" id="recovery-active">3</span>
                         </div>
                         <div class="flex justify-between items-baseline border-t border-slate-100 pt-2 mt-2">
-                            <p class="text-[11px] font-bold text-slate-900">Total commission</p>
-                            <span class="text-xs font-bold text-slate-900">€0</span>
+                            <p class="text-[11px] font-bold text-slate-900">P&L Total Hoy</p>
+                            <span class="text-xs font-bold text-green-600" id="daily-pnl">+€98.50</span>
                         </div>
                     </div>
                     <button
-                        class="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 font-medium mt-4">Extended
-                        report&gt;</button>
+                        class="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 font-medium mt-4">Ver
+                        historial &gt;</button>
                     <div class="flex gap-2 mt-4 text-center">
-                        <div class="flex-1 bg-slate-50 p-2 rounded">
-                            <p class="text-[9px] text-slate-500">EPC</p>
-                            <p class="text-[11px] font-bold text-slate-900">€0</p>
+                        <div class="flex-1 bg-green-50 p-2 rounded">
+                            <p class="text-[9px] text-slate-500">Win Rate</p>
+                            <p class="text-[11px] font-bold text-green-600" id="win-rate">87%</p>
                         </div>
                         <div class="flex-1 bg-slate-50 p-2 rounded">
-                            <p class="text-[9px] text-slate-500">eCPM</p>
-                            <p class="text-[11px] font-bold text-slate-900">€0</p>
+                            <p class="text-[9px] text-slate-500">Operaciones</p>
+                            <p class="text-[11px] font-bold text-slate-900" id="ops-today">23</p>
                         </div>
                     </div>
                     <div class="flex gap-2 mt-2 text-center">
                         <div class="flex-1 bg-slate-50 p-2 rounded">
-                            <p class="text-[9px] text-slate-500">CTR</p>
-                            <p class="text-[11px] font-bold text-slate-900">1,58%</p>
+                            <p class="text-[9px] text-slate-500">Avg Pips/Op</p>
+                            <p class="text-[11px] font-bold text-slate-900">+8.2</p>
                         </div>
                         <div class="flex-1 bg-slate-50 p-2 rounded">
-                            <p class="text-[9px] text-slate-500">CLR</p>
-                            <p class="text-[11px] font-bold text-slate-900">6,27%</p>
+                            <p class="text-[9px] text-slate-500">Max DD</p>
+                            <p class="text-[11px] font-bold text-red-600">-2.4%</p>
                         </div>
-                        <div class="flex-1 bg-slate-50 p-2 rounded">
-                            <p class="text-[9px] text-slate-500">CSR</p>
-                            <p class="text-[11px] font-bold text-slate-900">4,39%</p>
+                        <div class="flex-1 bg-green-50 p-2 rounded">
+                            <p class="text-[9px] text-slate-500">Profit Factor</p>
+                            <p class="text-[11px] font-bold text-green-600">3.2</p>
                         </div>
                     </div>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                <!-- ESTADO DE CICLOS POR PAR -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm" id="sidebar-cycles-status">
                     <div class="relative mb-4">
                         <span
                             class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-sm">search</span>
                         <input
                             class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-indigo-500 text-slate-600"
-                            placeholder="Campaign search" type="text" />
+                            placeholder="Buscar par..." type="text" id="pair-search" />
                     </div>
-                    <p class="font-bold text-xs text-slate-800 mb-3">Campaign Per status</p>
+                    <p class="font-bold text-xs text-slate-800 mb-3">Ciclos por Estado</p>
                     <ul class="space-y-2 text-[11px] text-slate-600">
                         <li class="flex justify-between items-center">
                             <span class="flex items-center gap-2"><span
-                                    class="w-3 h-3 bg-green-500 rounded flex items-center justify-center text-[8px] text-white">✓</span>
-                                Accepted</span>
-                            <span class="flex gap-4"><span>66</span><span
-                                    class="text-slate-400 w-8 text-right">(24%)</span></span>
+                                    class="w-3 h-3 bg-green-500 rounded flex items-center justify-center text-[8px] text-white">▶</span>
+                                Activo</span>
+                            <span class="flex gap-4"><span id="cycles-active-count">5</span><span
+                                    class="text-slate-400 w-8 text-right">(42%)</span></span>
                         </li>
                         <li class="flex justify-between items-center">
                             <span class="flex items-center gap-2"><span
-                                    class="w-3 h-3 bg-yellow-500 rounded flex items-center justify-center text-[8px] text-white">!</span>
-                                Not Subscribed</span>
-                            <span class="flex gap-4"><span>204</span><span
-                                    class="text-slate-400 w-8 text-right">(74%)</span></span>
+                                    class="w-3 h-3 bg-amber-500 rounded flex items-center justify-center text-[8px] text-white">⟳</span>
+                                Recovery</span>
+                            <span class="flex gap-4"><span id="cycles-recovery-count">3</span><span
+                                    class="text-slate-400 w-8 text-right">(25%)</span></span>
                         </li>
                         <li class="flex justify-between items-center">
                             <span class="flex items-center gap-2"><span
-                                    class="w-3 h-3 bg-orange-400 rounded flex items-center justify-center text-[8px] text-white">⏸</span>
-                                On Hold</span>
-                            <span class="flex gap-4"><span>0</span><span
-                                    class="text-slate-400 w-8 text-right">(0%)</span></span>
+                                    class="w-3 h-3 bg-red-500 rounded flex items-center justify-center text-[8px] text-white">⏸</span>
+                                Bloqueado</span>
+                            <span class="flex gap-4"><span>1</span><span
+                                    class="text-slate-400 w-8 text-right">(8%)</span></span>
                         </li>
                         <li class="flex justify-between items-center">
                             <span class="flex items-center gap-2"><span
-                                    class="w-3 h-3 bg-blue-400 rounded flex items-center justify-center text-[8px] text-white">?</span>
-                                Under evaluation</span>
-                            <span class="flex gap-4"><span>0</span><span
-                                    class="text-slate-400 w-8 text-right">(0%)</span></span>
-                        </li>
-                        <li class="flex justify-between items-center">
-                            <span class="flex items-center gap-2"><span
-                                    class="w-3 h-3 bg-red-500 rounded flex items-center justify-center text-[8px] text-white">✕</span>
-                                Cancelled</span>
-                            <span class="flex gap-4"><span>0</span><span
-                                    class="text-slate-400 w-8 text-right">(0%)</span></span>
+                                    class="w-3 h-3 bg-slate-400 rounded flex items-center justify-center text-[8px] text-white">✓</span>
+                                Completado (hoy)</span>
+                            <span class="flex gap-4"><span>3</span><span
+                                    class="text-slate-400 w-8 text-right">(25%)</span></span>
                         </li>
                     </ul>
                     <button
-                        class="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 font-medium mt-4">Campaign
-                        overview&gt;</button>
+                        class="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 font-medium mt-4">Ver
+                        todos los ciclos &gt;</button>
                 </div>
-                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Second tier program</h3>
+                <!-- OBJETIVOS DEL MES -->
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm" id="sidebar-monthly-targets">
+                    <h3 class="font-bold text-slate-900 mb-4 text-sm">Objetivos del Mes</h3>
                     <div class="mb-2">
-                        <p class="text-[11px] font-semibold text-slate-700">Referred</p>
+                        <p class="text-[11px] font-semibold text-slate-700">Meta de Balance</p>
                         <div class="flex justify-between text-[11px] text-slate-500 mt-1">
-                            <span>June 2024</span>
-                            <span class="font-semibold text-slate-900">0 Affiliate (s)</span>
+                            <span>Actual</span>
+                            <span class="font-semibold text-slate-900" id="current-balance">€10,543.25</span>
                         </div>
                         <div class="flex justify-between text-[11px] text-slate-500 mt-1">
-                            <span>Total</span>
-                            <span class="font-semibold text-slate-900">0 Affiliate (s)</span>
+                            <span>Objetivo</span>
+                            <span class="font-semibold text-green-600">€12,000.00</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2">
+                            <div class="bg-green-500 h-1.5 rounded-full" style="width: 92%"></div>
                         </div>
                     </div>
                     <div class="mt-4 pt-4 border-t border-slate-50">
-                        <p class="text-[11px] font-semibold text-slate-700">Referred</p>
+                        <p class="text-[11px] font-semibold text-slate-700">Meta de Pips</p>
                         <div class="flex justify-between text-[11px] text-slate-500 mt-1">
-                            <span>Previous month</span>
-                            <span class="font-semibold text-slate-900">€0.00</span>
+                            <span>Este mes</span>
+                            <span class="font-semibold text-green-600" id="monthly-pips">+245 pips</span>
                         </div>
                         <div class="flex justify-between text-[11px] text-slate-500 mt-1">
-                            <span>Total</span>
-                            <span class="font-semibold text-slate-900">€0.00</span>
+                            <span>Objetivo</span>
+                            <span class="font-semibold text-slate-900">200 pips</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2">
+                            <div class="bg-green-500 h-1.5 rounded-full" style="width: 100%"></div>
+                        </div>
+                        <p class="text-[9px] text-green-600 mt-1">✓ Objetivo cumplido (+22%)</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-50">
+                        <p class="text-[11px] font-semibold text-slate-700">Max Drawdown Permitido</p>
+                        <div class="flex justify-between text-[11px] text-slate-500 mt-1">
+                            <span>Actual</span>
+                            <span class="font-semibold text-green-600">-2.4%</span>
+                        </div>
+                        <div class="flex justify-between text-[11px] text-slate-500 mt-1">
+                            <span>Límite</span>
+                            <span class="font-semibold text-red-500">-10%</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2">
+                            <div class="bg-green-500 h-1.5 rounded-full" style="width: 24%"></div>
                         </div>
                     </div>
                     <button
-                        class="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 font-medium mt-4">Campaign
-                        details&gt;</button>
+                        class="w-full py-2 border border-slate-200 rounded-lg text-xs text-slate-600 hover:bg-slate-50 font-medium mt-4">Configurar
+                        objetivos &gt;</button>
                 </div>
             </aside>
         </div>
