@@ -7527,3 +7527,38 @@ python scripts/csv_to_parquet.py data/tickdata/ -o data/parquet/
 - [ ] Protección del Core: Cythonización de `strategy.py` y `risk_manager.py` (último paso)
 
 ---
+
+## Fase 5: Despliegue en Producción (VPS)
+
+**Objetivo:** Ejecutar el sistema 24/7 en VPS Windows para no depender de PC local.
+
+### Requisitos de Infraestructura
+
+| Componente | Requisito                              |
+| ---------- | -------------------------------------- |
+| **OS**     | Windows Server 2019/2022               |
+| **RAM**    | 2-4 GB mínimo                          |
+| **CPU**    | 2 vCores                               |
+| **Disco**  | 50 GB SSD                              |
+| **Puerto** | 8000 (Dashboard), 443 (HTTPS opcional) |
+
+### Proveedores VPS Recomendados
+
+| Proveedor    | Precio/mes | Latencia   | Notas                         |
+| ------------ | ---------- | ---------- | ----------------------------- |
+| **Contabo**  | ~€8-12     | Frankfurt  | Económico, bueno para empezar |
+| **ForexVPS** | ~$25-50    | NY4/LD4    | Optimizado para brokers       |
+| **BeeksFX**  | ~$25-40    | Ultra-baja | Cerca de servidores broker    |
+
+### Tareas Fase 5
+
+- [ ] Elegir proveedor VPS Windows
+- [ ] Configurar VPS (RDP, firewall, Python, MT5)
+- [ ] Crear servicio Windows para arranque automático de WSPlumber
+- [ ] Configurar HTTPS con certificado SSL (opcional)
+- [ ] Script de despliegue automatizado
+- [ ] Monitoreo y alertas (uptime, errores)
+- [ ] Backup automático de configuración
+
+---
+
