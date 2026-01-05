@@ -372,6 +372,8 @@ class StrategySignal:
     signal_type: SignalType
     pair: CurrencyPair
     direction: Optional[Direction] = None
+    entry_price: Optional[Price] = None
+    tp_price: Optional[Price] = None
     operations_to_close: Optional[List[OperationId]] = None
     metadata: Optional[Dict[str, Any]] = None
     timestamp: Timestamp = field(default_factory=datetime.now)

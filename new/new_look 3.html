@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+
+<head>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>Nexus Trade - Dashboard</title>
+  <link href="https://fonts.googleapis.com" rel="preconnect" />
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap"
+    rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+    rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            background: "#050505",
+            surface: "#0A0A0A",
+            "surface-highlight": "#121212",
+            primary: "#254194", // Refined Deep Navy
+            "primary-light": "#93c5fd", // Softer blue
+            "primary-soft": "rgba(37, 65, 148, 0.1)",
+            text: {
+              main: "#F0F0F0",
+              muted: "#9ca3af",
+              dim: "#525252"
+            },
+            border: "rgba(255, 255, 255, 0.08)"
+          },
+          fontFamily: {
+            display: ['"Plus Jakarta Sans"', 'sans-serif'],
+            body: ['"Inter"', 'sans-serif'],
+          },
+          borderRadius: {
+            DEFAULT: "4px",
+            'lg': "8px",
+            'xl': "12px",
+            '2xl': "16px",
+          },
+          backgroundImage: {
+            'gradient-subtle': 'linear-gradient(to bottom, rgba(255,255,255,0.03), rgba(255,255,255,0))',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body {
+      background-color: #050505;
+      color: #F0F0F0;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #050505;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #262626;
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #404040;
+    }
+
+    .text-balance {
+      text-wrap: balance;
+    }
+  </style>
+</head>
+
+<body class="font-body antialiased selection:bg-primary/30 selection:text-white bg-background">
+  <nav class="fixed w-full z-50 transition-all duration-300 bg-[#050505]/90 backdrop-blur-sm border-b border-white/5">
+    <div class="max-w-[1600px] mx-auto px-6 lg:px-8">
+      <div class="flex justify-between items-center h-20">
+        <div class="flex items-center gap-3">
+          <div
+            class="w-8 h-8 rounded-lg bg-primary/20 border border-primary/20 flex items-center justify-center text-primary-light">
+            <span class="material-symbols-outlined" style="font-size: 20px;">candlestick_chart</span>
+          </div>
+          <span class="font-display font-semibold text-lg tracking-tight text-white">Nexus<span
+              class="text-white/30">Trade</span></span>
+        </div>
+        <div class="hidden md:flex items-center gap-8">
+          <a class="text-sm font-medium text-white transition-colors border-b-2 border-primary pb-0.5"
+            href="#">Dashboard</a>
+          <a class="text-sm font-medium text-text-muted hover:text-white transition-colors" href="#">Mis Bots</a>
+          <a class="text-sm font-medium text-text-muted hover:text-white transition-colors" href="#">Mercado</a>
+          <a class="text-sm font-medium text-text-muted hover:text-white transition-colors" href="#">Cartera</a>
+          <a class="text-sm font-medium text-text-muted hover:text-white transition-colors" href="#">Configuración</a>
+        </div>
+        <div class="flex items-center gap-4">
+          <button
+            class="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/5 text-text-muted transition-colors relative">
+            <span class="material-symbols-outlined text-[20px]">notifications</span>
+            <span class="absolute top-2 right-2.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-background"></span>
+          </button>
+          <div class="h-8 w-[1px] bg-white/10 mx-1"></div>
+          <div class="flex items-center gap-3 pl-1">
+            <div class="text-right hidden sm:block">
+              <p class="text-xs font-medium text-white">Alex Morgan</p>
+              <p class="text-[10px] text-text-muted">Pro Plan</p>
+            </div>
+            <div
+              class="w-9 h-9 rounded-full bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white font-medium text-xs shadow-lg shadow-blue-900/20">
+              AM
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <main class="pt-28 pb-12 px-6 lg:px-8 max-w-[1600px] mx-auto">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+      <div>
+        <h1 class="text-3xl font-display font-medium text-white mb-2">Resumen General</h1>
+        <p class="text-text-muted text-sm font-light">Bienvenido de nuevo. Aquí está el rendimiento de tus bots hoy.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span
+          class="text-xs text-text-muted font-mono bg-surface border border-white/5 px-3 py-1.5 rounded-lg flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          System Operational
+        </span>
+        <button
+          class="bg-primary/10 hover:bg-primary/20 text-primary-light border border-primary/20 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+          <span class="material-symbols-outlined text-[18px]">add</span>
+          Nuevo Bot
+        </button>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+      <div class="bg-surface border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors group">
+        <div class="flex justify-between items-start mb-4">
+          <div class="p-2 rounded-lg bg-white/5 text-text-muted group-hover:text-white transition-colors">
+            <span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+          </div>
+          <span
+            class="text-emerald-500 text-xs font-medium bg-emerald-500/10 border border-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1">
+            <span class="material-symbols-outlined text-[12px]">trending_up</span> +2.4%
+          </span>
+        </div>
+        <p class="text-text-muted text-xs uppercase tracking-wider mb-1">Valor Total</p>
+        <p class="text-2xl font-display font-medium text-white">$124,592.40</p>
+      </div>
+      <div class="bg-surface border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors group">
+        <div class="flex justify-between items-start mb-4">
+          <div class="p-2 rounded-lg bg-white/5 text-text-muted group-hover:text-primary-light transition-colors">
+            <span class="material-symbols-outlined text-[20px]">monitoring</span>
+          </div>
+          <span
+            class="text-emerald-500 text-xs font-medium bg-emerald-500/10 border border-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1">
+            +$1,240.50
+          </span>
+        </div>
+        <p class="text-text-muted text-xs uppercase tracking-wider mb-1">P/L (24h)</p>
+        <p class="text-2xl font-display font-medium text-white">$4,280.15</p>
+      </div>
+      <div class="bg-surface border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors group">
+        <div class="flex justify-between items-start mb-4">
+          <div class="p-2 rounded-lg bg-white/5 text-text-muted group-hover:text-white transition-colors">
+            <span class="material-symbols-outlined text-[20px]">smart_toy</span>
+          </div>
+          <span class="text-text-dim text-xs font-medium border border-white/5 px-2 py-0.5 rounded">
+            3/5 Activos
+          </span>
+        </div>
+        <p class="text-text-muted text-xs uppercase tracking-wider mb-1">Bots Activos</p>
+        <p class="text-2xl font-display font-medium text-white">3 <span
+            class="text-base text-text-dim font-light">Running</span></p>
+      </div>
+      <div class="bg-surface border border-white/5 rounded-xl p-5 hover:border-white/10 transition-colors group">
+        <div class="flex justify-between items-start mb-4">
+          <div class="p-2 rounded-lg bg-white/5 text-text-muted group-hover:text-white transition-colors">
+            <span class="material-symbols-outlined text-[20px]">layers</span>
+          </div>
+          <span class="text-text-muted text-xs font-medium">Vol: $450k</span>
+        </div>
+        <p class="text-text-muted text-xs uppercase tracking-wider mb-1">Operaciones Abiertas</p>
+        <p class="text-2xl font-display font-medium text-white">12</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <div class="lg:col-span-2 space-y-6">
+        <div class="bg-surface border border-white/5 rounded-xl p-6 shadow-xl relative overflow-hidden">
+          <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
+            <div>
+              <h2 class="text-lg font-display font-medium text-white">Rendimiento de Cartera</h2>
+              <p class="text-xs text-text-muted font-light mt-1">Comparativa vs BTC Benchmark</p>
+            </div>
+            <div class="flex bg-white/5 rounded-lg p-1 border border-white/5">
+              <button
+                class="px-3 py-1 text-xs font-medium text-text-muted hover:text-white transition-colors">1H</button>
+              <button
+                class="px-3 py-1 text-xs font-medium text-text-muted hover:text-white transition-colors">1D</button>
+              <button
+                class="px-3 py-1 text-xs font-medium bg-white/10 text-white rounded shadow-sm transition-colors">1W</button>
+              <button
+                class="px-3 py-1 text-xs font-medium text-text-muted hover:text-white transition-colors">1M</button>
+            </div>
+          </div>
+          <div class="relative h-[300px] w-full mt-4 group">
+            <div
+              class="absolute inset-0 flex flex-col justify-between text-[10px] text-text-dim font-mono pointer-events-none">
+              <div class="border-b border-white/5 w-full h-0"></div>
+              <div class="border-b border-white/5 w-full h-0"></div>
+              <div class="border-b border-white/5 w-full h-0"></div>
+              <div class="border-b border-white/5 w-full h-0"></div>
+              <div class="border-b border-white/5 w-full h-0"></div>
+            </div>
+            <svg class="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none"
+              viewBox="0 0 100 100">
+              <defs>
+                <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#254194" stop-opacity="0.3"></stop>
+                  <stop offset="100%" stop-color="#254194" stop-opacity="0"></stop>
+                </linearGradient>
+              </defs>
+              <path
+                d="M0,80 C10,75 15,78 20,65 C25,55 30,60 40,45 C50,30 55,40 60,35 C70,25 75,30 85,20 C90,15 95,18 100,10"
+                fill="url(#chartGradient)" stroke="#3b82f6" stroke-width="0.5" vector-effect="non-scaling-stroke">
+              </path>
+              <path class="drop-shadow-[0_0_10px_rgba(37,65,148,0.5)]"
+                d="M0,80 C10,75 15,78 20,65 C25,55 30,60 40,45 C50,30 55,40 60,35 C70,25 75,30 85,20 C90,15 95,18 100,10"
+                fill="none" stroke="#254194" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+            </svg>
+            <div
+              class="absolute top-[35%] left-[60%] w-px h-[65%] bg-white/10 border-r border-dashed border-white/20 hidden group-hover:block pointer-events-none">
+            </div>
+            <div
+              class="absolute top-[25%] left-[60%] -translate-x-1/2 bg-[#141414] border border-white/10 p-3 rounded-lg shadow-2xl hidden group-hover:block z-10">
+              <p class="text-[10px] text-text-muted mb-1">Oct 24, 14:30</p>
+              <p class="text-sm font-medium text-white">$123,840.50</p>
+            </div>
+            <div
+              class="absolute top-[35%] left-[60%] -translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-primary border-2 border-surface rounded-full shadow-[0_0_10px_rgba(37,65,148,0.8)] hidden group-hover:block">
+            </div>
+          </div>
+        </div>
+        <div class="bg-surface border border-white/5 rounded-xl p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-display font-medium text-white">Operaciones Recientes</h2>
+            <a class="text-xs text-primary-light hover:text-white transition-colors" href="#">Ver todo</a>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-white/5">
+                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider">Par</th>
+                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider">Bot</th>
+                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider">Tipo</th>
+                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider">Precio</th>
+                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider">Hora</th>
+                  <th class="pb-3 text-xs font-medium text-text-muted uppercase tracking-wider text-right">P/L</th>
+                </tr>
+              </thead>
+              <tbody class="text-sm">
+                <tr class="group hover:bg-white/[0.02] transition-colors border-b border-white/5">
+                  <td class="py-4">
+                    <div class="flex items-center gap-2">
+                      <div
+                        class="w-6 h-6 rounded-full bg-orange-500/10 flex items-center justify-center text-[10px] text-orange-500 font-bold border border-orange-500/20">
+                        ₿</div>
+                      <span class="text-white font-medium">BTC/USDT</span>
+                    </div>
+                  </td>
+                  <td class="py-4 text-text-muted">Alpha Centauri</td>
+                  <td class="py-4"><span
+                      class="text-red-400 bg-red-400/10 px-2 py-0.5 rounded text-xs border border-red-400/10">Venta</span>
+                  </td>
+                  <td class="py-4 text-text-dim font-mono">$34,250.00</td>
+                  <td class="py-4 text-text-dim text-xs">Hace 2 min</td>
+                  <td class="py-4 text-right text-emerald-500 font-medium">+$245.00</td>
+                </tr>
+                <tr class="group hover:bg-white/[0.02] transition-colors border-b border-white/5">
+                  <td class="py-4">
+                    <div class="flex items-center gap-2">
+                      <div
+                        class="w-6 h-6 rounded-full bg-indigo-500/10 flex items-center justify-center text-[10px] text-indigo-500 font-bold border border-indigo-500/20">
+                        Ξ</div>
+                      <span class="text-white font-medium">ETH/USDT</span>
+                    </div>
+                  </td>
+                  <td class="py-4 text-text-muted">Beta Wave</td>
+                  <td class="py-4"><span
+                      class="text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-xs border border-emerald-400/10">Compra</span>
+                  </td>
+                  <td class="py-4 text-text-dim font-mono">$1,780.50</td>
+                  <td class="py-4 text-text-dim text-xs">Hace 15 min</td>
+                  <td class="py-4 text-right text-text-dim">-</td>
+                </tr>
+                <tr class="group hover:bg-white/[0.02] transition-colors border-b border-white/5">
+                  <td class="py-4">
+                    <div class="flex items-center gap-2">
+                      <div
+                        class="w-6 h-6 rounded-full bg-purple-500/10 flex items-center justify-center text-[10px] text-purple-500 font-bold border border-purple-500/20">
+                        S</div>
+                      <span class="text-white font-medium">SOL/USDT</span>
+                    </div>
+                  </td>
+                  <td class="py-4 text-text-muted">Gamma Ray</td>
+                  <td class="py-4"><span
+                      class="text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-xs border border-emerald-400/10">Compra</span>
+                  </td>
+                  <td class="py-4 text-text-dim font-mono">$32.40</td>
+                  <td class="py-4 text-text-dim text-xs">Hace 45 min</td>
+                  <td class="py-4 text-right text-text-dim">-</td>
+                </tr>
+                <tr class="group hover:bg-white/[0.02] transition-colors">
+                  <td class="py-4">
+                    <div class="flex items-center gap-2">
+                      <div
+                        class="w-6 h-6 rounded-full bg-orange-500/10 flex items-center justify-center text-[10px] text-orange-500 font-bold border border-orange-500/20">
+                        ₿</div>
+                      <span class="text-white font-medium">BTC/USDT</span>
+                    </div>
+                  </td>
+                  <td class="py-4 text-text-muted">Alpha Centauri</td>
+                  <td class="py-4"><span
+                      class="text-red-400 bg-red-400/10 px-2 py-0.5 rounded text-xs border border-red-400/10">Venta</span>
+                  </td>
+                  <td class="py-4 text-text-dim font-mono">$34,100.00</td>
+                  <td class="py-4 text-text-dim text-xs">Hace 1h 20m</td>
+                  <td class="py-4 text-right text-emerald-500 font-medium">+$112.50</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="space-y-6">
+        <div class="bg-surface border border-white/5 rounded-xl p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-display font-medium text-white">Estado de Bots</h2>
+            <button class="text-text-muted hover:text-white"><span
+                class="material-symbols-outlined text-[20px]">more_horiz</span></button>
+          </div>
+          <div class="space-y-4">
+            <div class="bg-white/[0.02] border border-white/5 rounded-lg p-4 hover:border-white/10 transition-all">
+              <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                  <span class="font-medium text-white text-sm">Alpha Centauri</span>
+                </div>
+                <span class="text-xs font-mono text-emerald-500">+4.5%</span>
+              </div>
+              <div class="flex justify-between items-end">
+                <div class="text-xs text-text-muted">
+                  <span class="block mb-1">Estrategia: Scalping</span>
+                  <span class="font-mono text-text-dim">BTC/USDT</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input checked="" class="sr-only peer" type="checkbox" value="" />
+                  <div
+                    class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary">
+                  </div>
+                </label>
+              </div>
+            </div>
+            <div class="bg-white/[0.02] border border-white/5 rounded-lg p-4 hover:border-white/10 transition-all">
+              <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                  <span class="font-medium text-white text-sm">Beta Wave</span>
+                </div>
+                <span class="text-xs font-mono text-emerald-500">+1.2%</span>
+              </div>
+              <div class="flex justify-between items-end">
+                <div class="text-xs text-text-muted">
+                  <span class="block mb-1">Estrategia: Swing</span>
+                  <span class="font-mono text-text-dim">ETH/USDT</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input checked="" class="sr-only peer" type="checkbox" value="" />
+                  <div
+                    class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary">
+                  </div>
+                </label>
+              </div>
+            </div>
+            <div
+              class="bg-white/[0.02] border border-white/5 rounded-lg p-4 opacity-70 hover:opacity-100 transition-all">
+              <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                  <span class="font-medium text-text-muted text-sm">Gamma Ray</span>
+                </div>
+                <span class="text-xs font-mono text-text-dim">0.0%</span>
+              </div>
+              <div class="flex justify-between items-end">
+                <div class="text-xs text-text-muted">
+                  <span class="block mb-1">Estrategia: Arbitraje</span>
+                  <span class="font-mono text-text-dim">SOL/USDT</span>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input class="sr-only peer" type="checkbox" value="" />
+                  <div
+                    class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary">
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-surface border border-white/5 rounded-xl p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-display font-medium text-white">Watchlist</h2>
+            <button class="text-text-muted hover:text-white"><span
+                class="material-symbols-outlined text-[20px]">settings</span></button>
+          </div>
+          <div class="space-y-2">
+            <div
+              class="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                  <img alt="BTC" class="w-4 h-4 invert opacity-80"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtGv7aydxuosaHD37dY3zneI7ZedrVWIf4XNxHx0Wijs-fM3TDoe6jOhRI4t-GxAEPBGLM9_cHPuZmZngyJmomGH915Drw2LKjthV0hwWH_Le2idHXjzmUMEBOXTBIFvq8BROMSd3Qe-11hrqzv_CNsUoytH3dAzZyE93HWJVEghT_WJvUXnxlRFKvMVzjkC1AU8jxJvwQq5stIZyqtXrTINmkY3Ki82Nqn3Pd9V1h2P05viGsHuA8p0gIu0NsC1ws3ECRlR48" />
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-white group-hover:text-primary-light transition-colors">Bitcoin</p>
+                  <p class="text-xs text-text-dim">BTC</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-medium text-white">$34,210</p>
+                <p class="text-xs text-emerald-500">+1.4%</p>
+              </div>
+            </div>
+            <div
+              class="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                  <img alt="ETH" class="w-4 h-4 invert opacity-80"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuBlE0j1ignrgiRqLyuUarwDtea4o-FTSfOI7tDJJ200d4gHW1jM4fQLRj7Z24yxprH8-xA-qd1KnUZ4yLk_-L47YTCIW3KtIVi6FhoUsLHUqXT_LiGeONFaY4eq1MrMVpgC0aVCDDctJmj-hg9C63fqzmviBiYLBfTqQ1MNWlGa_BuDKniDZun66QP66phCcekV9kCVTuEaak0rMyvEaFJ4XofCV-jZWgJOGPAbW3oN3TN9tGp0noY2TtyXNOGxohB9Pkd5PlFk" />
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-white group-hover:text-primary-light transition-colors">Ethereum
+                  </p>
+                  <p class="text-xs text-text-dim">ETH</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-medium text-white">$1,792</p>
+                <p class="text-xs text-red-500">-0.8%</p>
+              </div>
+            </div>
+            <div
+              class="flex items-center justify-between p-3 hover:bg-white/5 rounded-lg transition-colors cursor-pointer group">
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+                  <img alt="SOL" class="w-4 h-4 invert opacity-80"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYAhSJkohTxgBIdEWqTaAwY5u4wa1UJ5DcK_oKJBCS4v6N8PMWZzQF5IafaHOcYGmgvCZF4ZIv_bJkTy33ymgraXkJ8yca5iHjTHk1oSsnZ0uohC0HCv0EG3kujB0ar4RG-ruEQ3hN7EE-a8Jw1aX8m3DTjgVA-T4CEim1GnfeK_vSV0Sd2IN2t0ZMcn40QH2y4-zLuUcsMsZ5cw_iviqDFGZ7EEMVcCIqv-NIM08zo-Keodz3BMlox74i-5DiX_9eK3gdFNIO" />
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-white group-hover:text-primary-light transition-colors">Solana</p>
+                  <p class="text-xs text-text-dim">SOL</p>
+                </div>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-medium text-white">$32.10</p>
+                <p class="text-xs text-emerald-500">+5.2%</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer class="border-t border-white/5 mt-12 py-8 bg-[#020202]">
+    <div class="max-w-[1600px] mx-auto px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div class="text-xs text-text-dim font-mono">
+        Server Time: 14:32:05 UTC • Latency: 24ms
+      </div>
+      <div class="flex gap-6 text-xs text-text-muted">
+        <a class="hover:text-white transition-colors" href="#">Soporte</a>
+        <a class="hover:text-white transition-colors" href="#">Documentación API</a>
+        <a class="hover:text-white transition-colors" href="#">Estado del Sistema</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+
+</html>

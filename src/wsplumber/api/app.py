@@ -12,6 +12,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 
 from wsplumber.config.settings import get_settings
+from wsplumber.api.routers import websocket
 
 # Configuración
 settings = get_settings()
@@ -20,6 +21,9 @@ app = FastAPI(
     description="Estrategia Algorítmica de Alta Fidelidad",
     version="0.1.0"
 )
+
+# Registrar Routers
+app.include_router(websocket.router)
 
 # Rutas de Archivos
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -38,6 +42,14 @@ async def read_landing(request: Request):
     return templates.TemplateResponse(
         "pages/landing.html", 
         {"request": request, "title": "WS Plumber - Inicio"}
+    )
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def read_dashboard(request: Request):
+    """Ruta del Dashboard V2."""
+    return templates.TemplateResponse(
+        "pages/dashboard.html",
+        {"request": request, "title": "WS Plumber - Dashboard"}
     )
 
 @app.get("/health")

@@ -75,8 +75,8 @@ class SupabaseConfig(BaseConfig):
         extra="ignore",
     )
 
-    url: str = Field(..., description="URL de Supabase")
-    key: str = Field(..., description="Anon key de Supabase")
+    url: str = Field(default="", description="URL de Supabase")
+    key: str = Field(default="", description="Anon key de Supabase")
     service_key: Optional[str] = Field(None, description="Service role key (admin)")
 
     @property

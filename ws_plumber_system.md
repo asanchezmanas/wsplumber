@@ -7301,6 +7301,9 @@ Para asegurar la longevidad y mantenibilidad del sistema sin depender de ciclos 
 ### 🚀 Próximos Pasos (Pendientes)
 - [ ] Configuración del dashboard en tiempo real (WebSockets).
 
+> [!NOTE]
+> **Fase 2: Operativa Normal completada.** La lógica de decisión activa está implementada en `_engine.py` e integrada con el orquestador. El sistema ahora decide autónomamente cuándo abrir ciclos y recoveries basándose en la distancia de pips y el estado FIFO.
+
 ---
 
 ## 🔍 Validación de Integridad (System Checks)
@@ -7328,6 +7331,7 @@ Este apartado detalla la correspondencia entre los requisitos teóricos y la imp
 
 - `test_strategy_core.py`: Verifica cálculos de pips y niveles para pares estándar y JPY. [PASSED]
 - `test_cycle_accounting.py`: Verifica la integridad de la cola FIFO y la neutralización matemática de deudas. [PASSED]
+- `test_engine_signals.py`: Verifica la lógica de decisión del engine (OPEN_CYCLE, spread safety, cycle management). [PASSED]
 
 ---
 
