@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Trading Robot Dashboard</title>
+    <!-- Material Symbols -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <!-- Google Fonts: Manrope -->
+    <link href="https://fonts.googleapis.com" rel="preconnect" />
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <!-- Theme Configuration -->
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1414b8", // Navy Blue
+                        "background-light": "#F8F9FA", // Soft off-white for main bg
+                        "background-card": "#FFFFFF", // Pure white for cards
+                        "background-dark": "#111121",
+                        "text-main": "#0E0E1B", // Deep charcoal
+                        "text-secondary": "#6B7280", // Cool gray
+                        "border-subtle": "#E5E7EB", // Very light border
+                        "success": "#059669",
+                        "danger": "#DC2626",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.375rem", // 6px rounded-md
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.02)',
+                        'card': '0 0 0 1px rgba(0,0,0,0.03), 0 2px 8px rgba(0,0,0,0.04)',
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+
+        /* Custom scrollbar for refined look */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .nav-item-active {
+            background-color: rgba(20, 20, 184, 0.08);
+            /* Primary with low opacity */
+            color: #1414b8;
+        }
+
+        .nav-item-active .icon {
+            font-variation-settings: 'FILL' 1;
+        }
+
+        .nav-item-inactive {
+            color: #64748b;
+        }
+
+        .nav-item-inactive:hover {
+            color: #0f172a;
+            background-color: #f1f5f9;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-background-light dark:bg-background-dark text-text-main antialiased min-h-screen flex flex-col md:flex-row overflow-hidden">
+    <!-- Sidebar Navigation -->
+    <aside
+        class="w-full md:w-64 bg-background-card dark:bg-[#1a1a2e] border-r border-border-subtle flex flex-col justify-between h-auto md:h-screen shrink-0 z-20">
+        <div class="p-6 flex flex-col gap-8">
+            <!-- Brand -->
+            <div class="flex items-center gap-3 px-2">
+                <div
+                    class="size-8 rounded-lg bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center text-white shadow-md">
+                    <span class="material-symbols-outlined text-[20px]">candlestick_chart</span>
+                </div>
+                <div>
+                    <h1 class="text-text-main text-lg font-bold tracking-tight leading-none">TradeBot</h1>
+                    <p class="text-text-secondary text-xs font-medium">Pro European</p>
+                </div>
+            </div>
+            <!-- Navigation Links -->
+            <nav class="flex flex-col gap-1">
+                <a class="nav-item-active flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group"
+                    href="#">
+                    <span class="material-symbols-outlined icon text-[22px]">dashboard</span>
+                    <span class="text-sm font-semibold">Dashboard</span>
+                </a>
+                <a class="nav-item-inactive flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group"
+                    href="#">
+                    <span class="material-symbols-outlined icon text-[22px]">smart_toy</span>
+                    <span class="text-sm font-medium">Active Bots</span>
+                </a>
+                <a class="nav-item-inactive flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group"
+                    href="#">
+                    <span class="material-symbols-outlined icon text-[22px]">history</span>
+                    <span class="text-sm font-medium">History</span>
+                </a>
+                <a class="nav-item-inactive flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group"
+                    href="#">
+                    <span class="material-symbols-outlined icon text-[22px]">account_balance_wallet</span>
+                    <span class="text-sm font-medium">Wallet</span>
+                </a>
+                <a class="nav-item-inactive flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group"
+                    href="#">
+                    <span class="material-symbols-outlined icon text-[22px]">analytics</span>
+                    <span class="text-sm font-medium">Analytics</span>
+                </a>
+            </nav>
+        </div>
+        <div class="p-6 border-t border-border-subtle">
+            <a class="nav-item-inactive flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group mb-2"
+                href="#">
+                <span class="material-symbols-outlined icon text-[22px]">settings</span>
+                <span class="text-sm font-medium">Settings</span>
+            </a>
+            <div class="flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-gray-50 border border-gray-100">
+                <div class="size-9 rounded-full bg-cover bg-center shrink-0"
+                    data-alt="Portrait of a professional man in a suit"
+                    style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAyZz2YdPg3ZPzdU-qHASiwDDYaqCwlobAN1sitjd8f4cyew6Dr9wvfGS-Yzx9V7plVGvWRVDVGnn1mYvXe0ZUbaDxajV4kdn-BrYZVfJC_sCMkTPYWhasavR6rutFE3OCzBuZl_sahy3_EoW1LIimEBPK2GO7BP06fGBHkgpyQOfGp6BSLQOeTjBAcdpWcw-w1uviMNzTiMLW4T_DmiJDYR3Ams9mRoOMg8bpxkEmoo5-bEohKYTer_js-rPf63bXANMyYmXkz");'>
+                </div>
+                <div class="flex flex-col overflow-hidden">
+                    <p class="text-text-main text-sm font-bold truncate">Alex M.</p>
+                    <p class="text-text-secondary text-xs truncate">Premium Plan</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+        <!-- Top Header (Mobile mainly, but structured for desktop too) -->
+        <header
+            class="h-16 shrink-0 bg-background-light dark:bg-background-dark flex items-center justify-between px-6 md:px-10 py-4 z-10">
+            <!-- Breadcrumbs / Title -->
+            <div>
+                <h2 class="text-2xl font-bold text-text-main tracking-tight">Portfolio Overview</h2>
+                <p class="text-text-secondary text-sm hidden md:block">Welcome back, here is your performance summary.
+                </p>
+            </div>
+            <!-- Actions -->
+            <div class="flex items-center gap-4">
+                <!-- Date Picker -->
+                <button
+                    class="hidden md:flex items-center gap-2 bg-white border border-gray-200 hover:border-primary/30 shadow-sm text-text-main px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                    <span class="material-symbols-outlined text-text-secondary text-[18px]">calendar_today</span>
+                    <span>Last 30 Days</span>
+                    <span class="material-symbols-outlined text-text-secondary text-[18px]">expand_more</span>
+                </button>
+                <button
+                    class="size-10 flex items-center justify-center rounded-full bg-white border border-gray-200 shadow-sm text-text-secondary hover:text-primary transition-colors relative">
+                    <span class="material-symbols-outlined text-[20px]">notifications</span>
+                    <span class="absolute top-2.5 right-2.5 size-2 bg-red-500 rounded-full border border-white"></span>
+                </button>
+            </div>
+        </header>
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto px-6 md:px-10 pb-10 pt-2">
+            <div class="max-w-[1400px] mx-auto flex flex-col gap-6">
+                <!-- KPI Cards Row -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                    <!-- Card 1 -->
+                    <div
+                        class="bg-background-card rounded-xl p-5 shadow-card border border-transparent hover:border-gray-200 transition-all group">
+                        <div class="flex justify-between items-start mb-2">
+                            <p class="text-text-secondary text-sm font-medium">Total Net Profit</p>
+                            <span
+                                class="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1">
+                                <span class="material-symbols-outlined text-[14px]">trending_up</span> +4.5%
+                            </span>
+                        </div>
+                        <h3 class="text-text-main text-2xl font-bold tracking-tight mb-4">$12,450.00</h3>
+                        <!-- Abstract Sparkline -->
+                        <div
+                            class="h-8 w-full flex items-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                            <div class="w-[10%] h-[30%] bg-emerald-100 rounded-sm"></div>
+                            <div class="w-[10%] h-[50%] bg-emerald-200 rounded-sm"></div>
+                            <div class="w-[10%] h-[40%] bg-emerald-200 rounded-sm"></div>
+                            <div class="w-[10%] h-[70%] bg-emerald-300 rounded-sm"></div>
+                            <div class="w-[10%] h-[55%] bg-emerald-300 rounded-sm"></div>
+                            <div class="w-[10%] h-[80%] bg-emerald-400 rounded-sm"></div>
+                            <div class="w-[10%] h-[60%] bg-emerald-400 rounded-sm"></div>
+                            <div class="w-[10%] h-[90%] bg-emerald-500 rounded-sm"></div>
+                            <div class="w-[10%] h-[75%] bg-emerald-500 rounded-sm"></div>
+                            <div class="w-[10%] h-[100%] bg-emerald-600 rounded-sm"></div>
+                        </div>
+                    </div>
+                    <!-- Card 2 -->
+                    <div
+                        class="bg-background-card rounded-xl p-5 shadow-card border border-transparent hover:border-gray-200 transition-all">
+                        <div class="flex justify-between items-start mb-2">
+                            <p class="text-text-secondary text-sm font-medium">Active Trades</p>
+                            <div class="size-8 rounded-full bg-blue-50 text-primary flex items-center justify-center">
+                                <span class="material-symbols-outlined text-[18px]">show_chart</span>
+                            </div>
+                        </div>
+                        <h3 class="text-text-main text-2xl font-bold tracking-tight mb-1">3</h3>
+                        <p class="text-text-secondary text-xs">2 Long, 1 Short positions</p>
+                    </div>
+                    <!-- Card 3 -->
+                    <div
+                        class="bg-background-card rounded-xl p-5 shadow-card border border-transparent hover:border-gray-200 transition-all">
+                        <div class="flex justify-between items-start mb-2">
+                            <p class="text-text-secondary text-sm font-medium">Win Rate</p>
+                            <span
+                                class="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1">
+                                +2.1%
+                            </span>
+                        </div>
+                        <h3 class="text-text-main text-2xl font-bold tracking-tight mb-1">68%</h3>
+                        <div class="w-full bg-gray-100 rounded-full h-1.5 mt-3 overflow-hidden">
+                            <div class="bg-primary h-1.5 rounded-full" style="width: 68%"></div>
+                        </div>
+                    </div>
+                    <!-- Card 4 -->
+                    <div
+                        class="bg-background-card rounded-xl p-5 shadow-card border border-transparent hover:border-gray-200 transition-all">
+                        <div class="flex justify-between items-start mb-2">
+                            <p class="text-text-secondary text-sm font-medium">ROI</p>
+                            <span
+                                class="bg-emerald-50 text-emerald-700 text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1">
+                                +1.2%
+                            </span>
+                        </div>
+                        <h3 class="text-text-main text-2xl font-bold tracking-tight mb-1">+14.5%</h3>
+                        <p class="text-text-secondary text-xs">All time return</p>
+                    </div>
+                </div>
+                <!-- Main Layout Split -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Left Column: Chart & Table (2/3 width) -->
+                    <div class="lg:col-span-2 flex flex-col gap-6">
+                        <!-- Chart Widget -->
+                        <div
+                            class="bg-background-card rounded-xl p-6 shadow-card border border-transparent flex flex-col h-[400px]">
+                            <div class="flex justify-between items-center mb-6">
+                                <div>
+                                    <h3 class="text-text-main text-lg font-bold">Equity Growth</h3>
+                                    <p class="text-text-secondary text-sm">Performance over time</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button
+                                        class="px-3 py-1 text-xs font-medium rounded bg-gray-100 text-text-secondary hover:bg-gray-200 transition-colors">1D</button>
+                                    <button
+                                        class="px-3 py-1 text-xs font-medium rounded bg-gray-100 text-text-secondary hover:bg-gray-200 transition-colors">1W</button>
+                                    <button
+                                        class="px-3 py-1 text-xs font-medium rounded bg-primary text-white shadow-sm">1M</button>
+                                    <button
+                                        class="px-3 py-1 text-xs font-medium rounded bg-gray-100 text-text-secondary hover:bg-gray-200 transition-colors">1Y</button>
+                                </div>
+                            </div>
+                            <!-- Chart Area -->
+                            <div class="flex-1 w-full relative">
+                                <!-- Grid Lines -->
+                                <div
+                                    class="absolute inset-0 flex flex-col justify-between text-xs text-text-secondary opacity-30 pointer-events-none">
+                                    <div class="w-full border-b border-dashed border-gray-300 h-0"></div>
+                                    <div class="w-full border-b border-dashed border-gray-300 h-0"></div>
+                                    <div class="w-full border-b border-dashed border-gray-300 h-0"></div>
+                                    <div class="w-full border-b border-dashed border-gray-300 h-0"></div>
+                                    <div class="w-full border-b border-gray-300 h-0"></div>
+                                </div>
+                                <!-- SVG Chart -->
+                                <svg class="w-full h-full overflow-visible" preserveaspectratio="none"
+                                    viewbox="0 0 800 250">
+                                    <defs>
+                                        <lineargradient id="gradientArea" x1="0" x2="0" y1="0" y2="1">
+                                            <stop offset="0%" stop-color="#1414b8" stop-opacity="0.1"></stop>
+                                            <stop offset="100%" stop-color="#1414b8" stop-opacity="0"></stop>
+                                        </lineargradient>
+                                    </defs>
+                                    <path
+                                        d="M0,200 Q40,180 80,150 T160,160 T240,100 T320,120 T400,60 T480,80 T560,40 T640,50 T720,20 T800,10"
+                                        fill="url(#gradientArea)" stroke="none"></path>
+                                    <path
+                                        d="M0,200 Q40,180 80,150 T160,160 T240,100 T320,120 T400,60 T480,80 T560,40 T640,50 T720,20 T800,10"
+                                        fill="none" stroke="#1414b8" stroke-linecap="round" stroke-linejoin="round"
+                                        stroke-width="3"></path>
+                                    <!-- Tooltip Indicator Point (Static) -->
+                                    <circle cx="560" cy="40" fill="#fff" r="6" stroke="#1414b8" stroke-width="3">
+                                    </circle>
+                                </svg>
+                                <!-- Tooltip (Static) -->
+                                <div
+                                    class="absolute top-[10%] left-[68%] bg-text-main text-white text-xs px-3 py-1.5 rounded-lg shadow-lg transform -translate-x-1/2 -translate-y-full mb-2 pointer-events-none">
+                                    <span class="font-bold">$44,230</span>
+                                    <div
+                                        class="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 bg-text-main rotate-45">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- X Axis Labels -->
+                            <div class="flex justify-between mt-4 text-xs text-text-secondary font-medium">
+                                <span>Jan 1</span>
+                                <span>Jan 5</span>
+                                <span>Jan 10</span>
+                                <span>Jan 15</span>
+                                <span>Jan 20</span>
+                                <span>Jan 25</span>
+                                <span>Jan 30</span>
+                            </div>
+                        </div>
+                        <!-- Active Trades Table -->
+                        <div
+                            class="bg-background-card rounded-xl shadow-card border border-transparent overflow-hidden">
+                            <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-white">
+                                <h3 class="text-text-main text-lg font-bold">Active Trades</h3>
+                                <button class="text-primary text-sm font-semibold hover:underline">View All</button>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr
+                                            class="bg-gray-50/50 text-xs uppercase tracking-wider text-text-secondary border-b border-gray-100">
+                                            <th class="px-6 py-4 font-semibold">Symbol</th>
+                                            <th class="px-6 py-4 font-semibold">Type</th>
+                                            <th class="px-6 py-4 font-semibold">Entry Price</th>
+                                            <th class="px-6 py-4 font-semibold">PnL</th>
+                                            <th class="px-6 py-4 font-semibold">Duration</th>
+                                            <th class="px-6 py-4 font-semibold text-right">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100 bg-white">
+                                        <!-- Row 1 -->
+                                        <tr class="hover:bg-gray-50/50 transition-colors">
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center gap-3">
+                                                    <div
+                                                        class="size-8 rounded-full bg-orange-100 flex items-center justify-center p-1.5">
+                                                        <img alt="BTC" class="w-full h-full"
+                                                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2CpSIb8IhSGsONriVjP1uNdzDK-AetowySmSrR48xBydlQD2jtuWt0GpX-r4G98jPo_oHOG2p2_JHHQZCALi4LN7H8UKj5cvlB09dcObzhHX-4kv_Yv9lGJ2YO61QXil0tY_qJN9nn3bgYyLFCi06VmYLndDUwGZHowHC452KizDxyn-y2JcYkMrQ-ypPMTxJa7pc3Kz1bDitFNUOJeitUIbXKfJ6VCUtwV2D8E8Ec6HmZH_VeVpok2bRNH62PGj5DKwfrJ-E" />
+                                                    </div>
+                                                    <span class="font-bold text-text-main text-sm">BTC/USDT</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <span
+                                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-green-50 text-green-700 border border-green-100">
+                                                    <span
+                                                        class="material-symbols-outlined text-[14px]">arrow_upward</span>
+                                                    Long
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm font-medium text-text-main">$42,100.00</td>
+                                            <td class="px-6 py-4 text-sm font-bold text-emerald-600">+$120.00</td>
+                                            <td class="px-6 py-4 text-sm text-text-secondary">4h 12m</td>
+                                            <td class="px-6 py-4 text-right">
+                                                <span
+                                                    class="inline-block size-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                            </td>
+                                        </tr>
+                                        <!-- Row 2 -->
+                                        <tr class="hover:bg-gray-50/50 transition-colors">
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center gap-3">
+                                                    <div
+                                                        class="size-8 rounded-full bg-indigo-100 flex items-center justify-center p-1.5">
+                                                        <img alt="ETH" class="w-full h-full"
+                                                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDS0z_1HxsRvewuaIHQCC6fQxHEQlSq3FwahqMFFLLbi5r301pyu1wbcY8qRxbXCo-qX4uWvLS5oEMf0Kw3JssoIAmYucIx43ajEySmCfK1E36MaE1vmlblWxXaez16W_eb3QRwc4iSSAbI18XVv-Fqc0BYOld8FWqjKAXiYmJwPXX1hetfZ4TpOtHUnjZDquLuuH1_GzWXS4OqdSRF20TjPWO4qxViDyeNUJ8ZC2syJvNaPchzWcffIR6D106xfCVTASzAxtSo" />
+                                                    </div>
+                                                    <span class="font-bold text-text-main text-sm">ETH/USDT</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <span
+                                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-red-50 text-red-700 border border-red-100">
+                                                    <span
+                                                        class="material-symbols-outlined text-[14px]">arrow_downward</span>
+                                                    Short
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm font-medium text-text-main">$2,200.50</td>
+                                            <td class="px-6 py-4 text-sm font-bold text-red-600">-$15.50</td>
+                                            <td class="px-6 py-4 text-sm text-text-secondary">1h 45m</td>
+                                            <td class="px-6 py-4 text-right">
+                                                <span
+                                                    class="inline-block size-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                            </td>
+                                        </tr>
+                                        <!-- Row 3 -->
+                                        <tr class="hover:bg-gray-50/50 transition-colors">
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center gap-3">
+                                                    <div
+                                                        class="size-8 rounded-full bg-purple-100 flex items-center justify-center p-1.5">
+                                                        <img alt="SOL" class="w-full h-full"
+                                                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAI_tNGIyvIGNI0iD00vUWuJbyPXB9CARie-Bcu9qssOYGgGWq55sqGh6pqIgBL3ZZe7HJAVONO4glYOnOakP2ik41UVSc2EOGxQCHAcu7u7gYiHVMpLuyUxNzcZa52v1AuZc6HQfcUqkxRzK4h36rvL8CM2xXYlRIrh5zZ4Z5J9CIeRKyygY9d3kp_G_qS7LH_Ca1q1ZBB5U-VUaIRyEr5j3VvpFt8Mpo5Do32nVFDaMc-RGssJY4RqFNvliyis0xgHId2N5fh" />
+                                                    </div>
+                                                    <span class="font-bold text-text-main text-sm">SOL/USDT</span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <span
+                                                    class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-green-50 text-green-700 border border-green-100">
+                                                    <span
+                                                        class="material-symbols-outlined text-[14px]">arrow_upward</span>
+                                                    Long
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm font-medium text-text-main">$98.50</td>
+                                            <td class="px-6 py-4 text-sm font-bold text-emerald-600">+$45.20</td>
+                                            <td class="px-6 py-4 text-sm text-text-secondary">30m</td>
+                                            <td class="px-6 py-4 text-right">
+                                                <span
+                                                    class="inline-block size-2.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Right Column: Bots & Activity (1/3 width) -->
+                    <div class="flex flex-col gap-6">
+                        <!-- Bot Control Widget -->
+                        <div class="bg-background-card rounded-xl p-6 shadow-card border border-transparent">
+                            <h3 class="text-text-main text-lg font-bold mb-4">Active Algorithms</h3>
+                            <div class="flex flex-col gap-4">
+                                <!-- Bot 1 -->
+                                <div
+                                    class="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50 hover:border-primary/20 transition-all">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="size-10 rounded-md bg-white border border-gray-200 flex items-center justify-center text-primary shadow-sm">
+                                            <span class="material-symbols-outlined">trending_up</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-bold text-text-main">Alpha Scalper</p>
+                                            <p class="text-xs text-text-secondary">Risk: Medium</p>
+                                        </div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input checked="" class="sr-only peer" type="checkbox" />
+                                        <div
+                                            class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-100 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary">
+                                        </div>
+                                    </label>
+                                </div>
+                                <!-- Bot 2 -->
+                                <div
+                                    class="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50 hover:border-primary/20 transition-all">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="size-10 rounded-md bg-white border border-gray-200 flex items-center justify-center text-primary shadow-sm">
+                                            <span class="material-symbols-outlined">timeline</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-bold text-text-main">Trend Follower</p>
+                                            <p class="text-xs text-text-secondary">Risk: Low</p>
+                                        </div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input checked="" class="sr-only peer" type="checkbox" />
+                                        <div
+                                            class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-100 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary">
+                                        </div>
+                                    </label>
+                                </div>
+                                <!-- Bot 3 -->
+                                <div
+                                    class="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-gray-50 hover:border-primary/20 transition-all">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="size-10 rounded-md bg-white border border-gray-200 flex items-center justify-center text-gray-400 shadow-sm opacity-60">
+                                            <span class="material-symbols-outlined">bolt</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-bold text-gray-500">Flash Arbitrage</p>
+                                            <p class="text-xs text-text-secondary">Risk: High</p>
+                                        </div>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input class="sr-only peer" type="checkbox" />
+                                        <div
+                                            class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-100 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary">
+                                        </div>
+                                    </label>
+                                </div>
+                                <button
+                                    class="mt-2 w-full py-2.5 rounded-lg border border-dashed border-primary/30 text-primary text-sm font-semibold hover:bg-primary/5 transition-colors flex items-center justify-center gap-2">
+                                    <span class="material-symbols-outlined text-[18px]">add</span>
+                                    Add New Strategy
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Recent Activity / Logs -->
+                        <div class="bg-background-card rounded-xl p-6 shadow-card border border-transparent flex-1">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-text-main text-lg font-bold">Activity Log</h3>
+                                <button class="text-text-secondary hover:text-primary transition-colors">
+                                    <span class="material-symbols-outlined text-[20px]">more_horiz</span>
+                                </button>
+                            </div>
+                            <div class="relative pl-2">
+                                <!-- Vertical Line -->
+                                <div class="absolute left-[7px] top-2 bottom-2 w-[2px] bg-gray-100"></div>
+                                <div class="flex flex-col gap-6">
+                                    <!-- Log Item 1 -->
+                                    <div class="flex gap-4 relative z-10">
+                                        <div
+                                            class="size-4 mt-1 rounded-full bg-emerald-100 border-2 border-white ring-1 ring-emerald-500 shrink-0">
+                                        </div>
+                                        <div class="flex flex-col gap-0.5">
+                                            <p class="text-sm font-semibold text-text-main">Sold BTC/USDT <span
+                                                    class="text-emerald-600">+2.4%</span></p>
+                                            <p class="text-xs text-text-secondary">Today, 10:42 AM</p>
+                                        </div>
+                                    </div>
+                                    <!-- Log Item 2 -->
+                                    <div class="flex gap-4 relative z-10">
+                                        <div
+                                            class="size-4 mt-1 rounded-full bg-blue-100 border-2 border-white ring-1 ring-blue-500 shrink-0">
+                                        </div>
+                                        <div class="flex flex-col gap-0.5">
+                                            <p class="text-sm font-semibold text-text-main">Bought ETH/USDT</p>
+                                            <p class="text-xs text-text-secondary">Today, 09:15 AM</p>
+                                        </div>
+                                    </div>
+                                    <!-- Log Item 3 -->
+                                    <div class="flex gap-4 relative z-10">
+                                        <div
+                                            class="size-4 mt-1 rounded-full bg-gray-100 border-2 border-white ring-1 ring-gray-400 shrink-0">
+                                        </div>
+                                        <div class="flex flex-col gap-0.5">
+                                            <p class="text-sm font-semibold text-text-main">Strategy "Alpha" paused</p>
+                                            <p class="text-xs text-text-secondary">Yesterday, 11:30 PM</p>
+                                        </div>
+                                    </div>
+                                    <!-- Log Item 4 -->
+                                    <div class="flex gap-4 relative z-10">
+                                        <div
+                                            class="size-4 mt-1 rounded-full bg-red-100 border-2 border-white ring-1 ring-red-500 shrink-0">
+                                        </div>
+                                        <div class="flex flex-col gap-0.5">
+                                            <p class="text-sm font-semibold text-text-main">Stop Loss hit SOL/USDT</p>
+                                            <p class="text-xs text-text-secondary">Yesterday, 08:20 PM</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+
+</html>
