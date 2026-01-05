@@ -103,7 +103,6 @@ class CycleOrchestrator:
                 return
 
             tick: TickData = tick_res.value
-            print(f">>> Processing tick for {pair} at {tick.bid}/{tick.ask}")
 
             # 2. Monitorear estado de operaciones activas (detección de activación y TP)
             await self._check_operations_status(pair, tick)
@@ -119,7 +118,7 @@ class CycleOrchestrator:
             # Solo para debug
             current_cycle = self._active_cycles.get(pair)
             if current_cycle:
-                print(f">>> Cycle {current_cycle.id} Status: {current_cycle.status}, Signal: {signal.signal_type}")
+                logger.debug("Cycle status checked", cycle_id=current_cycle.id, status=current_cycle.status, signal=signal.signal_type)
 
             if signal.signal_type == SignalType.NO_ACTION:
                 return
@@ -154,15 +153,12 @@ class CycleOrchestrator:
         if not ops_res.success:
             return
 
-        print(f">>> _check_operations_status for {cycle.id}: Found {len(ops_res.value)} total operations")
         for op in ops_res.value:
-            print(f">>>   Op {op.id} status: {op.status}")
-            
             # 1. Manejo de ACTIVACIÓN de órdenes
             if op.status == OperationStatus.ACTIVE:
                 # Si es la primera activación de un ciclo PENDING, pasar a ACTIVE
                 if cycle.status == CycleStatus.PENDING:
-                    print(f">>> First operation activated! Transitioning {cycle.id} to ACTIVE")
+                    logger.info("First operation activated, transitioning cycle to ACTIVE", cycle_id=cycle.id)
                     cycle.status = CycleStatus.ACTIVE
                     await self.repository.save_cycle(cycle)
 
@@ -171,7 +167,7 @@ class CycleOrchestrator:
                 active_main_ops = [o for o in main_ops if o.status == OperationStatus.ACTIVE]
                 
                 if len(active_main_ops) >= 2 and cycle.status == CycleStatus.ACTIVE:
-                    print(f">>> Both main operations active! Transitioning {cycle.id} to HEDGED")
+                    logger.info("Both main operations active, transitioning cycle to HEDGED", cycle_id=cycle.id)
                     cycle.activate_hedge()
                     
                     # ABRIR OPERACIONES DE HEDGE REALES Y NEUTRALIZAR MAINS
@@ -213,25 +209,23 @@ class CycleOrchestrator:
             if op.status == OperationStatus.TP_HIT or op.status == OperationStatus.CLOSED:
                 # Si el ciclo estaba PENDING, activarlo (aunque ya esté cerrándose una orden)
                 if cycle.status == CycleStatus.PENDING:
-                    print(f">>> Operation closed while PENDING! Transitioning {cycle.id} to ACTIVE")
+                    logger.info("Operation closed while PENDING, activating cycle", cycle_id=cycle.id)
                     cycle.status = CycleStatus.ACTIVE
                     await self.repository.save_cycle(cycle)
 
                 # Notificar a la estrategia
-                print(f">>> Notifying strategy about closure of {op.id}...")
+                logger.info("Notifying strategy about operation closure", op_id=op.id, ticket=op.broker_ticket)
                 signal = self.strategy.process_tp_hit(
                     operation_id=op.id,
                     profit_pips=float(op.profit_pips or 0),
                     timestamp=datetime.now()
                 )
-                print(f">>> Strategy returned signal: {signal.signal_type}")
                 
                 # Si una principal toca TP, cancelar la contraria pendiente (Escenario 1)
                 if op.is_main:
-                    print(f">>> Main TP detected! Checking for counter-order cancellation for {cycle.id}")
                     for other_op in ops_res.value:
                         if other_op.is_main and other_op.status == OperationStatus.PENDING:
-                            print(f">>>   Cancelling counter-order {other_op.id}")
+                            logger.info("Cancelling counter-order", op_id=other_op.id, cycle_id=cycle.id)
                             if other_op.broker_ticket:
                                 await self.trading_service.broker.cancel_order(other_op.broker_ticket)
                             other_op.status = OperationStatus.CANCELLED
@@ -241,14 +235,11 @@ class CycleOrchestrator:
                     # Sobrescribir el pair de la señal si viene vacío
                     if not signal.pair:
                         signal.pair = pair
-                    print(f">>> Triggering signal handler for {signal.signal_type}...")
                     await self._handle_signal(signal, tick)
-                    print(f">>> Signal handler finished.")
 
     async def _handle_signal(self, signal: StrategySignal, tick: TickData):
         """Maneja las señales emitidas por la estrategia."""
         logger.info("Signal received", type=signal.signal_type, pair=signal.pair)
-        print(f">>> Signal received: {signal.signal_type} for {signal.pair}")
 
         if signal.signal_type == SignalType.OPEN_CYCLE:
             await self._open_new_cycle(signal, tick)
@@ -265,7 +256,6 @@ class CycleOrchestrator:
     async def _open_new_cycle(self, signal: StrategySignal, tick: TickData):
         """Inicia un nuevo ciclo de trading con dos operaciones (Buy + Sell)."""
         pair = signal.pair
-        print(f">>> Opening new cycle for {pair}...")
         
         # 1. Obtener métricas de exposición reales
         exposure_pct, num_recoveries = await self._get_exposure_metrics(pair)
@@ -294,7 +284,7 @@ class CycleOrchestrator:
         # Si ya hay un ciclo activo del par en cache, lo reemplazamos
         old_cycle = self._active_cycles.get(pair)
         if old_cycle:
-            print(f">>> Replaced old cycle {old_cycle.id} with new cycle {cycle_id}")
+            logger.info("Replacing old cycle in cache", old_id=old_cycle.id, new_id=cycle_id)
 
         cycle = Cycle(id=cycle_id, pair=pair, status=CycleStatus.PENDING)
         self._active_cycles[pair] = cycle # Guardar en caché local
@@ -519,7 +509,7 @@ class CycleOrchestrator:
             logger.warning("No parent cycle found for recovery TP", recovery_id=recovery_cycle.id)
             return
 
-        print(f">>> Recovery TP hit for {recovery_cycle.id}! Applying FIFO logic.")
+        logger.info("Recovery TP hit, applying FIFO logic", recovery_id=recovery_cycle.id, parent_id=parent_cycle.id)
         
         # 1. Neutralizar profit contra deudas FIFO
         # RECOVERY_TP_PIPS (80) cierran deudas: 20 la primera, 40 las siguientes
@@ -530,11 +520,11 @@ class CycleOrchestrator:
             cost = float(parent_cycle.accounting.get_recovery_cost())
             if pips_available >= cost:
                 closed_rec_id = parent_cycle.close_oldest_recovery()
-                print(f">>>   FIFO: Closing {closed_rec_id} (Cost: {cost}, Remaining Pips: {pips_available - cost})")
+                logger.info("FIFO: Closing recovery debt", closed_rec_id=closed_rec_id, cost=cost, remaining_pips=pips_available-cost)
                 pips_available -= cost
                 closed_count += 1
             else:
-                print(f">>>   FIFO: Not enough pips to close next recovery (Need: {cost}, Has: {pips_available})")
+                logger.info("FIFO: Not enough pips to close next recovery", cost=cost, available=pips_available)
                 break
         
         # 2. Registrar progreso
@@ -546,7 +536,7 @@ class CycleOrchestrator:
         
         # 4. Verificar cierre total
         if parent_cycle.accounting.is_fully_recovered:
-            print(f">>> Cycle {parent_cycle.id} FULLY RECOVERED! Closing.")
+            logger.info("Cycle FULLY RECOVERED! Closing", cycle_id=parent_cycle.id)
             await self._close_cycle_operations(StrategySignal(signal_type=SignalType.CLOSE_OPERATIONS, pair=pair))
 
     # ============================================

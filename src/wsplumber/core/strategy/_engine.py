@@ -129,7 +129,6 @@ class WallStreetPlumberStrategy(IStrategy):
         timestamp: datetime,
     ) -> StrategySignal:
         """Procesa take profit alcanzado."""
-        print(f">>> Strategy: process_tp_hit called for {operation_id}")
         logger.info("TP hit", operation_id=operation_id, profit_pips=profit_pips)
         
         # Según Documento Madre: al tocar TP de una main, se renueva ciclo

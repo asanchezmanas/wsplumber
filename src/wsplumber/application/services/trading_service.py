@@ -118,7 +118,6 @@ class TradingService:
             return Result.fail("Could not get positions from broker", "SYNC_ERROR")
         
         broker_positions = {str(p["ticket"]): p for p in broker_positions_res.value}
-        print(f">>> Sync All: Broker Tickets found: {list(broker_positions.keys())}")
 
         # 2. Obtener operaciones del repo (Activas y Pendientes)
         repo_active_res = await self.repository.get_active_operations(pair)
@@ -127,12 +126,10 @@ class TradingService:
         if not repo_active_res.success or not repo_pending_res.success:
             return Result.fail("Could not get operations from repo", "SYNC_ERROR")
         
-        print(f">>> Sync All: Pending={len(repo_pending_res.value)}, Active={len(repo_active_res.value)}, BrokerPos={len(broker_positions)}")
         sync_count = 0
 
         # 3. Sincronizar Pendientes -> Activas/Cerradas (Detección de activación)
         for op in repo_pending_res.value:
-            print(f">>> Checking pending {op.id} (Ticket {op.broker_ticket})")
             if not op.broker_ticket:
                 continue
                 
@@ -140,7 +137,6 @@ class TradingService:
             
             # Caso A: Está en posiciones abiertas
             if ticket_str in broker_positions:
-                print(f">>>   Found in open positions! Activating {op.id}")
                 broker_pos = broker_positions[ticket_str]
                 op.activate(
                     broker_ticket=op.broker_ticket,
@@ -156,7 +152,6 @@ class TradingService:
                 if history_res.success:
                     for h_pos in history_res.value:
                         if str(h_pos.get("ticket")) == ticket_str:
-                            print(f">>>   Found in history! Op {op.id} was activated and closed.")
                             # Primero activamos formalmente en el objeto
                             op.activate(
                                 broker_ticket=op.broker_ticket,

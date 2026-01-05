@@ -126,6 +126,8 @@ Recientemente se han identificado y corregido los siguientes gaps en la implemen
 4. **Cierre FIFO Iterativo**: Un Recovery exitoso (+80 pips) puede cerrar múltiples deudas. La primera cuesta **20 pips** (deuda de mains) y las siguientes **40 pips** cada una. El sistema ahora procesa esto iterativamente hasta agotar el profit del recovery.
 5. **Cancelación de Contra-órdenes Main**: Cuando una operación Main toca TP, la orden pendiente del lado opuesto se cancela inmediatamente para evitar entradas no deseadas.
 6. **Sincronización Robusta**: El `TradingService` ahora verifica el historial del broker para detectar operaciones que se activan y cierran (por TP) en el mismo tick, evitando que queden "huérfanas" en la base de datos.
+7. **Renovación Automática (OPEN_CYCLE)**: Al finalizar exitosamente un ciclo por TP de una main, el sistema emite una señal de renovación que abre un nuevo ciclo dual bajo las condiciones actuales de mercado.
+8. **Identificadores Únicos y Colisiones**: Los IDs de ciclos ahora cuentan con un sufijo aleatorio para evitar colisiones cuando ocurren renovaciones múltiples dentro del mismo segundo (escenarios de alta volatilidad o backtesting acelerado).
 
 
 ### Contador de Equity (Lógica de Control)
@@ -414,8 +416,10 @@ El sistema escala basándose en el número de Recovery activos, NO en % de cuent
 | ------------------- | ------------------- | ----------------------------- |
 | 1-5                 | ~20€                | ✅ Operar normal               |
 | 6-10                | ~40€                | ⚠️ Precaución, no añadir pares |
-| 11-20               | ~80€                | 🔴 Pausar nuevos ciclos        |
-| >20                 | >80€                | 🛑 Solo gestionar Recovery     |
+| 11-15               | ~60€                | 🔴 Pausar nuevos ciclos        |
+| >15 (Máx 20)        | >60€                | 🛑 Solo gestionar Recovery     |
+
+**Nota sobre Niveles de Recovery:** Aunque el documento madre original sugería 6 niveles, el sistema ha sido refinado a **10 niveles** concurrentes por par (y un máximo global de 20) para permitir una mayor capacidad de absorción de racha negativa antes de intervenir.
 
 **Cálculo (según documento L45-48, L86):**
 - Recovery: separación **20 pips**, TP **80 pips**

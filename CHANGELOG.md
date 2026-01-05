@@ -6,6 +6,23 @@ El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1
 
 ---
 
+## [0.5.0] - 2025-01-05
+
+### Added
+- **Hardened Core Logic**: Implementación robusta de coberturas (Hedge) con apertura de órdenes reales.
+- **Sincronización de Historian**: El `TradingService` detecta activaciones/cierres instantáneos consultando el historial del broker.
+- **Ciclos Continuos**: Gestión de señal `OPEN_CYCLE` para renovación automática infinita.
+- **FIFO Iterativo**: Soporte para cerrar múltiples deudas de recovery con un solo TP de 80 pips.
+- **Identificadores Únicos**: Sufijos aleatorios en IDs de ciclos para evitar colisiones en backtesting acelerado.
+
+### Fixed
+- Error en detección de TP que impedía la renovación de ciclos.
+- Gaps en transiciones de estado de `Cycle` (PENDING -> ACTIVE).
+- Falta de cancelación de órdenes pendientes contrarias al tocar TP.
+- Uso de valores hardcodeados en orquestador sustituidos por `_params.py`.
+
+---
+
 ## [Unreleased]
 
 ### Added

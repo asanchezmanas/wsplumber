@@ -138,7 +138,7 @@ class SimulatedBroker(IBroker):
         )
         self.pending_orders[ticket] = order
         
-        print(f">>> Broker: Order {ticket} placed for {request.operation_id} at {request.entry_price}")
+        logger.info("Broker: Order placed", ticket=ticket, operation_id=request.operation_id, price=request.entry_price)
         return Result.ok(OrderResult(
             success=True,
             broker_ticket=ticket,
@@ -211,7 +211,6 @@ class SimulatedBroker(IBroker):
             return None
         
         tick = self.ticks[self.current_tick_index]
-        print(f">>> Broker[{id(self)}]: advance_tick to index {self.current_tick_index}")
         await self._process_executions(tick)
         return tick
 
@@ -240,7 +239,6 @@ class SimulatedBroker(IBroker):
                 open_time=tick.timestamp
             )
             self.open_positions[t] = pos
-            print(f">>> Broker[{id(self)}]: ACTivating order {t} at {tick.timestamp} (Price {tick.bid}/{tick.ask})")
             logger.info(f"Order {t} activated at {tick.timestamp}")
 
         # 2. Actualizar P&L y procesar TPs
