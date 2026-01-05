@@ -18,8 +18,8 @@ from wsplumber.infrastructure.brokers.mt5_broker import MT5Broker
 from wsplumber.infrastructure.persistence.supabase_repo import SupabaseRepository
 from wsplumber.infrastructure.logging.safe_logger import setup_logging, get_logger
 
-# Importar componentes del core (protegidos con _)
-from wsplumber.core.risk._risk_manager import RiskManager
+# Importar componentes del core
+from wsplumber.core.risk.risk_manager import RiskManager
 from wsplumber.core.strategy.strategy_mock import StrategyMock # Usando mock para demo
 
 logger = get_logger("wsplumber.main")
