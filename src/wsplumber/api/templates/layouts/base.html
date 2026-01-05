@@ -1,0 +1,48 @@
+<!-- src/wsplumber/api/templates/layouts/base.html -->
+<!DOCTYPE html>
+<html lang="es" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}El Fontanero de Wall Street{% endblock %}</title>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+
+    <!-- Centralized Styles (DRY) -->
+    <link rel="stylesheet" href="/static/css/shared.css">
+
+    {% block head %}{% endblock %}
+</head>
+
+<body class="bg-subtle-gradient min-h-screen">
+    <div id="app">
+        <!-- Navigation Placeholder -->
+        <header class="navbar">
+            <div class="container">
+                <nav class="flex items-center justify-between p-6">
+                    <div class="logo flex items-center gap-2">
+                        <span class="material-symbols-outlined icon-md text-primary">science</span>
+                        <span class="font-bold text-xl uppercase tracking-tighter">WS Plumber</span>
+                    </div>
+                    {% block nav %}{% endblock %}
+                </nav>
+            </div>
+        </header>
+
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="p-8 mt-20 border-t border-white/5 text-center text-sm text-muted">
+            <p>&copy; 2026 El Fontanero de Wall Street. Estrategia Algorítmica de Alta Fidelidad.</p>
+        </footer>
+    </div>
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

@@ -1,0 +1,88 @@
+/* src/wsplumber/api/static/css/shared.css */
+/* Sistema de Diseño "El Fontanero" - V2 */
+
+:root {
+    /* Color Palette */
+    --color-primary: #144bb8;
+    --color-primary-dark: #0f3685;
+    --color-primary-light: #4c82ff;
+
+    --color-bg-light: #f6f6f8;
+    --color-bg-dark: #111621;
+    --color-surface-dark: #1a202e;
+    --color-border-dark: #2d3748;
+
+    --color-text-main: #f3f4f6;
+    --color-text-muted: #9ca3af;
+    --color-success: #10b981;
+    --color-warning: #f59e0b;
+    --color-error: #ef4444;
+
+    /* Spacing & Borders */
+    --radius-default: 0.375rem;
+    --radius-lg: 0.5rem;
+    --radius-xl: 0.75rem;
+    --transition-fast: 0.2s ease;
+}
+
+/* Base Styles */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Manrope', -apple-system, sans-serif;
+    background-color: var(--color-bg-dark);
+    color: var(--color-text-main);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Utility Classes (Neumorphism & Tactile) */
+.glass-panel {
+    background: rgba(26, 32, 46, 0.7);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--color-border-dark);
+    border-radius: var(--radius-xl);
+}
+
+.btn-primary {
+    background-color: var(--color-primary);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-lg);
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-primary:hover {
+    background-color: var(--color-primary-dark);
+    box-shadow: 0 0 15px rgba(20, 75, 184, 0.3);
+}
+
+/* Material Icons Helper (Avoiding inline styles) */
+.icon-sm {
+    font-size: 16px;
+}
+
+.icon-md {
+    font-size: 20px;
+}
+
+.icon-lg {
+    font-size: 24px;
+}
+
+/* Gradients */
+.bg-subtle-gradient {
+    background: radial-gradient(circle at 50% 0%, #1a2333 0%, #111621 60%);
+}

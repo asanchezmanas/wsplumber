@@ -20,7 +20,11 @@ from wsplumber.infrastructure.logging.safe_logger import setup_logging, get_logg
 
 # Importar componentes del core
 from wsplumber.core.risk.risk_manager import RiskManager
-from wsplumber.core.strategy.strategy_mock import StrategyMock # Usando mock para demo
+from wsplumber.core.strategy import WallStreetPlumberStrategy
+
+# API y Servidor
+import uvicorn
+from wsplumber.api.app import app
 
 logger = get_logger("wsplumber.main")
 
@@ -50,7 +54,7 @@ async def main():
 
     # 3. Instanciar Core
     risk_manager = RiskManager()
-    strategy = StrategyMock() # Aquí se inyectarían los motores secretos en producción
+    strategy = WallStreetPlumberStrategy() # Inyectando el motor real ("Secret Core")
 
     # 4. Instanciar Servicios de Aplicación
     trading_service = TradingService(broker, repository)
@@ -74,7 +78,25 @@ async def main():
 
         # Arrancar orquestación para los pares configurados
         pairs = settings.trading.pairs
-        await orchestrator.start(pairs)
+        orchestrator_task = asyncio.create_task(orchestrator.start(pairs))
+
+        # 6. Arrancar API Server (FastAPI)
+        config = uvicorn.Config(
+            app=app, 
+            host="0.0.0.0", 
+            port=8000, 
+            log_level="info",
+            loop="asyncio"
+        )
+        server = uvicorn.Server(config)
+        
+        logger.info("🚀 API Server starting at http://localhost:8000")
+        
+        # Ejecutar ambos concurrentemente
+        await asyncio.gather(
+            orchestrator_task,
+            server.serve()
+        )
 
     except KeyboardInterrupt:
         logger.info("Shutdown requested by user")

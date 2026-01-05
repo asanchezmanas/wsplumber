@@ -1,0 +1,63 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}WS Plumber - Estrategia Algorítmica de Alta Fidelidad{% endblock %}
+
+{% block content %}
+<section class="hero-section text-center py-20 px-6">
+    <div class="max-w-4xl mx-auto space-y-8">
+        <h1 class="text-6xl font-extrabold tracking-tighter sm:text-7xl">
+            EL FONTANERO <br>
+            <span class="text-primary italic">DE WALL STREET</span>
+        </h1>
+        <p class="text-xl text-muted font-light max-w-2xl mx-auto">
+            Sistema algorítmico basado en micro-ingresos constantes y neutralización matemática inteligente.
+        </p>
+        <div class="flex justify-center gap-4 mt-10">
+            <a href="#stats" class="btn-primary">Ver Dashboard</a>
+            <a href="#about"
+                class="btn-secondary px-8 py-3 rounded-lg border border-border-dark text-sm font-semibold hover:bg-surface-dark transition">Documentación</a>
+        </div>
+    </div>
+</section>
+
+<section id="about" class="features py-20 bg-surface-dark/30">
+    <div class="max-w-6xl mx-auto px-6 grid md:grid-cols-3 gap-12">
+        <div class="glass-panel p-8 space-y-4">
+            <span class="material-symbols-outlined text-primary text-4xl">payments</span>
+            <h3 class="text-xl font-bold">Flujo Continuo</h3>
+            <p class="text-sm text-muted">
+                Mantenemos siempre ciclos principales activos generando pequeños ingresos constantes (10 pips). La
+                consistencia supera la volatilidad.
+            </p>
+        </div>
+        <div class="glass-panel p-8 space-y-4">
+            <span class="material-symbols-outlined text-primary text-4xl">account_balance_wallet</span>
+            <h3 class="text-xl font-bold">Separación Operativa</h3>
+            <p class="text-sm text-muted">
+                Los ciclos principales generan beneficios, mientras las Recovery se encargan de neutralizar y recuperar
+                pérdidas sin interferir.
+            </p>
+        </div>
+        <div class="glass-panel p-8 space-y-4">
+            <span class="material-symbols-outlined text-primary text-4xl">calculate</span>
+            <h3 class="text-xl font-bold">Ratio Matemático 2:1</h3>
+            <p class="text-sm text-muted">
+                Un Recovery exitoso (80 pips) neutraliza dos niveles de pérdida. El sistema se auto-balancea
+                matemáticamente.
+            </p>
+        </div>
+    </div>
+</section>
+
+<section class="philosophy py-20">
+    <div class="max-w-4xl mx-auto px-6 text-center space-y-6">
+        <blockquote class="text-3xl font-light italic text-primary-light">
+            "Pequeños ingresos constantes construyen grandes fortunas"
+        </blockquote>
+        <p class="text-muted">
+            Nuestro enfoque no es el tamaño de las ganancias, sino el volumen de operaciones exitosas y la
+            predictibilidad a corto plazo.
+        </p>
+    </div>
+</section>
+{% endblock %}

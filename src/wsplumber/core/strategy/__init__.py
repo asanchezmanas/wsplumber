@@ -1,6 +1,6 @@
 # src/wsplumber/core/strategy/__init__.py
 """Motor de Estrategia (Core Secreto)."""
 
-from wsplumber.core.strategy.strategy_mock import StrategyMock
+from ._engine import WallStreetPlumberStrategy
 
-__all__ = ["StrategyMock"]
+__all__ = ["WallStreetPlumberStrategy"]
