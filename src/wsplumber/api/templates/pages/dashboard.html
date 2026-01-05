@@ -72,434 +72,662 @@
 </head>
 
 <body class="font-body antialiased bg-background flex h-screen overflow-hidden text-text-main">
-    <!-- Sidebar -->
-    <aside class="w-64 border-r border-white/5 flex flex-col glass-card rounded-none shrink-0 z-50">
+    <!-- Sidebar Izquierda (Navegación) -->
+    <aside class="w-60 border-r border-white/5 flex flex-col glass-card rounded-none shrink-0 z-50">
         <div class="px-6 h-16 flex items-center gap-3 border-b border-white/5">
             <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                 <span class="material-symbols-outlined text-white material-icon-fix">plumbing</span>
             </div>
-            <span class="font-display font-semibold text-lg tracking-tight">Plumber <span
-                    class="text-white/30 truncate">OS</span></span>
+            <span class="font-display font-semibold text-lg tracking-tight whitespace-nowrap">Plumber OS</span>
         </div>
 
-        <nav class="flex-grow p-4 space-y-2">
-            <div class="px-3 py-2 text-[10px] uppercase tracking-widest text-text-muted font-semibold">Trading</div>
+        <nav class="flex-grow p-4 space-y-1 overflow-y-auto custom-scrollbar">
+            <div class="px-3 py-2 text-[10px] uppercase tracking-widest text-text-dim font-bold">Main</div>
             <a href="#"
                 class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-white border border-primary/20">
                 <span class="material-symbols-outlined text-sm">dashboard</span>
                 <span class="text-sm font-medium">Dashboard</span>
             </a>
-            <a href="#"
-                class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-muted hover:bg-white/5 transition-colors">
-                <span class="material-symbols-outlined text-sm">monitoring</span>
-                <span class="text-sm font-medium">Analytics</span>
+            <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-muted hover:bg-white/5">
+                <span class="material-symbols-outlined text-sm">mail</span>
+                <span class="text-sm font-medium">News Feed</span>
             </a>
-            <a href="#"
-                class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-muted hover:bg-white/5 transition-colors">
-                <span class="material-symbols-outlined text-sm">inventory_2</span>
-                <span class="text-sm font-medium">FIFO Vault</span>
-            </a>
-            <div class="pt-4 px-3 py-2 text-[10px] uppercase tracking-widest text-text-muted font-semibold">System</div>
-            <a href="#"
-                class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-muted hover:bg-white/5 transition-colors">
-                <span class="material-symbols-outlined text-sm">settings</span>
-                <span class="text-sm font-medium">Configurations</span>
-            </a>
-            <a href="#"
-                class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-muted hover:bg-white/5 transition-colors">
-                <span class="material-symbols-outlined text-sm">terminal</span>
-                <span class="text-sm font-medium">Engine Logs</span>
-            </a>
+
+            <div class="pt-4 px-3 py-2 text-[10px] uppercase tracking-widest text-text-dim font-bold">Other</div>
+            <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-muted hover:bg-white/5"><span
+                    class="material-symbols-outlined text-sm">tour</span><span
+                    class="text-sm font-medium">Tour</span></a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-muted hover:bg-white/5"><span
+                    class="material-symbols-outlined text-sm">support</span><span
+                    class="text-sm font-medium">Support</span></a>
         </nav>
 
         <div class="p-4 border-t border-white/5">
-            <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10">
-                <div
-                    class="w-10 h-10 rounded-full bg-gradient-to-tr from-primary to-primary-light flex items-center justify-center text-white font-bold">
-                    JB</div>
-                <div class="overflow-hidden">
-                    <p class="text-xs font-semibold truncate">Jason Bourne</p>
-                    <p class="text-[10px] text-text-muted truncate">ID: 17516</p>
-                </div>
-            </div>
+            <button class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-text-muted hover:bg-white/5">
+                <span class="material-symbols-outlined text-sm">logout</span>
+                <span class="text-sm font-medium">Logout</span>
+            </button>
         </div>
     </aside>
 
-    <!-- Main Content -->
-    <div class="flex-grow flex flex-col min-w-0 bg-background overflow-y-auto custom-scrollbar">
-        <!-- Top Header -->
+    <!-- Área de Contenido Central + Derecha (Scrollable) -->
+    <div class="flex-grow flex flex-col min-w-0 bg-background overflow-hidden relative">
+        <!-- Header Superior -->
         <header
-            class="h-16 border-b border-white/5 px-8 flex items-center justify-between sticky top-0 bg-background/80 backdrop-blur-xl z-40">
-            <div class="flex items-center gap-4 text-text-muted">
-                <span class="material-symbols-outlined">search</span>
-                <input type="text" placeholder="Search signals, pairs, logs..."
-                    class="bg-transparent border-none focus:ring-0 text-sm w-64" />
+            class="h-16 border-b border-white/5 px-8 flex items-center justify-between bg-background/80 backdrop-blur-xl z-40">
+            <div class="flex flex-col">
+                <h2 class="text-sm font-bold text-white">Jason Bourne</h2>
+                <p class="text-[10px] text-text-muted">User ID: 17516</p>
             </div>
             <div class="flex items-center gap-6">
-                <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 border border-success/20">
-                    <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
-                    <span class="text-[10px] uppercase tracking-widest text-success font-bold">MT5 Live</span>
+                <div class="flex items-center gap-4 text-text-muted">
+                    <span class="material-symbols-outlined">notifications</span>
+                    <span class="material-symbols-outlined">settings</span>
+                    <span class="material-symbols-outlined">fullscreen</span>
                 </div>
-                <div class="flex gap-4">
-                    <button
-                        class="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-text-muted">
-                        <span class="material-symbols-outlined text-lg">notifications</span>
-                    </button>
-                    <button
-                        class="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-text-muted">
-                        <span class="material-symbols-outlined text-lg">logout</span>
-                    </button>
+                <div class="flex items-center gap-3 pl-6 border-l border-white/10">
+                    <div
+                        class="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-primary-light flex items-center justify-center text-[10px] font-bold">
+                        JB</div>
                 </div>
             </div>
         </header>
 
-        <!-- News Ticker -->
-        <div
-            class="bg-primary/5 border-b border-primary/20 h-10 flex items-center px-8 overflow-hidden whitespace-nowrap">
-            <div class="flex animate-marquee gap-8">
-                <span
-                    class="text-[10px] font-bold text-primary-light uppercase tracking-tighter flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-primary-light"></span>
-                    EURUSD: TP Hit @ 1.08450 (+10.4 pips)
-                </span>
-                <span
-                    class="text-[10px] font-bold text-primary-light uppercase tracking-tighter flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-primary-light"></span>
-                    USDJPY: New Recovery Level 2 opened @ 148.20
-                </span>
-                <span
-                    class="text-[10px] font-bold text-primary-light uppercase tracking-tighter flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-primary-light"></span>
-                    GLOBAL EXPOSURE: 12.4% - System Stable
-                </span>
-                <span
-                    class="text-[10px] font-bold text-primary-light uppercase tracking-tighter flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-primary-light"></span>
-                    CORE ENGINE: Heartbeat OK (120ms latency)
-                </span>
-            </div>
-        </div>
+        <!-- Layout de Columnas (Cuerpo) -->
+        <div class="flex-grow flex overflow-hidden">
+            <!-- Columna Central (Main Stream) -->
+            <div class="flex-grow overflow-y-auto custom-scrollbar p-6 space-y-6 lg:w-3/4">
 
-        <!-- Dashboard Body -->
-        <div class="p-8 space-y-8">
-            <!-- Row 1: KPI Gauges -->
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-                <!-- Equity Gauge Card -->
-                <div class="glass-card p-6 flex flex-col gap-4">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-[10px] text-text-muted uppercase tracking-widest font-bold">Total Equity</p>
-                            <h3 class="text-3xl font-display font-medium text-white">$124,592</h3>
-                            <p class="text-xs text-success flex items-center gap-1 mt-1 font-semibold">
-                                <span class="material-symbols-outlined text-xs">trending_up</span>
-                                +2.45% Today
-                            </p>
+                <!-- 1. Top Gauges (4 cards) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                    <!-- Gauge 1 -->
+                    <div class="glass-card p-4 flex flex-col items-center">
+                        <div
+                            class="w-full flex justify-between text-[10px] font-bold text-text-muted mb-4 uppercase tracking-wider">
+                            <span>Balance Today</span>
+                            <span class="text-success">+2.3%</span>
                         </div>
-                        <div class="p-2 rounded-lg bg-primary/20 text-primary-light">
-                            <span class="material-symbols-outlined">payments</span>
+                        <div class="relative w-24 h-24 mb-4">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="white" stroke-opacity="0.05"
+                                    stroke-width="3"></circle>
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="#254194" stroke-width="3"
+                                    stroke-dasharray="92, 100" stroke-linecap="round"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center flex-col">
+                                <span class="text-lg font-bold">92%</span>
+                            </div>
                         </div>
+                        <p class="text-[10px] text-text-dim uppercase">Equity Target reached</p>
                     </div>
-                    <div class="relative w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                        <div class="absolute inset-y-0 left-0 bg-primary w-[92%]"></div>
+                    <!-- Gauge 2 -->
+                    <div class="glass-card p-4 flex flex-col items-center">
+                        <div
+                            class="w-full flex justify-between text-[10px] font-bold text-text-muted mb-4 uppercase tracking-wider">
+                            <span>Pips Goal</span>
+                            <span class="text-primary-light">+130%</span>
+                        </div>
+                        <div class="relative w-24 h-24 mb-4">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="white" stroke-opacity="0.05"
+                                    stroke-width="3"></circle>
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="#10b981" stroke-width="3"
+                                    stroke-dasharray="200, 100" stroke-linecap="round"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center flex-col">
+                                <span class="text-lg font-bold">200%+</span>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-text-dim uppercase">Daily Limit surpassed</p>
                     </div>
-                    <div class="flex justify-between text-[10px] text-text-muted">
-                        <span>Target: $135k</span>
-                        <span>92% achieved</span>
+                    <!-- Gauge 3 -->
+                    <div class="glass-card p-4 flex flex-col items-center">
+                        <div
+                            class="w-full flex justify-between text-[10px] font-bold text-text-muted mb-4 uppercase tracking-wider">
+                            <span>Volatility</span>
+                            <span class="text-text-dim">Normal</span>
+                        </div>
+                        <div class="relative w-24 h-24 mb-4">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="white" stroke-opacity="0.05"
+                                    stroke-width="3"></circle>
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="#f59e0b" stroke-width="3"
+                                    stroke-dasharray="68, 100" stroke-linecap="round"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center flex-col">
+                                <span class="text-lg font-bold">68%</span>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-text-dim uppercase">Market Heat Index</p>
+                    </div>
+                    <!-- Gauge 4 -->
+                    <div class="glass-card p-4 flex flex-col items-center">
+                        <div
+                            class="w-full flex justify-between text-[10px] font-bold text-text-muted mb-4 uppercase tracking-wider">
+                            <span>Efficiency</span>
+                            <span class="text-success">Optimal</span>
+                        </div>
+                        <div class="relative w-24 h-24 mb-4">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="white" stroke-opacity="0.05"
+                                    stroke-width="3"></circle>
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="#254194" stroke-width="3"
+                                    stroke-dasharray="92, 100" stroke-linecap="round"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center flex-col">
+                                <span class="text-lg font-bold">92%</span>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-text-dim uppercase">Recovery Success Rate</p>
                     </div>
                 </div>
 
-                <!-- Daily Pips Card -->
-                <div class="glass-card p-6 flex flex-col gap-4">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-[10px] text-text-muted uppercase tracking-widest font-bold">Daily Pips</p>
-                            <h3 class="text-3xl font-display font-medium text-white">8.5 <span
-                                    class="text-sm text-text-muted">/ 10</span></h3>
-                            <p class="text-xs text-primary-light flex items-center gap-1 mt-1 font-semibold">
-                                <span class="material-symbols-outlined text-xs">flag</span>
-                                Almost Hit
-                            </p>
+                <!-- 2. Banner Area (Promotion Slider) -->
+                <div class="glass-card p-6 border-primary/20 bg-primary/5 group relative overflow-hidden">
+                    <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div class="max-w-xl">
+                            <span
+                                class="px-2 py-0.5 rounded bg-primary text-[10px] font-bold text-white mb-2 inline-block">SYSTEM
+                                ALERT</span>
+                            <h3 class="text-xl font-display font-semibold mb-2">Deploying Affiliate Marketing Strategies
+                                for Forex</h3>
+                            <p class="text-sm text-text-muted">Utilizing social media for programmatic pips. Key to
+                                success is choosing the right platforms that align with your risk profile. Cater to
+                                content-rich logic flows...</p>
+                            <button class="mt-4 text-xs font-bold text-primary-light flex items-center gap-2">Continue
+                                to read <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
                         </div>
-                        <div class="p-2 rounded-lg bg-success/20 text-success">
-                            <span class="material-symbols-outlined">analytics</span>
+                        <div class="flex gap-2">
+                            <div class="w-2 h-2 rounded-full bg-primary"></div>
+                            <div class="w-2 h-2 rounded-full bg-white/20"></div>
+                            <div class="w-2 h-2 rounded-full bg-white/20"></div>
                         </div>
                     </div>
-                    <div class="relative w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                        <div class="absolute inset-y-0 left-0 bg-success w-[85%]"></div>
-                    </div>
-                    <div class="flex justify-between text-[10px] text-text-muted">
-                        <span>Meta 10.0</span>
-                        <span>85% Progress</span>
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl -mr-16 -mt-16 rounded-full">
                     </div>
                 </div>
 
-                <!-- Exposure Card -->
-                <div class="glass-card p-6 flex flex-col gap-4">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-[10px] text-text-muted uppercase tracking-widest font-bold">Exposure</p>
-                            <h3 class="text-3xl font-display font-medium text-danger">12.4%</h3>
-                            <p class="text-xs text-text-dim flex items-center gap-1 mt-1 font-semibold">
-                                Max Limit: 30%
-                            </p>
-                        </div>
-                        <div class="p-2 rounded-lg bg-danger/20 text-danger">
-                            <span class="material-symbols-outlined">warning</span>
-                        </div>
-                    </div>
-                    <div class="relative w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                        <div class="absolute inset-y-0 left-0 bg-danger w-[41%]"></div>
-                    </div>
-                    <div class="flex justify-between text-[10px] text-text-muted">
-                        <span>Safe: 0-10%</span>
-                        <span>Risky: 25%+</span>
-                    </div>
-                </div>
-
-                <!-- Active Cycles Card -->
-                <div class="glass-card p-6 flex flex-col gap-4">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <p class="text-[10px] text-text-muted uppercase tracking-widest font-bold">Active Repair</p>
-                            <h3 class="text-3xl font-display font-medium text-white">4 <span
-                                    class="text-sm text-text-muted">Pairs</span></h3>
-                            <p class="text-xs text-text-dim flex items-center gap-1 mt-1 font-semibold">
-                                2 in Recovery Mode
-                            </p>
-                        </div>
-                        <div class="p-2 rounded-lg bg-orange-500/20 text-orange-500">
-                            <span class="material-symbols-outlined">layers</span>
-                        </div>
-                    </div>
-                    <div class="relative w-full h-1 bg-white/5 rounded-full overflow-hidden">
-                        <div class="absolute inset-y-0 left-0 bg-orange-500 w-[60%]"></div>
-                    </div>
-                    <div class="flex justify-between text-[10px] text-text-muted">
-                        <span>Free Slots: 6</span>
-                        <span>Load: 40%</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Row 2: Charts & Summary Panel -->
-            <div class="grid grid-cols-1 xl:grid-cols-4 gap-8">
-                <!-- Large Stats Chart -->
-                <div class="xl:col-span-3 glass-card p-8 flex flex-col min-h-[450px]">
+                <!-- 3. General Statistics (Large Chart) -->
+                <div class="glass-card p-6">
                     <div class="flex items-center justify-between mb-8">
                         <div>
-                            <h3 class="text-xl font-display font-semibold">Performance Statistics</h3>
-                            <p class="text-xs text-text-muted">Detailed account equity and growth flow</p>
+                            <h3 class="text-lg font-display font-semibold">General Statistics</h3>
+                            <div class="flex items-center gap-4 mt-2">
+                                <span class="flex items-center gap-1.5 text-[10px] text-text-muted"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-primary"></span> Impressions</span>
+                                <span class="flex items-center gap-1.5 text-[10px] text-text-muted"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-success"></span> Clicks</span>
+                                <span class="flex items-center gap-1.5 text-[10px] text-text-muted"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-orange-500"></span> Leads</span>
+                            </div>
                         </div>
-                        <div class="flex gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+                        <div class="flex gap-1 bg-white/5 p-1 rounded-lg">
+                            <button class="px-2 py-1 text-[10px] font-bold rounded">1D</button>
                             <button
-                                class="px-3 py-1.5 text-[10px] font-bold uppercase rounded-lg hover:bg-white/5">1D</button>
-                            <button
-                                class="px-3 py-1.5 text-[10px] font-bold uppercase rounded-lg hover:bg-white/5">1W</button>
-                            <button
-                                class="px-3 py-1.5 text-[10px] font-bold uppercase rounded-lg bg-primary text-white">1M</button>
-                            <button
-                                class="px-3 py-1.5 text-[10px] font-bold uppercase rounded-lg hover:bg-white/5">YTD</button>
+                                class="px-2 py-1 text-[10px] font-bold rounded bg-primary text-white shadow-lg">1W</button>
+                            <button class="px-2 py-1 text-[10px] font-bold rounded">1M</button>
                         </div>
                     </div>
                     <div
-                        class="flex-grow bg-white/[0.02] rounded-2xl border border-white/5 border-dashed flex items-center justify-center text-text-dim italic text-sm">
-                        High-Fidelity Equity Curve Chart (SVG/Canvas Integration)
+                        class="h-64 mb-6 bg-white/[0.02] border border-white/5 rounded-xl border-dashed flex items-center justify-center text-text-dim italic text-sm">
+                        [Complex Multi-Series Line Chart]
+                    </div>
+                    <div
+                        class="h-20 bg-white/[0.01] border border-white/5 rounded-xl border-dashed flex items-center justify-center text-text-dim italic text-sm">
+                        [Volume Bar Chart Overlay]
                     </div>
                 </div>
 
-                <!-- Summary Column -->
-                <div class="space-y-6">
-                    <!-- Financial Overview Widget -->
+                <!-- 4. Latest News & Campaigns -->
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <div class="glass-card p-6">
-                        <h4
-                            class="text-sm font-semibold mb-4 text-white/50 border-b border-white/5 pb-2 uppercase tracking-widest text-[10px]">
-                            Financial Overview</h4>
-                        <div class="space-y-4">
-                            <div>
-                                <p class="text-[10px] text-text-muted uppercase tracking-wider mb-1">Total Commission
-                                    June</p>
-                                <p class="text-xl font-display font-bold text-white">€72.63</p>
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xs font-bold uppercase tracking-widest">Latest News</h3>
+                        </div>
+                        <div class="space-y-6">
+                            <div class="group cursor-pointer">
+                                <h4 class="text-sm font-semibold mb-1 group-hover:text-primary-light transition-colors">
+                                    Mastering the Art of Blogging: Tips for Crafting Engaging Posts</h4>
+                                <p class="text-[10px] text-text-dim mb-2">Thursday, 6 June 2024</p>
+                                <p class="text-[10px] text-text-muted leading-relaxed line-clamp-2">Creating compelling
+                                    blog content is essential for attracting and retaining readers. A great blog post
+                                    starts with a captivating headline...</p>
                             </div>
-                            <div>
-                                <p class="text-[10px] text-text-muted uppercase tracking-wider mb-1">Total Outstanding
-                                </p>
-                                <p class="text-xl font-display font-bold text-primary-light">€1,647,126.06</p>
+                            <div class="pt-4 border-t border-white/5 group cursor-pointer">
+                                <h4 class="text-sm font-semibold mb-1 group-hover:text-primary-light transition-colors">
+                                    Another Trading Inside Scoop: Market Volatility in EU</h4>
+                                <p class="text-[10px] text-text-dim mb-2">Wednesday, 5 June 2024</p>
+                                <p class="text-[10px] text-text-muted leading-relaxed line-clamp-2">The European market
+                                    is seeing unprecedented shifts due to central bank announcements...</p>
                             </div>
-                            <button
-                                class="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold hover:bg-white/10 transition-all">
-                                Account Balance Overview
-                            </button>
+                        </div>
+                        <div class="mt-6">
+                            <button class="text-[10px] font-bold text-primary-light flex items-center gap-2">Continue to
+                                read <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
                         </div>
                     </div>
-
-                    <!-- Exposure breakdown (Donut replacement) -->
                     <div class="glass-card p-6">
-                        <h4
-                            class="text-sm font-semibold mb-4 text-white/50 border-b border-white/5 pb-2 uppercase tracking-widest text-[10px]">
-                            Pair Allocation</h4>
-                        <div class="flex items-center justify-center py-4">
-                            <div class="relative w-32 h-32">
-                                <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                                    <circle cx="18" cy="18" r="16" fill="none" stroke="#254194" stroke-width="4"
-                                        stroke-dasharray="60, 100" stroke-linecap="round"></circle>
-                                    <circle cx="18" cy="18" r="16" fill="none" stroke="#10b981" stroke-width="4"
-                                        stroke-dasharray="25, 100" stroke-dashoffset="-60" stroke-linecap="round">
-                                    </circle>
-                                    <circle cx="18" cy="18" r="16" fill="none" stroke="#f59e0b" stroke-width="4"
-                                        stroke-dasharray="15, 100" stroke-dashoffset="-85" stroke-linecap="round">
-                                    </circle>
-                                </svg>
-                                <div class="absolute inset-0 flex items-center justify-center flex-col">
-                                    <span class="text-sm font-bold">Alloc.</span>
-                                </div>
-                            </div>
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xs font-bold uppercase tracking-widest">Latest campaigns</h3>
                         </div>
-                        <div class="space-y-2 mt-4">
-                            <div class="flex justify-between items-center text-[10px]">
-                                <span class="flex items-center gap-1.5"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-primary"></span> EURUSD</span>
-                                <span class="font-bold">60%</span>
-                            </div>
-                            <div class="flex justify-between items-center text-[10px]">
-                                <span class="flex items-center gap-1.5"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-success"></span> GBPUSD</span>
-                                <span class="font-bold">25%</span>
-                            </div>
-                            <div class="flex justify-between items-center text-[10px]">
-                                <span class="flex items-center gap-1.5"><span
-                                        class="w-1.5 h-1.5 rounded-full bg-orange-500"></span> USDJPY</span>
-                                <span class="font-bold">15%</span>
-                            </div>
+                        <div class="overflow-x-auto overflow-y-hidden">
+                            <table class="w-full text-left text-[10px]">
+                                <thead class="text-text-dim font-bold border-b border-white/5">
+                                    <tr>
+                                        <th class="pb-2">Campaign</th>
+                                        <th class="pb-2">Click</th>
+                                        <th class="pb-2">Lead</th>
+                                        <th class="pb-2">Sales (%)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-white/5">
+                                    <tr>
+                                        <td class="py-3 font-semibold">AliExpress</td>
+                                        <td class="py-3">-</td>
+                                        <td class="py-3">-</td>
+                                        <td class="py-3 text-success">8.00%</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 font-semibold">Virgin</td>
+                                        <td class="py-3">€0.80</td>
+                                        <td class="py-3">€0.01</td>
+                                        <td class="py-3 text-success">5.00%</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 font-semibold">Tree Mobile</td>
+                                        <td class="py-3">-</td>
+                                        <td class="py-3">€40.01</td>
+                                        <td class="py-3">-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-4 text-center">
+                            <button class="text-[10px] font-bold text-primary-light uppercase">Continue to read</button>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Row 3: Active Transactions & Bot Settings -->
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                <!-- Main Transaction Table -->
-                <div class="xl:col-span-2 glass-card overflow-hidden">
-                    <div class="px-8 py-5 border-b border-white/5 flex items-center justify-between">
-                        <h3 class="text-lg font-display font-semibold">Secret Core: Active Recovery Ledger</h3>
-                        <div class="flex gap-2">
-                            <input type="text" placeholder="Filter Pair..."
-                                class="bg-white/5 border-white/10 rounded-lg text-[10px] py-1 px-3 focus:ring-primary/50" />
-                        </div>
+                <!-- 5. Multi-tab Activity Table -->
+                <div class="glass-card overflow-hidden">
+                    <div class="flex border-b border-white/5 p-2 bg-white/[0.02]">
+                        <button class="px-6 py-2 text-xs font-bold border-b-2 border-primary text-white">Clicks</button>
+                        <button
+                            class="px-6 py-2 text-xs font-medium text-text-muted hover:text-white transition-colors">Leads</button>
+                        <button
+                            class="px-6 py-2 text-xs font-medium text-text-muted hover:text-white transition-colors">Sales</button>
+                        <button
+                            class="px-6 py-2 text-xs font-medium text-text-muted hover:text-white transition-colors">Conversions</button>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left">
-                            <thead class="bg-white/[0.02] text-[10px] uppercase tracking-widest text-text-muted">
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-white/[0.01] text-[10px] uppercase font-bold text-text-dim">
                                 <tr>
-                                    <th class="px-8 py-4">Repair Target</th>
-                                    <th class="px-8 py-4">Status</th>
-                                    <th class="px-8 py-4">Entry / Level</th>
-                                    <th class="px-8 py-4">Profit Pips</th>
-                                    <th class="px-8 py-4 text-right">Action</th>
+                                    <th class="px-6 py-3">Campaign</th>
+                                    <th class="px-6 py-3">Affiliate Site</th>
+                                    <th class="px-6 py-3">Product</th>
+                                    <th class="px-6 py-3 text-center">Commission</th>
+                                    <th class="px-6 py-3 text-right">Time</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-white/5 text-sm">
-                                <tr class="hover:bg-white/[0.01] transition-colors">
-                                    <td class="px-8 py-4">
-                                        <div class="flex items-center gap-3">
-                                            <div
-                                                class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary-light font-bold">
-                                                EU</div>
-                                            <div>
-                                                <p class="font-semibold text-white">EURUSD</p>
-                                                <p class="text-[10px] text-text-muted font-mono uppercase">FIFO 3291823
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-8 py-4">
-                                        <span
-                                            class="px-2 py-1 rounded-md bg-success/10 text-success text-[10px] font-bold border border-success/20">HEALTHY_CYCLE</span>
-                                    </td>
-                                    <td class="px-8 py-4 font-mono text-xs text-text-muted">1.08450 / Lv0</td>
-                                    <td class="px-8 py-4 font-mono text-xs text-success">+4.2 pips</td>
-                                    <td class="px-8 py-4 text-right">
-                                        <button class="text-text-muted hover:text-white"><span
-                                                class="material-symbols-outlined text-lg">open_in_new</span></button>
-                                    </td>
+                            <tbody class="divide-y divide-white/5">
+                                <tr class="hover:bg-white/[0.02]">
+                                    <td class="px-6 py-4 flex items-center gap-2"><span
+                                            class="w-4 h-4 rounded bg-blue-500/20 text-blue-400 flex items-center justify-center text-[8px]">?</span>
+                                        Three Mobile</td>
+                                    <td class="px-6 py-4 text-text-muted">The Daily Telegraph <span
+                                            class="material-symbols-outlined text-[10px]">open_in_new</span></td>
+                                    <td class="px-6 py-4 text-text-dim">Default</td>
+                                    <td class="px-6 py-4 text-center">€0.00</td>
+                                    <td class="px-6 py-4 text-right text-text-muted">01 Jul 2024, 08:39</td>
                                 </tr>
-                                <tr class="hover:bg-white/[0.01] transition-colors">
-                                    <td class="px-8 py-4">
-                                        <div class="flex items-center gap-3">
-                                            <div
-                                                class="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 font-bold">
-                                                UJ</div>
-                                            <div>
-                                                <p class="font-semibold text-white">USDJPY</p>
-                                                <p class="text-[10px] text-text-muted font-mono uppercase">FIFO 3291888
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-8 py-4">
-                                        <span
-                                            class="px-2 py-1 rounded-md bg-orange-500/10 text-orange-500 text-[10px] font-bold border border-orange-500/20">RECOVERY_LV2</span>
-                                    </td>
-                                    <td class="px-8 py-4 font-mono text-xs text-text-muted">148.203 / Lv2</td>
-                                    <td class="px-8 py-4 font-mono text-xs text-danger">-22.4 pips</td>
-                                    <td class="px-8 py-4 text-right">
-                                        <button class="text-text-muted hover:text-white"><span
-                                                class="material-symbols-outlined text-lg">open_in_new</span></button>
-                                    </td>
+                                <tr class="hover:bg-white/[0.02]">
+                                    <td class="px-6 py-4 flex items-center gap-2"><span
+                                            class="w-4 h-4 rounded bg-orange-500/20 text-orange-400 flex items-center justify-center text-[8px]">?</span>
+                                        AliExpress</td>
+                                    <td class="px-6 py-4 text-text-muted">The Daily Telegraph <span
+                                            class="material-symbols-outlined text-[10px]">open_in_new</span></td>
+                                    <td class="px-6 py-4 text-text-dim">Default</td>
+                                    <td class="px-6 py-4 text-center">€0.00</td>
+                                    <td class="px-6 py-4 text-right text-text-muted">30 Jun 2024, 05:13</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="p-3 text-center border-t border-white/5">
+                        <button class="text-[10px] font-bold text-primary-light uppercase tracking-widest">More sale
+                            transactions</button>
+                    </div>
+                </div>
+
+                <!-- 5. Two Split Tables (Top 10) -->
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div class="glass-card">
+                        <div class="p-4 border-b border-white/5 font-bold text-xs uppercase tracking-widest">Top 10
+                            impressions & clicks</div>
+                        <div class="p-0 overflow-x-auto">
+                            <table class="w-full text-left text-[10px]">
+                                <thead class="bg-white/5 text-text-dim">
+                                    <tr>
+                                        <th class="px-4 py-2">TM</th>
+                                        <th class="px-4 py-2">Campaign</th>
+                                        <th class="px-4 py-2">Imp.</th>
+                                        <th class="px-4 py-2 text-right">Change</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-white/5">
+                                    <tr>
+                                        <td class="px-4 py-3">1</td>
+                                        <td class="px-4 py-3">AliExpress</td>
+                                        <td class="px-4 py-3">92,821</td>
+                                        <td class="px-4 py-3 text-right text-danger">-56,751</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-3">2</td>
+                                        <td class="px-4 py-3">Zara</td>
+                                        <td class="px-4 py-3">45,123</td>
+                                        <td class="px-4 py-3 text-right text-success">+12,311</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="glass-card">
+                        <div class="p-4 border-b border-white/5 font-bold text-xs uppercase tracking-widest">Top 10
+                            leads & sales</div>
+                        <div class="p-0 overflow-x-auto">
+                            <table class="w-full text-left text-[10px]">
+                                <thead class="bg-white/5 text-text-dim">
+                                    <tr>
+                                        <th class="px-4 py-2">TM</th>
+                                        <th class="px-4 py-2">Campaign</th>
+                                        <th class="px-4 py-2">Leads</th>
+                                        <th class="px-4 py-2 text-right">Change</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-white/5">
+                                    <tr>
+                                        <td class="px-4 py-3">1</td>
+                                        <td class="px-4 py-3">Three Mobile</td>
+                                        <td class="px-4 py-3">154</td>
+                                        <td class="px-4 py-3 text-right text-danger">-88</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="px-4 py-3">2</td>
+                                        <td class="px-4 py-3">Zara</td>
+                                        <td class="px-4 py-3">143</td>
+                                        <td class="px-4 py-3 text-right text-danger">-120</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. Latest Tickets -->
+                <div class="glass-card">
+                    <div class="p-6 border-b border-white/5 flex justify-between items-center">
+                        <h3 class="text-xs font-bold uppercase tracking-widest">Latest tickets</h3>
+                        <button class="text-primary-light text-[10px] font-bold">More Tickets ></button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-[10px]">
+                            <thead class="bg-white/[0.01] text-text-dim">
+                                <tr>
+                                    <th class="px-6 py-3">Campaign</th>
+                                    <th class="px-6 py-3">Subject</th>
+                                    <th class="px-6 py-3">Most recent message</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/5">
+                                <tr class="hover:bg-white/[0.01]">
+                                    <td class="px-6 py-3 font-semibold text-primary-light">The Daily Tele...</td>
+                                    <td class="px-6 py-3 text-white">Cooperation request</td>
+                                    <td class="px-6 py-3 text-text-muted">by Jason Bourne on 06/06/2024</td>
+                                </tr>
+                                <tr class="hover:bg-white/[0.01]">
+                                    <td class="px-6 py-3 font-semibold text-primary-light">BBC</td>
+                                    <td class="px-6 py-3 text-white">Placements on BBC</td>
+                                    <td class="px-6 py-3 text-text-muted">by Jason Bourne on 06/06/2024</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- Bot Management Panel -->
-                <div class="space-y-6">
-                    <div class="glass-card p-8">
-                        <h3 class="text-lg font-display font-semibold mb-6">Orchestrator Settings</h3>
-                        <div class="space-y-8">
-                            <div class="flex items-center justify-between">
-                                <div>
-                                    <p class="text-sm font-semibold">Master Kill-Switch</p>
-                                    <p class="text-[10px] text-text-muted">Emergency halt all pairs</p>
-                                </div>
-                                <div class="w-10 h-6 bg-primary/40 rounded-full relative p-1 cursor-pointer">
-                                    <div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full transition-all">
-                                    </div>
-                                </div>
-                            </div>
+                <!-- 8. Assessed Transactions & Validation Ratio -->
+                <div class="glass-card p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xs font-bold uppercase tracking-widest">Assessed transactions</h3>
+                    </div>
+                    <div class="flex gap-4 mb-6 border-b border-white/5 pb-2">
+                        <button class="text-[10px] font-bold text-white border-b-2 border-primary pb-2">Leads</button>
+                        <button class="text-[10px] font-bold text-text-muted hover:text-white pb-2">Sales</button>
+                        <button class="text-[10px] font-bold text-text-muted hover:text-white pb-2">App install</button>
+                    </div>
 
-                            <div>
-                                <p class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-4">
-                                    Operational Mode</p>
-                                <div class="grid grid-cols-1 gap-2">
-                                    <button
-                                        class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold hover:border-primary/50 transition-all">
-                                        <span>Manual Approval</span>
-                                        <span class="w-2 h-2 rounded-full bg-text-dim"></span>
-                                    </button>
-                                    <button
-                                        class="flex items-center justify-between p-3 rounded-xl bg-primary/20 border border-primary/50 text-xs font-semibold text-white">
-                                        <span>Full Auto (FIFO)</span>
-                                        <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
-                                    </button>
-                                </div>
+                    <div class="mb-4">
+                        <div class="flex justify-between text-[10px] font-bold mb-2 uppercase tracking-wide">
+                            <span>Validation ratio (past 1 year)</span>
+                            <div class="flex gap-4">
+                                <span class="flex items-center gap-1.5"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-success"></span> Accepted</span>
+                                <span class="flex items-center gap-1.5"><span
+                                        class="w-1.5 h-1.5 rounded-full bg-danger"></span> Rejected</span>
                             </div>
+                        </div>
+                        <div class="h-2 w-full bg-danger rounded-full overflow-hidden flex">
+                            <div class="h-full bg-success w-[65%]"></div>
+                        </div>
+                    </div>
 
-                            <div class="pt-6 border-t border-white/5">
-                                <label for="risk-heat-limit"
-                                    class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-4 block">Risk
-                                    Heat Limit</label>
-                                <input id="risk-heat-limit" type="range" aria-label="Risk Heat Limit"
-                                    class="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary" />
-                                <div class="flex justify-between mt-2 text-[10px] text-text-dim">
-                                    <span>Conservativo</span>
-                                    <span class="text-primary-light font-bold">20.0% Max DD</span>
-                                    <span>Agresivo</span>
-                                </div>
+                    <div class="overflow-x-auto bg-white/[0.01] rounded-xl border border-white/5">
+                        <table class="w-full text-left text-[10px]">
+                            <thead class="text-text-dim border-b border-white/5">
+                                <tr>
+                                    <th class="px-6 py-2">Affiliate site</th>
+                                    <th class="px-6 py-2">Campaign</th>
+                                    <th class="px-6 py-2">Product</th>
+                                    <th class="px-6 py-2 text-right">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="px-6 py-3">The Daily Tele...</td>
+                                    <td class="px-6 py-3">Three Mobile</td>
+                                    <td class="px-6 py-3">Default</td>
+                                    <td class="px-6 py-3 text-right">01 Jul 2024</td>
+                                </tr>
+                                <tr>
+                                    <td class="px-6 py-3">The Daily Tele...</td>
+                                    <td class="px-6 py-3">Zara</td>
+                                    <td class="px-6 py-3">Default</td>
+                                    <td class="px-6 py-3 text-right">30 Jun 2024</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 9. Bottom Banners (Zara Ads) -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="glass-card overflow-hidden group">
+                        <div class="h-32 bg-white/[0.05] p-6 flex flex-col justify-end">
+                            <h4 class="text-2xl font-display font-black tracking-tighter italic">ZARA</h4>
+                        </div>
+                        <div class="p-4">
+                            <p class="text-[10px] font-bold text-text-muted mb-2 uppercase">New collection on sale</p>
+                            <p class="text-[10px] text-text-dim leading-relaxed mb-4">Zara Launches Sale on Latest
+                                Collection in a highly anticipated move...</p>
+                            <button class="text-[10px] font-bold text-primary">Learn More</button>
+                        </div>
+                    </div>
+                    <div class="glass-card overflow-hidden group">
+                        <div class="h-32 bg-white/[0.05] p-6 flex flex-col justify-end">
+                            <h4 class="text-2xl font-display font-black tracking-tighter italic">ZARA</h4>
+                        </div>
+                        <div class="p-4">
+                            <p class="text-[10px] font-bold text-text-muted mb-2 uppercase">New collection on sale</p>
+                            <p class="text-[10px] text-text-dim leading-relaxed mb-4">Zara Launches Sale on Latest
+                                Collection in a highly anticipated move...</p>
+                            <button class="text-[10px] font-bold text-primary">Learn More</button>
+                        </div>
+                    </div>
+                    <div class="glass-card overflow-hidden group">
+                        <div class="h-32 bg-white/[0.05] p-6 flex flex-col justify-end">
+                            <h4 class="text-2xl font-display font-black tracking-tighter italic">ZARA</h4>
+                        </div>
+                        <div class="p-4">
+                            <p class="text-[10px] font-bold text-text-muted mb-2 uppercase">New collection on sale</p>
+                            <p class="text-[10px] text-text-dim leading-relaxed mb-4">Zara Launches Sale on Latest
+                                Collection in a highly anticipated move...</p>
+                            <button class="text-[10px] font-bold text-primary">Learn More</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Columna Derecha (Widgets e Insights) - Sidebar de la Imagen -->
+            <aside
+                class="hidden lg:flex w-80 flex-col overflow-y-auto custom-scrollbar p-6 space-y-6 border-l border-white/5 h-full shrink-0">
+
+                <!-- Financial Overview Widget -->
+                <div class="glass-card p-6 border-white/10">
+                    <h4 class="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6">Financial Overview
+                    </h4>
+                    <div class="space-y-6">
+                        <div>
+                            <p class="text-[10px] text-text-dim uppercase tracking-wider mb-2">Total commission June
+                                2024</p>
+                            <p class="text-2xl font-display font-bold text-white">€72.63</p>
+                        </div>
+                        <div class="p-4 rounded-xl bg-primary/5 border border-primary/20">
+                            <p class="text-[10px] text-text-muted uppercase tracking-wider mb-1">Total outstanding</p>
+                            <p class="text-xl font-display font-bold text-primary-light">€1,647,126.06</p>
+                        </div>
+                        <div class="flex items-center justify-between text-[10px]">
+                            <span class="text-text-muted">Next Payment</span>
+                            <span class="font-bold text-white">€0.00</span>
+                        </div>
+                        <button
+                            class="w-full py-3 rounded-xl bg-white/5 border border-white/10 text-[10px] font-bold uppercase transition-all hover:bg-white/10">
+                            Account balance overview
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Devices (Donut) -->
+                <div class="glass-card p-6">
+                    <h4 class="text-[10px] font-black uppercase tracking-widest text-text-muted mb-6">Device
+                        Distribution</h4>
+                    <div class="flex items-center justify-center mb-6">
+                        <div class="relative w-32 h-32">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="#254194" stroke-width="4"
+                                    stroke-dasharray="75, 100" stroke-linecap="round"></circle>
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="#10b981" stroke-width="4"
+                                    stroke-dasharray="15, 100" stroke-dashoffset="-75" stroke-linecap="round"></circle>
+                                <circle cx="18" cy="18" r="16" fill="none" stroke="#f59e0b" stroke-width="4"
+                                    stroke-dasharray="10, 100" stroke-dashoffset="-90" stroke-linecap="round"></circle>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center flex-col">
+                                <span class="text-xs font-bold">0.5 BTC</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center text-[10px]">
+                            <span class="flex items-center gap-1.5"><span
+                                    class="w-1.5 h-1.5 rounded-full bg-primary"></span> Desktop</span>
+                            <span class="font-black">75%</span>
+                        </div>
+                        <div class="flex justify-between items-center text-[10px]">
+                            <span class="flex items-center gap-1.5"><span
+                                    class="w-1.5 h-1.5 rounded-full bg-success"></span> Mobile</span>
+                            <span class="font-black">15%</span>
+                        </div>
+                        <div class="flex justify-between items-center text-[10px]">
+                            <span class="flex items-center gap-1.5"><span
+                                    class="w-1.5 h-1.5 rounded-full bg-orange-500"></span> Tablet</span>
+                            <span class="font-black">10%</span>
+                        </div>
+                    </div>
+                    <button class="w-full mt-6 py-2 rounded-lg bg-white/5 text-[9px] font-bold uppercase">Full devices
+                        report</button>
+                </div>
+
+                <!-- OS Performance -->
+                <div class="glass-card p-6 space-y-6">
+                    <h4 class="text-[10px] font-black uppercase tracking-widest text-text-muted">Most used systems</h4>
+                    <div class="space-y-4">
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-[10px] font-bold">
+                                <span>Android</span><span>49.48%</span>
+                            </div>
+                            <div class="h-1 bg-white/5 rounded-full overflow-hidden">
+                                <div class="h-full bg-success w-[49%]"></div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-[10px] font-bold"><span>iOS</span><span>29.83%</span>
+                            </div>
+                            <div class="h-1 bg-white/5 rounded-full overflow-hidden">
+                                <div class="h-full bg-primary w-[30%]"></div>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-[10px] font-bold">
+                                <span>WinXP</span><span>20.69%</span>
+                            </div>
+                            <div class="h-1 bg-white/5 rounded-full overflow-hidden">
+                                <div class="h-full bg-orange-500 w-[21%]"></div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
+
+                <!-- Report Today -->
+                <div class="glass-card p-6 space-y-4">
+                    <h4 class="text-[10px] font-black uppercase tracking-widest text-text-muted">Report today</h4>
+                    <div class="space-y-3">
+                        <div class="flex justify-between text-[10px] border-b border-white/5 pb-2">
+                            <span>Impressions</span><span class="font-bold">€0</span>
+                        </div>
+                        <div class="flex justify-between text-[10px] border-b border-white/5 pb-2">
+                            <span>Leads</span><span class="font-bold">€0</span>
+                        </div>
+                        <div class="flex justify-between text-[10px] border-b border-white/5 pb-2">
+                            <span>Sales</span><span class="font-bold">€0</span>
+                        </div>
+                        <div class="flex justify-between text-[10px] border-b border-white/5 pb-2"><span>App
+                                Installs</span><span class="font-bold">€0</span></div>
+                    </div>
+                    <button
+                        class="w-full py-2 rounded-lg bg-primary/10 text-primary-light border border-primary/20 text-[9px] font-bold uppercase">Extended
+                        report</button>
+                </div>
+
+                <!-- Category status -->
+                <div class="glass-card p-6 space-y-4">
+                    <h4 class="text-[10px] font-black uppercase tracking-widest text-text-muted">Campaign Per status
+                    </h4>
+                    <div class="space-y-3 text-[10px]">
+                        <div class="flex justify-between items-center"><span class="flex items-center gap-2"><span
+                                    class="material-symbols-outlined text-sm text-success">check_circle</span>
+                                Accepted</span><span class="font-bold text-text-muted">66 (24%)</span></div>
+                        <div class="flex justify-between items-center"><span class="flex items-center gap-2"><span
+                                    class="material-symbols-outlined text-sm text-orange-500">radio_button_checked</span>
+                                Not Subscribed</span><span class="font-bold text-text-muted">204 (74%)</span></div>
+                        <div class="flex justify-between items-center"><span class="flex items-center gap-2"><span
+                                    class="material-symbols-outlined text-sm text-danger">cancel</span>
+                                Cancelled</span><span class="font-bold text-text-muted">0 (0%)</span></div>
+                    </div>
+                    <button class="w-full py-2 rounded-lg bg-white/5 text-[9px] font-bold uppercase">Campaign
+                        overview</button>
+                </div>
+
+            </aside>
         </div>
     </div>
 
