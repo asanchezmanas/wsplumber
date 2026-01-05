@@ -7265,6 +7265,7 @@ def emergency_shutdown(reason: str):
 ### ✅ Logros Técnicos
 - **[2026-01-05]** Creación de `requirements.txt` con todas las dependencias (Supabase, FastAPI, MT5, etc.).
 - **[2026-01-05]** Instalación exitosa de dependencias en el entorno virtual `venv`.
+- **[2026-01-05]** Creación de todos los `__init__.py` (17 archivos) para estructura de paquetes correcta.
 - **[2026-01-05]** Completada **Fase 1: Inicio**: Apertura dual de operaciones (Buy/Sell), límites de riesgo de emergencia (`EMERGENCY_LIMITS`) y monitoreo de ejecución activo.
 - **[2026-01-05]** Configuración global del proyecto: Creación de `pyproject.toml` en la raíz con configuraciones para `black`, `ruff`, `mypy` y `pytest`.
 - **[2026-01-05]** Implementación de la capa de aplicación y orquestación: **TradingService**, **RiskManager** y **CycleOrchestrator**.
