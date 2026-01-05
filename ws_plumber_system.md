@@ -7454,9 +7454,10 @@ socket.onmessage = (event) => {
 
 ### Próximos Pasos Fase 3
 
+- [x] Crear `dashboard.js` con cliente WebSocket (reconexión automática, actualización de gauges/ticker/tabla FIFO)
 - [ ] Conectar `ConnectionManager` de WebSockets con el estado vivo de `CycleOrchestrator`.
-- [ ] Implementar `dashboard.js` para actualizar métricas (Equity, Drawdown) sin recarga.
 - [ ] Mapear el Ledger de Reparaciones FIFO a la tabla de Dashboard en tiempo real.
 
 ---
+
 

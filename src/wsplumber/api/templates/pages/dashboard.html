@@ -146,7 +146,7 @@
         <!-- News Ticker (Animado) -->
         <div
             class="h-10 border-b border-white/5 bg-primary/5 px-8 flex items-center overflow-hidden whitespace-nowrap shrink-0">
-            <div class="flex animate-marquee gap-8 items-center">
+            <div id="news-ticker" class="flex animate-marquee gap-8 items-center">
                 <span
                     class="text-[9px] font-black text-primary-light uppercase tracking-tighter flex items-center gap-2">
                     <span class="w-1 h-1 rounded-full bg-primary shadow-sm animate-pulse"></span>
@@ -180,8 +180,8 @@
 
                 <!-- 1. Top Gauges (4 cards) -->
                 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                    <!-- Gauge 1 -->
-                    <div class="glass-card p-4 flex flex-col items-center">
+                    <!-- Gauge 1: Balance -->
+                    <div id="gauge-balance" class="glass-card p-4 flex flex-col items-center">
                         <div
                             class="w-full flex justify-between text-[10px] font-bold text-text-muted mb-4 uppercase tracking-wider">
                             <span>Balance Today</span>
@@ -200,8 +200,8 @@
                         </div>
                         <p class="text-[10px] text-text-dim uppercase">Equity Target reached</p>
                     </div>
-                    <!-- Gauge 2 -->
-                    <div class="glass-card p-4 flex flex-col items-center">
+                    <!-- Gauge 2: Pips -->
+                    <div id="gauge-pips" class="glass-card p-4 flex flex-col items-center">
                         <div
                             class="w-full flex justify-between text-[10px] font-bold text-text-muted mb-4 uppercase tracking-wider">
                             <span>Pips Goal</span>
@@ -220,8 +220,8 @@
                         </div>
                         <p class="text-[10px] text-text-dim uppercase">Daily Limit surpassed</p>
                     </div>
-                    <!-- Gauge 3 -->
-                    <div class="glass-card p-4 flex flex-col items-center">
+                    <!-- Gauge 3: Volatility -->
+                    <div id="gauge-volatility" class="glass-card p-4 flex flex-col items-center">
                         <div
                             class="w-full flex justify-between text-[10px] font-bold text-text-muted mb-4 uppercase tracking-wider">
                             <span>Volatility</span>
@@ -240,8 +240,8 @@
                         </div>
                         <p class="text-[10px] text-text-dim uppercase">Market Heat Index</p>
                     </div>
-                    <!-- Gauge 4 -->
-                    <div class="glass-card p-4 flex flex-col items-center">
+                    <!-- Gauge 4: Efficiency -->
+                    <div id="gauge-efficiency" class="glass-card p-4 flex flex-col items-center">
                         <div
                             class="w-full flex justify-between text-[10px] font-bold text-text-muted mb-4 uppercase tracking-wider">
                             <span>Efficiency</span>
@@ -825,7 +825,9 @@
             border-radius: 10px;
         }
     </style>
+
+    <!-- WebSocket Client for Real-time Updates -->
+    <script src="/static/js/dashboard.js"></script>
 </body>
 
 </html>
-```
