@@ -7462,3 +7462,68 @@ socket.onmessage = (event) => {
 
 
 ---
+
+## 🚀 Fase 4: Optimización y Distribución (En Progreso)
+
+### Infraestructura de Datos Históricos
+
+**Proyecto Supabase Creado:**
+- **Nombre:** `wsplumber-core`
+- **ID:** `kraebebcpkukuliywkbg`
+- **Organización:** `wsplumber`
+- **Región:** `eu-west-1`
+- **URL:** `https://kraebebcpkukuliywkbg.supabase.co`
+
+**Esquema de Base de Datos:**
+
+| Tabla              | Propósito                                     | Clave Primaria            |
+| ------------------ | --------------------------------------------- | ------------------------- |
+| `cycles`           | Seguimiento del estado de ciclos (Core)       | `id` + `external_id`      |
+| `operations`       | Registro de operaciones vinculadas a ciclos   | `id` + `external_id`      |
+| `historical_rates` | Datos históricos OHLC (velas)                 | `(pair, timeframe, time)` |
+| `historical_ticks` | Datos históricos de ticks (para DB operativa) | `(pair, time)`            |
+
+**Seguridad Aplicada:**
+- ✅ RLS habilitado en todas las tablas
+- ✅ Políticas de acceso solo para usuarios autenticados
+
+### Estrategia de Datos Históricos
+
+Dado que la estrategia opera sobre **niveles de precio relativos** (5-20 pips del precio actual) y no sobre timeframes fijos, el tick data es la granularidad relevante para backtesting.
+
+**Arquitectura Híbrida:**
+
+| Tipo de Dato        | Almacenamiento          | Uso                              |
+| ------------------- | ----------------------- | -------------------------------- |
+| Tick Data Histórico | Archivos **Parquet**    | Backtesting offline, análisis    |
+| Ticks Operativos    | **Supabase** (24-48h)   | Alimentar sistema en tiempo real |
+| OHLC Agregada       | **Supabase** (opcional) | Dashboard, análisis rápido       |
+
+**Herramientas Creadas:**
+
+| Script                      | Función                                                 |
+| --------------------------- | ------------------------------------------------------- |
+| `scripts/csv_to_parquet.py` | Convierte CSVs de tick data a Parquet (~10x compresión) |
+| `scripts/test_ingestion.py` | Prueba de ingesta MT5 → Supabase                        |
+
+**Uso del Conversor Parquet:**
+```powershell
+# Archivo individual
+python scripts/csv_to_parquet.py data/EURUSD_ticks.csv
+
+# Directorio completo
+python scripts/csv_to_parquet.py data/tickdata/ -o data/parquet/
+```
+
+### Tareas Fase 4
+
+- [x] Crear proyecto Supabase dedicado (`wsplumber-core`)
+- [x] Aplicar esquema de tablas (cycles, operations, historical_rates, historical_ticks)
+- [x] Implementar métodos de ingesta histórica en `MT5Broker` y `SupabaseRepository`
+- [x] Crear `HistoryService` para orquestar la ingesta
+- [x] Crear script de conversión CSV → Parquet
+- [ ] Probar ingesta de datos históricos con credenciales MT5 reales
+- [ ] Revisar formato de tick data del usuario y ajustar parser
+- [ ] Protección del Core: Cythonización de `strategy.py` y `risk_manager.py` (último paso)
+
+---
