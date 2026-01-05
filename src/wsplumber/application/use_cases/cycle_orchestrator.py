@@ -190,7 +190,9 @@ class CycleOrchestrator:
                         cycle.add_operation(hedge_op)
                         
                         # Neutralizar la principal inmediatamente vinculándola al hedge
+                        cost = float(cycle.accounting.get_recovery_cost()) if hasattr(cycle, 'accounting') else 20.0
                         main_op.neutralize(hedge_id)
+                        logger.info("Operation neutralized", op_id=main_op.id, hedge_id=hedge_id, cost_pips=cost)
                         await self.repository.save_operation(main_op)
                         
                         request = OrderRequest(
@@ -241,7 +243,8 @@ class CycleOrchestrator:
 
     async def _handle_signal(self, signal: StrategySignal, tick: TickData):
         """Maneja las señales emitidas por la estrategia."""
-        logger.info("Signal received", type=signal.signal_type, pair=signal.pair)
+        reason = signal.metadata.get("reason", "unknown") if signal.metadata else "unknown"
+        logger.info("Signal received", type=signal.signal_type.name, pair=signal.pair, reason=reason)
 
         if signal.signal_type == SignalType.OPEN_CYCLE:
             await self._open_new_cycle(signal, tick)
@@ -271,12 +274,12 @@ class CycleOrchestrator:
             num_recoveries=num_recoveries
         )
         if not can_open.success:
-            logger.warning("Risk manager denied cycle opening", reason=can_open.error, exposure=exposure_pct)
+            logger.info("Signal rejected by RiskManager", reason=can_open.error, exposure=exposure_pct, pair=pair)
             return
 
         # 2. Validar que no haya ya un ciclo activo para este par
         if pair in self._active_cycles and self._active_cycles[pair].status.name not in ["CLOSED", "PAUSED"]:
-            logger.debug("Skipping OPEN_CYCLE: Already active/pending", pair=pair)
+            logger.debug("Signal ignored: Cycle already active/pending", pair=pair)
             return
 
         # 3. Calcular lote

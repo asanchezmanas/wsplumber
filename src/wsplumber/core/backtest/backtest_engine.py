@@ -34,13 +34,38 @@ class BacktestEngine:
             self.repository
         )
 
-    async def run(self, csv_path: str, pair: str = "EURUSD"):
+    def setup_logging(self, audit_file: str):
+        """Configura el logging para exportar a un archivo de auditoría."""
+        # Limpiar handlers previos si los hay
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers[:]:
+            root_logger.removeHandler(handler)
+        
+        # Handler para consola
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_formatter = logging.Formatter('%(levelname)s: %(message)s')
+        console_handler.setFormatter(console_formatter)
+        
+        # Handler para archivo de auditoría
+        file_handler = logging.FileHandler(audit_file, mode='w', encoding='utf-8')
+        file_handler.setLevel(logging.INFO)
+        file_formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(name)s | %(message)s')
+        file_handler.setFormatter(file_formatter)
+        
+        root_logger.setLevel(logging.INFO)
+        root_logger.addHandler(console_handler)
+        root_logger.addHandler(file_handler)
+        logger.info(f"Logging de auditoría configurado en: {audit_file}")
+
+    async def run(self, csv_path: str, pair: str = "EURUSD", audit_file: str = "docs/audit_backtest_output.md", max_bars: int = None):
         """Ejecuta el backtest completo para un par."""
+        self.setup_logging(audit_file)
         start_time = time.time()
         
         # 1. Cargar datos
-        logger.info(f"Cargando datos M1 para {pair} desde {csv_path}...")
-        self.broker.load_m1_csv(csv_path, CurrencyPair(pair))
+        logger.info(f"Cargando datos M1 para {pair} desde {csv_path} (max_bars={max_bars})...")
+        self.broker.load_m1_csv(csv_path, CurrencyPair(pair), max_bars=max_bars)
         total_ticks = len(self.broker.ticks)
         
         if total_ticks == 0:
@@ -136,4 +161,5 @@ if __name__ == "__main__":
     pair = sys.argv[2] if len(sys.argv) > 2 else "EURUSD"
     
     engine = BacktestEngine()
-    asyncio.run(engine.run(path, pair))
+    # Por defecto para auditoría usamos 50,000 barras si no se especifica lo contrario
+    asyncio.run(engine.run(path, pair, max_bars=50000))

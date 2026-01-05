@@ -92,7 +92,7 @@ class WallStreetPlumberStrategy(IStrategy):
                 signal_type=SignalType.OPEN_CYCLE,
                 pair=pair,
                 entry_price=Price(Decimal(str(ask))),
-                metadata={"reason": "no_active_cycle"}
+                metadata={"reason": "no_active_cycle", "spread": spread_pips}
             )
 
         # Analizar ciclo existente para detectar necesidad de recovery
@@ -100,11 +100,14 @@ class WallStreetPlumberStrategy(IStrategy):
         signal = self._analyze_cycle_for_recovery(cycle, Decimal(str(ask)), pair)
         
         if signal:
+            if not signal.metadata: signal.metadata = {}
+            signal.metadata["spread"] = spread_pips
             return signal
             
         return StrategySignal(
             signal_type=SignalType.NO_ACTION,
-            pair=pair
+            pair=pair,
+            metadata={"reason": "logic_not_met", "spread": spread_pips}
         )
 
     def process_order_fill(

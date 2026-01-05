@@ -12,8 +12,9 @@ from wsplumber.domain.types import (
     OperationStatus, Timestamp, Pips, Direction
 )
 from wsplumber.infrastructure.data.m1_data_loader import M1DataLoader
+from wsplumber.infrastructure.logging.safe_logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, environment="development")
 
 @dataclass
 class SimulatedPosition:
@@ -69,29 +70,40 @@ class SimulatedBroker(IBroker):
                 ask = Price(Decimal(row['ask']))
                 dt = datetime.fromisoformat(row['timestamp'])
                 
-                # Calcular spread
-                mult = 100 if "JPY" in pair else 10000
-                spread = float((ask - bid) * mult)
+                # Calcular spread (ya viene en el CSV TickData)
+                pips_mult = 100 if "JPY" in pair else 10000
+                spread = row.get('spread_pips', float((ask - bid) * pips_mult))
                 
                 self.ticks.append(TickData(
                     pair=pair,
                     bid=bid,
                     ask=ask,
                     timestamp=Timestamp(dt),
-                    spread_pips=Pips(spread)
+                    spread_pips=Pips(float(spread))
                 ))
         self.current_tick_index = 0
         logger.info(f"Loaded {len(self.ticks)} ticks from {csv_path}")
 
-    def load_m1_csv(self, csv_path: str, pair: Optional[CurrencyPair] = None):
+    def load_m1_csv(self, csv_path: str, pair: Optional[CurrencyPair] = None, max_bars: int = None):
         """Carga ticks desde un archivo CSV M1 (Formato OHLC)."""
         if not pair:
             pair = M1DataLoader.detect_pair_from_filename(csv_path)
         
         loader = M1DataLoader(pair)
-        self.ticks = list(loader.parse_m1_csv(csv_path))
+        self.ticks = list(loader.parse_m1_csv(csv_path, max_bars=max_bars))
+        for tick in self.ticks:
+            # Forzar spread mínimo de 1.0 pips si es 0 (para evitar rechazo por MAX_SPREAD_PIPS)
+            if tick.spread_pips <= 0:
+                tick.spread_pips = Pips(1.0)
+                tick.ask = Price(tick.bid + Decimal("0.00010"))
+                
         self.current_tick_index = 0
-        logger.info(f"Loaded {len(self.ticks)} synthetic ticks from M1 CSV: {csv_path}")
+        if self.ticks:
+            last_tick = self.ticks[-1]
+            logger.info("Loaded synthetic ticks from M1 CSV", 
+                        max_bars=max_bars, 
+                        total_ticks=len(self.ticks), 
+                        file=csv_path)
 
     async def connect(self) -> Result[bool]:
         self._connected = True
