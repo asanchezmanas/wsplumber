@@ -45,6 +45,16 @@ class MT5Broker(IBroker):
     Requiere que la terminal de MT5 esté instalada y accesible.
     """
 
+    _TIMEFRAME_MAP = {
+        "M1": mt5.TIMEFRAME_M1,
+        "M5": mt5.TIMEFRAME_M5,
+        "M15": mt5.TIMEFRAME_M15,
+        "M30": mt5.TIMEFRAME_M30,
+        "H1": mt5.TIMEFRAME_H1,
+        "H4": mt5.TIMEFRAME_H4,
+        "D1": mt5.TIMEFRAME_D1,
+    }
+
     def __init__(self, login: int, password: str, server: str, path: Optional[str] = None):
         """
         Inicializa el adaptador.
@@ -336,9 +346,76 @@ class MT5Broker(IBroker):
             })
         return Result.ok(res)
 
+    async def get_historical_rates(
+        self,
+        pair: CurrencyPair,
+        timeframe: str,
+        count: int,
+        from_date: Optional[datetime] = None,
+    ) -> Result[List[Dict[str, Any]]]:
+        """Obtiene datos históricos de velas (OHLC)."""
+        if not self.is_connected():
+            return Result.fail("MT5 not connected", "CONNECTION_ERROR")
+
+        tf_mt5 = self._TIMEFRAME_MAP.get(timeframe.upper())
+        if tf_mt5 is None:
+            return Result.fail(f"Invalid timeframe: {timeframe}")
+
+        if from_date:
+            rates = mt5.copy_rates_from(str(pair), tf_mt5, from_date, count)
+        else:
+            rates = mt5.copy_rates_from_pos(str(pair), tf_mt5, 0, count)
+
+        if rates is None or len(rates) == 0:
+            return Result.fail(f"Could not get rates for {pair}", "MT5_ERROR")
+
+        res = []
+        for r in rates:
+            res.append({
+                "time": datetime.fromtimestamp(r['time']),
+                "open": float(r['open']),
+                "high": float(r['high']),
+                "low": float(r['low']),
+                "close": float(r['close']),
+                "tick_volume": int(r['tick_volume']),
+                "spread": int(r['spread']),
+                "real_volume": int(r['real_volume']),
+            })
+        return Result.ok(res)
+
+    async def get_historical_ticks(
+        self,
+        pair: CurrencyPair,
+        count: int,
+        from_date: Optional[datetime] = None,
+    ) -> Result[List[TickData]]:
+        """Obtiene historial de ticks."""
+        if not self.is_connected():
+            return Result.fail("MT5 not connected", "CONNECTION_ERROR")
+
+        if from_date:
+            ticks = mt5.copy_ticks_from(str(pair), from_date, count, mt5.COPY_TICKS_ALL)
+        else:
+            ticks = mt5.copy_ticks_from(str(pair), datetime.now(), count, mt5.COPY_TICKS_ALL)
+
+        if ticks is None or len(ticks) == 0:
+            return Result.fail(f"Could not get ticks for {pair}", "MT5_ERROR")
+
+        res = []
+        for t in ticks:
+            res.append(TickData(
+                pair=pair,
+                bid=Price(Decimal(str(t['bid']))),
+                ask=Price(Decimal(str(t['ask']))),
+                timestamp=datetime.fromtimestamp(t['time']),
+                spread_pips=Pips(0.0)
+            ))
+        return Result.ok(res)
+
     # --- Privados ---
 
     def _map_order_type(self, op_type: OperationType) -> Optional[int]:
+
         """Mapea OperationType de dominio a ORDER_TYPE de MT5."""
         mapping = {
             OperationType.MAIN_BUY: mt5.ORDER_TYPE_BUY,

@@ -7449,15 +7449,16 @@ socket.onmessage = (event) => {
 | **Fase 0** | Infraestructura y Alineación      | ✅ Completada |
 | **Fase 1** | Inicio (Apertura Dual, Riesgo)    | ✅ Completada |
 | **Fase 2** | Operativa Normal (Recovery, FIFO) | ✅ Completada |
-| **Fase 3** | API y Dashboard (Alta Densidad)   | 🔄 En Proceso |
+| **Fase 3** | API y Dashboard (Alta Densidad)   | ✅ Completada |
 | **Fase 4** | Optimización y Distribución       | ⏳ Pendiente  |
 
 ### Próximos Pasos Fase 3
 
 - [x] Crear `dashboard.js` con cliente WebSocket (reconexión automática, actualización de gauges/ticker/tabla FIFO)
-- [ ] Conectar `ConnectionManager` de WebSockets con el estado vivo de `CycleOrchestrator`.
-- [ ] Mapear el Ledger de Reparaciones FIFO a la tabla de Dashboard en tiempo real.
+- [x] Crear `state_broadcaster.py` para emitir estado del sistema cada 2 segundos
+- [x] Integrar broadcaster con WebSocket router y app.py (lifespan events)
+- [x] Conectar `StateBroadcaster` con instancia real de `CycleOrchestrator` en `main.py`
+- [ ] Mapear el Ledger de Reparaciones FIFO a la tabla de Dashboard en tiempo real (Pendiente datos reales).
+
 
 ---
-
-

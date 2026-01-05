@@ -586,6 +586,74 @@ class SupabaseRepository(IRepository):
         logger.info("Repository connection closed")
 
     # ============================================
+    # HISTORICAL DATA
+    # ============================================
+
+    async def save_historical_rates(
+        self,
+        pair: CurrencyPair,
+        timeframe: str,
+        rates: List[Dict[str, Any]]
+    ) -> Result[int]:
+        """Persiste datos históricos de velas."""
+        try:
+            await self._ensure_connected()
+            
+            # Preparar payload para batch insert
+            payload = []
+            for r in rates:
+                payload.append({
+                    "pair": str(pair),
+                    "timeframe": timeframe.upper(),
+                    "time": r['time'].isoformat(),
+                    "open": r['open'],
+                    "high": r['high'],
+                    "low": r['low'],
+                    "close": r['close'],
+                    "tick_volume": r['tick_volume'],
+                    "spread": r['spread'],
+                    "real_volume": r['real_volume']
+                })
+
+            # Upsert para evitar duplicados si la PK es (pair, timeframe, time)
+            result = self.client.table("historical_rates").upsert(
+                payload, on_conflict="pair,timeframe,time"
+            ).execute()
+            
+            return Result.ok(len(payload))
+        except Exception as e:
+            logger.error(f"Error saving historical rates for {pair}: {e}")
+            return Result.fail(str(e), "DB_ERROR")
+
+    async def save_historical_ticks(
+        self,
+        pair: CurrencyPair,
+        ticks: List[TickData]
+    ) -> Result[int]:
+        """Persiste datos históricos de ticks."""
+        try:
+            await self._ensure_connected()
+            
+            payload = []
+            for t in ticks:
+                payload.append({
+                    "pair": str(pair),
+                    "time": t.timestamp.isoformat(),
+                    "bid": float(t.bid),
+                    "ask": float(t.ask),
+                    "spread_pips": float(t.spread_pips)
+                })
+
+            result = self.client.table("historical_ticks").upsert(
+                payload, on_conflict="pair,time"
+            ).execute()
+            
+            return Result.ok(len(payload))
+        except Exception as e:
+            logger.error(f"Error saving historical ticks for {pair}: {e}")
+            return Result.fail(str(e), "DB_ERROR")
+
+    # ============================================
     # HELPERS PRIVADOS
     # ============================================
 

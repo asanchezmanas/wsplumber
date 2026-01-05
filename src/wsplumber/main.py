@@ -26,6 +26,9 @@ from wsplumber.core.strategy import WallStreetPlumberStrategy
 import uvicorn
 from wsplumber.api.app import app
 
+# State Broadcaster para Dashboard en tiempo real
+from wsplumber.api.routers.state_broadcaster import state_broadcaster
+
 logger = get_logger("wsplumber.main")
 
 
@@ -66,7 +69,11 @@ async def main():
         repository=repository
     )
 
-    # 5. Ejecutar
+    # 5. Conectar el Dashboard State Broadcaster con el Orquestador
+    state_broadcaster.connect_orchestrator(orchestrator)
+    logger.info("📡 Dashboard broadcaster connected to orchestrator")
+
+    # 6. Ejecutar
     try:
         # Nota: connect() fallará si no hay credenciales reales en .env
         conn_res = await broker.connect()
@@ -80,7 +87,7 @@ async def main():
         pairs = settings.trading.pairs
         orchestrator_task = asyncio.create_task(orchestrator.start(pairs))
 
-        # 6. Arrancar API Server (FastAPI)
+        # 7. Arrancar API Server (FastAPI)
         config = uvicorn.Config(
             app=app, 
             host="0.0.0.0", 
@@ -110,3 +117,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+

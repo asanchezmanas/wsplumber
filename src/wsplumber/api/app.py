@@ -6,6 +6,7 @@ Configuración de rutas, plantillas Jinja2 y archivos estáticos.
 """
 
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -13,13 +14,27 @@ from fastapi.responses import HTMLResponse
 
 from wsplumber.config.settings import get_settings
 from wsplumber.api.routers import websocket
+from wsplumber.api.routers.state_broadcaster import state_broadcaster
+
+
+# Lifespan handler para startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Maneja el ciclo de vida de la aplicación."""
+    # Startup
+    await state_broadcaster.start()
+    yield
+    # Shutdown
+    await state_broadcaster.stop()
+
 
 # Configuración
 settings = get_settings()
 app = FastAPI(
     title="WS Plumber API",
     description="Estrategia Algorítmica de Alta Fidelidad",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 # Registrar Routers
@@ -56,3 +71,4 @@ async def read_dashboard(request: Request):
 async def health_check():
     """Endpoint de salud del sistema."""
     return {"status": "ok", "version": "0.1.0"}
+

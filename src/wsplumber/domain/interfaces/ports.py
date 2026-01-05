@@ -193,6 +193,48 @@ class IBroker(ABC):
         """
         pass
 
+    @abstractmethod
+    async def get_historical_rates(
+        self,
+        pair: CurrencyPair,
+        timeframe: str,
+        count: int,
+        from_date: Optional[datetime] = None,
+    ) -> Result[List[Dict[str, Any]]]:
+        """
+        Obtiene datos históricos de velas (OHLC).
+
+        Args:
+            pair: Par de divisas.
+            timeframe: Temporalidad (M1, H1, etc.)
+            count: Cantidad de velas.
+            from_date: Fecha inicio (opcional).
+
+        Returns:
+            Result con lista de velas.
+        """
+        pass
+
+    @abstractmethod
+    async def get_historical_ticks(
+        self,
+        pair: CurrencyPair,
+        count: int,
+        from_date: Optional[datetime] = None,
+    ) -> Result[List[TickData]]:
+        """
+        Obtiene historial de ticks.
+
+        Args:
+            pair: Par de divisas.
+            count: Cantidad de ticks.
+            from_date: Fecha inicio (opcional).
+
+        Returns:
+            Result con lista de TickData.
+        """
+        pass
+
 
 # ============================================
 # REPOSITORY INTERFACE
@@ -507,6 +549,48 @@ class IRepository(ABC):
     @abstractmethod
     async def close(self) -> None:
         """Cierra conexión con la base de datos."""
+        pass
+
+    # ============================================
+    # HISTORICAL DATA
+    # ============================================
+
+    @abstractmethod
+    async def save_historical_rates(
+        self,
+        pair: CurrencyPair,
+        timeframe: str,
+        rates: List[Dict[str, Any]]
+    ) -> Result[int]:
+        """
+        Persiste datos históricos de velas.
+
+        Args:
+            pair: Par de divisas.
+            timeframe: Temporalidad.
+            rates: Lista de diccionarios con datos de velas.
+
+        Returns:
+            Result con cantidad de registros guardados.
+        """
+        pass
+
+    @abstractmethod
+    async def save_historical_ticks(
+        self,
+        pair: CurrencyPair,
+        ticks: List[TickData]
+    ) -> Result[int]:
+        """
+        Persiste datos históricos de ticks.
+
+        Args:
+            pair: Par de divisas.
+            ticks: Lista de TickData.
+
+        Returns:
+            Result con cantidad de registros guardados.
+        """
         pass
 
 
