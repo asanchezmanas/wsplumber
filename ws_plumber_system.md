@@ -7562,3 +7562,117 @@ python scripts/csv_to_parquet.py data/tickdata/ -o data/parquet/
 
 ---
 
+## Documentación del Repositorio
+
+Se ha creado documentación profesional para el repositorio:
+
+| Archivo                 | Descripción                                          |
+| ----------------------- | ---------------------------------------------------- |
+| `README.md`             | Portada con badges, instalación rápida, arquitectura |
+| `.env.example`          | Plantilla de variables de entorno (sin secretos)     |
+| `docs/architecture.md`  | Diagramas de capas, flujos de datos, entidades       |
+| `docs/configuration.md` | Todas las variables configurables con defaults       |
+| `docs/deployment.md`    | Guía completa de VPS Windows con NSSM                |
+| `docs/api.md`           | Endpoints REST y mensajes WebSocket                  |
+| `CHANGELOG.md`          | Historial de versiones siguiendo Keep a Changelog    |
+
+### Estructura de Documentación
+
+```
+wsplumber/
+├── README.md              # Portada del proyecto
+├── CHANGELOG.md           # Historial de cambios
+├── .env.example           # Template de variables
+└── docs/
+    ├── architecture.md    # Diseño del sistema
+    ├── configuration.md   # Parámetros configurables
+    ├── deployment.md      # Guía de despliegue VPS
+    ├── api.md             # Referencia de API
+    └── assets/            # Screenshots para README
+```
+
+---
+
+## Dashboard V3 (Light Theme)
+
+Se ha transformado completamente el template `new_dashboard_v3.html` de un dashboard de afiliados a un dashboard de trading.
+
+### Secciones Mapeadas
+
+| Original (Afiliados)  | Nuevo (Trading)                          |
+| --------------------- | ---------------------------------------- |
+| Sidebar "Linker"      | **WSPlumber** + navegación trading       |
+| Header "Jason Bourne" | **MetaTrader 5** + cuenta                |
+| 4 Gauge Cards         | Balance, Pips, Exposición, Recovery      |
+| News Ticker           | Eventos en tiempo real                   |
+| Info Banner           | Estado del Mercado                       |
+| General Statistics    | Curva de Equity                          |
+| Tabbed Table          | Operaciones/Ciclos/Recovery/Historial    |
+| Top 10 Impressions    | Ranking de Pares                         |
+| Latest News           | Consejos del Día                         |
+| Brand Cards (ZARA)    | Tarjetas de Pares activos                |
+| Latest Tickets        | Últimos Eventos                          |
+| Last Transactions     | Últimas Operaciones Cerradas             |
+| Right Sidebar         | Alertas, Finanzas, Exposición, Objetivos |
+
+### IDs para WebSocket
+
+Se han añadido `id` attributes a todos los elementos dinámicos para facilitar la integración con `StateBroadcaster`:
+
+- `#gauge-balance`, `#gauge-pips`, `#gauge-exposure`, `#gauge-recovery`
+- `#news-ticker`, `#info-banner`
+- `#operations-table`, `#top-pairs`, `#events-table`
+- `#sidebar-balance`, `#sidebar-floating`, `#win-rate`, `#daily-pnl`
+
+---
+
+## Estrategia de Testing con Escenarios Sintéticos
+
+### Justificación
+
+El sistema usa **archivos CSV de tick data sintético** para validar el comportamiento del trading sin depender de MT5. Cada CSV es un "caso de prueba documentado" que demuestra cómo debe comportarse el sistema.
+
+**Ventajas:**
+- **Reproducibilidad**: Mismo CSV = mismo resultado siempre
+- **Documentación viva**: Los CSVs documentan casos de uso válidos
+- **Sin dependencias**: No necesita MT5 ni conexión a internet
+- **CI/CD friendly**: Ejecutable en pipelines automatizados
+
+### Jerarquía de Escenarios (De Core a Específico)
+
+| Nivel | Categoría                              | Tests     | Cobertura Requerida |
+| ----- | -------------------------------------- | --------- | ------------------- |
+| 1     | **Core** (TP/SL individual)            | C01-C05   | 100%                |
+| 2     | **Ciclos** (gestión de ciclos)         | CY01-CY05 | 100%                |
+| 3     | **Recovery** (recuperación multinivel) | R01-R07   | 100%                |
+| 4     | **Risk Management**                    | RM01-RM05 | 100%                |
+| 5     | **Edge Cases**                         | E01-E06   | 50%                 |
+| 6     | **Multi-Par**                          | MP01-MP04 | 100% (JPY)          |
+
+### Escenarios Críticos (Prioridad Máxima)
+
+| ID   | Escenario              | Acción Esperada    |
+| ---- | ---------------------- | ------------------ |
+| C01  | Precio sube 10 pips    | TP ejecutado       |
+| C02  | Precio baja 50 pips    | SL ejecutado       |
+| CY03 | SL en ciclo activo     | Ciclo → RECOVERY   |
+| R01  | SL Main                | Recovery N1 activa |
+| R02  | Recovery N1 alcanza TP | Pips recuperados   |
+| R03  | Recovery N1 falla      | Recovery N2 activa |
+
+### Estructura de Archivos
+
+```
+tests/scenarios/
+├── core/           # C01-C05
+├── cycles/         # CY01-CY05
+├── recovery/       # R01-R07
+├── risk/           # RM01-RM05
+└── edge/           # E01-E06
+```
+
+### Documentación Completa
+
+Ver [docs/testing.md](docs/testing.md) para la matriz completa de escenarios y el formato CSV.
+
+---
