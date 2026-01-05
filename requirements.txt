@@ -1,0 +1,10 @@
+supabase
+python-dotenv
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+MetaTrader5
+pandas
+httpx
+Cython
