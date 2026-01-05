@@ -420,14 +420,14 @@ No todo el beneficio es ganancia inmediata. Una parte se destina a fortalecer el
 ### Matemática del Fondo
 
 **Ejemplo con 10 recovery/semana:**
-| Período | Recovery | Beneficio bruto | 20% a reserva | Fondo acumulado |
-|---------|----------|-----------------|---------------|-----------------|
-| Semana 1 | 10 × 8€ | 80€ | 16€ | 16€ |
-| Semana 2 | 10 × 8€ | 80€ | 16€ | 32€ |
-| Semana 3 | 10 × 8€ | 80€ | 16€ | 48€ |
-| Semana 4 | 10 × 8€ | 80€ | 16€ | 64€ |
-| **Mes 1** | | **320€** | | **64€** |
-| **Mes 3** | | **960€** | | **~200€** |
+| Período   | Recovery | Beneficio bruto | 20% a reserva | Fondo acumulado |
+| --------- | -------- | --------------- | ------------- | --------------- |
+| Semana 1  | 10 × 8€  | 80€             | 16€           | 16€             |
+| Semana 2  | 10 × 8€  | 80€             | 16€           | 32€             |
+| Semana 3  | 10 × 8€  | 80€             | 16€           | 48€             |
+| Semana 4  | 10 × 8€  | 80€             | 16€           | 64€             |
+| **Mes 1** |          | **320€**        |               | **64€**         |
+| **Mes 3** |          | **960€**        |               | **~200€**       |
 
 ### Beneficio Neto Real
 - Beneficio bruto recovery: 80€/semana
@@ -2723,13 +2723,13 @@ class DebugContext:
 
 ### Stack Tecnológico
 
-| Capa | Tecnología | Función |
-|------|------------|---------|
-| API | FastAPI | Endpoints REST, WebSockets para tiempo real |
-| Trading | MT5 + Darwinex API | Ejecución de órdenes, gestión de posiciones |
-| Datos | QuantDataManager | Históricos 15 años, sin nulls |
-| Base de datos | PostgreSQL / SQLite | Persistencia de operaciones y estado |
-| Cache | Redis (opcional) | Estado en tiempo real, pub/sub |
+| Capa          | Tecnología          | Función                                     |
+| ------------- | ------------------- | ------------------------------------------- |
+| API           | FastAPI             | Endpoints REST, WebSockets para tiempo real |
+| Trading       | MT5 + Darwinex API  | Ejecución de órdenes, gestión de posiciones |
+| Datos         | QuantDataManager    | Históricos 15 años, sin nulls               |
+| Base de datos | PostgreSQL / SQLite | Persistencia de operaciones y estado        |
+| Cache         | Redis (opcional)    | Estado en tiempo real, pub/sub              |
 
 ---
 
@@ -4308,30 +4308,30 @@ El dinero real está en juego. No hay segundas oportunidades. El sistema debe:
 
 #### 🔴 CRÍTICOS (Pueden causar pérdida de dinero)
 
-| Error | Escenario | Consecuencia sin mitigar | Mitigación |
-|-------|-----------|--------------------------|------------|
-| Orden enviada, respuesta perdida | Timeout de red | Orden existe en broker pero sistema no sabe | Idempotencia + Reconciliación |
-| Desconexión durante operación | WiFi/Internet cae | Estado inconsistente | Checkpoint antes de cada orden |
-| Crash después de TP | Sistema cae justo después de TP | No se procesa el TP, no se abre recovery | Event sourcing + Recovery automático |
-| Doble ejecución | Retry envía orden 2 veces | 2 posiciones abiertas | Idempotency keys |
-| Broker rechaza pero sistema cree que OK | Error parseado mal | Posición fantasma en sistema | Verificación post-orden |
+| Error                                   | Escenario                       | Consecuencia sin mitigar                    | Mitigación                           |
+| --------------------------------------- | ------------------------------- | ------------------------------------------- | ------------------------------------ |
+| Orden enviada, respuesta perdida        | Timeout de red                  | Orden existe en broker pero sistema no sabe | Idempotencia + Reconciliación        |
+| Desconexión durante operación           | WiFi/Internet cae               | Estado inconsistente                        | Checkpoint antes de cada orden       |
+| Crash después de TP                     | Sistema cae justo después de TP | No se procesa el TP, no se abre recovery    | Event sourcing + Recovery automático |
+| Doble ejecución                         | Retry envía orden 2 veces       | 2 posiciones abiertas                       | Idempotency keys                     |
+| Broker rechaza pero sistema cree que OK | Error parseado mal              | Posición fantasma en sistema                | Verificación post-orden              |
 
 #### 🟡 ALTOS (Pueden causar problemas operativos)
 
-| Error | Escenario | Consecuencia | Mitigación |
-|-------|-----------|--------------|------------|
-| Rate limit del broker | Demasiadas órdenes | Órdenes rechazadas | Rate limiter + Queue |
-| Supabase timeout | DB lenta o caída | No se guarda estado | Retry + Cache local |
-| Spread spike | Volatilidad extrema | Entrar en mal momento | Spread controller |
-| Gap de fin de semana | Mercado abre con gap | TP/SL saltados | Gap handler |
+| Error                 | Escenario            | Consecuencia          | Mitigación           |
+| --------------------- | -------------------- | --------------------- | -------------------- |
+| Rate limit del broker | Demasiadas órdenes   | Órdenes rechazadas    | Rate limiter + Queue |
+| Supabase timeout      | DB lenta o caída     | No se guarda estado   | Retry + Cache local  |
+| Spread spike          | Volatilidad extrema  | Entrar en mal momento | Spread controller    |
+| Gap de fin de semana  | Mercado abre con gap | TP/SL saltados        | Gap handler          |
 
 #### 🟢 MEDIOS (Degradación de servicio)
 
-| Error | Escenario | Consecuencia | Mitigación |
-|-------|-----------|--------------|------------|
-| Métricas no se guardan | Error en trigger | Dashboard desactualizado | Queue de métricas |
-| Alertas no se envían | Telegram/Email caído | No te enteras de problemas | Múltiples canales |
-| Logs perdidos | Disco lleno | Sin trazabilidad | Log rotation + Cloud |
+| Error                  | Escenario            | Consecuencia               | Mitigación           |
+| ---------------------- | -------------------- | -------------------------- | -------------------- |
+| Métricas no se guardan | Error en trigger     | Dashboard desactualizado   | Queue de métricas    |
+| Alertas no se envían   | Telegram/Email caído | No te enteras de problemas | Múltiples canales    |
+| Logs perdidos          | Disco lleno          | Sin trazabilidad           | Log rotation + Cloud |
 
 ---
 
@@ -6385,17 +6385,17 @@ Inicial   Básico     Completo   Trading    Monitor    Trading
 
 #### Tareas
 
-| # | Tarea | Entregable | Criterio de Aceptación |
-|---|-------|------------|------------------------|
-| 0.1 | Crear repositorio Git | Repo con .gitignore, README | Repo creado en GitHub/GitLab |
-| 0.2 | Configurar estructura de carpetas | Estructura Clean Architecture | Todas las carpetas creadas |
-| 0.3 | Setup entorno Python | pyproject.toml, requirements.txt | `pip install -e .` funciona |
-| 0.4 | Configurar pre-commit hooks | .pre-commit-config.yaml | black, flake8, mypy configurados |
-| 0.5 | **Crear proyecto Supabase** | Proyecto en supabase.com | Dashboard accesible |
-| 0.6 | **Ejecutar schema SQL** | Todas las tablas creadas | Vistas funcionando |
-| 0.7 | **Configurar .env** | Variables de Supabase | Conexión funciona |
-| 0.8 | Configurar Docker | Dockerfile, docker-compose.yml | `docker-compose up` funciona |
-| 0.9 | Verificar datos QuantData | Script de verificación | Datos accesibles, sin nulls |
+| #   | Tarea                             | Entregable                       | Criterio de Aceptación           |
+| --- | --------------------------------- | -------------------------------- | -------------------------------- |
+| 0.1 | Crear repositorio Git             | Repo con .gitignore, README      | Repo creado en GitHub/GitLab     |
+| 0.2 | Configurar estructura de carpetas | Estructura Clean Architecture    | Todas las carpetas creadas       |
+| 0.3 | Setup entorno Python              | pyproject.toml, requirements.txt | `pip install -e .` funciona      |
+| 0.4 | Configurar pre-commit hooks       | .pre-commit-config.yaml          | black, flake8, mypy configurados |
+| 0.5 | **Crear proyecto Supabase**       | Proyecto en supabase.com         | Dashboard accesible              |
+| 0.6 | **Ejecutar schema SQL**           | Todas las tablas creadas         | Vistas funcionando               |
+| 0.7 | **Configurar .env**               | Variables de Supabase            | Conexión funciona                |
+| 0.8 | Configurar Docker                 | Dockerfile, docker-compose.yml   | `docker-compose up` funciona     |
+| 0.9 | Verificar datos QuantData         | Script de verificación           | Datos accesibles, sin nulls      |
 
 #### Setup Supabase (Detalle)
 
@@ -6494,15 +6494,15 @@ fontanero/
 
 #### Tareas
 
-| # | Tarea | Entregable | Criterio de Aceptación |
-|---|-------|------------|------------------------|
-| 1.1 | Implementar entidades básicas | Operation, Cycle | Tests unitarios pasan |
-| 1.2 | Implementar GeneradorIDs | Clase completa | IDs jerárquicos correctos |
-| 1.3 | Implementar QuantDataLoader | Cargador de datos | Carga EURUSD sin errores |
-| 1.4 | Implementar ConvertidorTicks | OHLC → Ticks | Genera ticks realistas |
-| 1.5 | Implementar BacktestEngine básico | Motor sin slippage | Procesa 1 día de datos |
-| 1.6 | Implementar lógica ciclo principal | Apertura, TP, cierre | Ciclo simple funciona |
-| 1.7 | Tests unitarios fase 1 | Suite de tests | Coverage > 80% |
+| #   | Tarea                              | Entregable           | Criterio de Aceptación    |
+| --- | ---------------------------------- | -------------------- | ------------------------- |
+| 1.1 | Implementar entidades básicas      | Operation, Cycle     | Tests unitarios pasan     |
+| 1.2 | Implementar GeneradorIDs           | Clase completa       | IDs jerárquicos correctos |
+| 1.3 | Implementar QuantDataLoader        | Cargador de datos    | Carga EURUSD sin errores  |
+| 1.4 | Implementar ConvertidorTicks       | OHLC → Ticks         | Genera ticks realistas    |
+| 1.5 | Implementar BacktestEngine básico  | Motor sin slippage   | Procesa 1 día de datos    |
+| 1.6 | Implementar lógica ciclo principal | Apertura, TP, cierre | Ciclo simple funciona     |
+| 1.7 | Tests unitarios fase 1             | Suite de tests       | Coverage > 80%            |
 
 #### Código a Implementar
 
@@ -6555,19 +6555,19 @@ def test_fase_1_completa():
 
 #### Tareas
 
-| # | Tarea | Entregable | Criterio de Aceptación |
-|---|-------|------------|------------------------|
-| 2.1 | Implementar sistema cobertura | Lógica de hedge | Coberturas se activan correctamente |
-| 2.2 | Implementar sistema recovery | Lógica completa | Recovery funciona con FIFO |
-| 2.3 | Implementar ContabilidadCiclo | Clase completa | Balance correcto |
-| 2.4 | Implementar detección de gaps | Gap handler | Gaps >50 pips detectados |
-| 2.5 | Implementar SlippageModel | Modelo realista | Slippage aplicado |
-| 2.6 | Implementar MetricsCalculator | Todas las métricas | KPIs calculados |
-| 2.7 | Implementar filtros de mercado | MarketFilters | Filtros funcionando |
-| 2.8 | Backtest EURUSD 5 años | Reporte completo | Métricas validadas |
-| 2.9 | Backtest GBPUSD 5 años | Reporte completo | Métricas validadas |
-| 2.10 | Análisis de resultados | Documento de análisis | Conclusiones documentadas |
-| 2.11 | Tests integración backtest | Suite de tests | Coverage > 85% |
+| #    | Tarea                          | Entregable            | Criterio de Aceptación              |
+| ---- | ------------------------------ | --------------------- | ----------------------------------- |
+| 2.1  | Implementar sistema cobertura  | Lógica de hedge       | Coberturas se activan correctamente |
+| 2.2  | Implementar sistema recovery   | Lógica completa       | Recovery funciona con FIFO          |
+| 2.3  | Implementar ContabilidadCiclo  | Clase completa        | Balance correcto                    |
+| 2.4  | Implementar detección de gaps  | Gap handler           | Gaps >50 pips detectados            |
+| 2.5  | Implementar SlippageModel      | Modelo realista       | Slippage aplicado                   |
+| 2.6  | Implementar MetricsCalculator  | Todas las métricas    | KPIs calculados                     |
+| 2.7  | Implementar filtros de mercado | MarketFilters         | Filtros funcionando                 |
+| 2.8  | Backtest EURUSD 5 años         | Reporte completo      | Métricas validadas                  |
+| 2.9  | Backtest GBPUSD 5 años         | Reporte completo      | Métricas validadas                  |
+| 2.10 | Análisis de resultados         | Documento de análisis | Conclusiones documentadas           |
+| 2.11 | Tests integración backtest     | Suite de tests        | Coverage > 85%                      |
 
 #### Semana 1: Core del Backtest
 
@@ -6628,20 +6628,20 @@ FASE_2_SUCCESS_CRITERIA = {
 
 #### Tareas
 
-| # | Tarea | Entregable | Criterio de Aceptación |
-|---|-------|------------|------------------------|
-| 3.1 | Implementar BrokerInterface | Interface abstracta | Contrato definido |
-| 3.2 | Implementar MT5Adapter | Adaptador completo | Conecta y opera en demo |
-| 3.3 | Implementar DarwinexAdapter | Adaptador completo | Conecta y opera en demo |
-| 3.4 | Implementar SupabaseRepository | Repositorio completo | CRUD funciona |
-| 3.5 | Implementar StateManager | Checkpoints | Recovery funciona |
-| 3.6 | Implementar ReconciliationService | Reconciliación | Detecta discrepancias |
-| 3.7 | Implementar IdempotentOrderExecutor | Órdenes idempotentes | Sin duplicados |
-| 3.8 | Implementar RateLimiter | Rate limiting | No excede límites |
-| 3.9 | Implementar CircuitBreaker | Circuit breaker | Protege de fallos |
-| 3.10 | Implementar TimezoneHandler | Manejo TZ | Sesiones correctas |
-| 3.11 | Implementar Use Cases | OpenCycle, CloseRecovery | Lógica de negocio |
-| 3.12 | Tests integración trading | Suite completa | Coverage > 85% |
+| #    | Tarea                               | Entregable               | Criterio de Aceptación  |
+| ---- | ----------------------------------- | ------------------------ | ----------------------- |
+| 3.1  | Implementar BrokerInterface         | Interface abstracta      | Contrato definido       |
+| 3.2  | Implementar MT5Adapter              | Adaptador completo       | Conecta y opera en demo |
+| 3.3  | Implementar DarwinexAdapter         | Adaptador completo       | Conecta y opera en demo |
+| 3.4  | Implementar SupabaseRepository      | Repositorio completo     | CRUD funciona           |
+| 3.5  | Implementar StateManager            | Checkpoints              | Recovery funciona       |
+| 3.6  | Implementar ReconciliationService   | Reconciliación           | Detecta discrepancias   |
+| 3.7  | Implementar IdempotentOrderExecutor | Órdenes idempotentes     | Sin duplicados          |
+| 3.8  | Implementar RateLimiter             | Rate limiting            | No excede límites       |
+| 3.9  | Implementar CircuitBreaker          | Circuit breaker          | Protege de fallos       |
+| 3.10 | Implementar TimezoneHandler         | Manejo TZ                | Sesiones correctas      |
+| 3.11 | Implementar Use Cases               | OpenCycle, CloseRecovery | Lógica de negocio       |
+| 3.12 | Tests integración trading           | Suite completa           | Coverage > 85%          |
 
 #### Semana 1: Infraestructura
 
@@ -6715,16 +6715,16 @@ async def test_fase_3_flow_completo():
 
 #### Tareas
 
-| # | Tarea | Entregable | Criterio de Aceptación |
-|---|-------|------------|------------------------|
-| 4.1 | Implementar FastAPI app | main.py con routers | Swagger accesible |
-| 4.2 | Implementar endpoints ciclos | CRUD ciclos | Postman tests pasan |
-| 4.3 | Implementar endpoints métricas | Métricas en tiempo real | Dashboard funciona |
-| 4.4 | Implementar WebSocket | Updates en tiempo real | WS conecta |
-| 4.5 | Implementar alertas | Sistema de alertas | Email/Telegram funciona |
-| 4.6 | Implementar health checks | /health endpoint | Monitoreo OK |
-| 4.7 | Implementar logging | Logging estructurado | Logs en JSON |
-| 4.8 | Docker compose producción | docker-compose.prod.yml | Deploy funciona |
+| #   | Tarea                          | Entregable              | Criterio de Aceptación  |
+| --- | ------------------------------ | ----------------------- | ----------------------- |
+| 4.1 | Implementar FastAPI app        | main.py con routers     | Swagger accesible       |
+| 4.2 | Implementar endpoints ciclos   | CRUD ciclos             | Postman tests pasan     |
+| 4.3 | Implementar endpoints métricas | Métricas en tiempo real | Dashboard funciona      |
+| 4.4 | Implementar WebSocket          | Updates en tiempo real  | WS conecta              |
+| 4.5 | Implementar alertas            | Sistema de alertas      | Email/Telegram funciona |
+| 4.6 | Implementar health checks      | /health endpoint        | Monitoreo OK            |
+| 4.7 | Implementar logging            | Logging estructurado    | Logs en JSON            |
+| 4.8 | Docker compose producción      | docker-compose.prod.yml | Deploy funciona         |
 
 ```python
 # Estructura API
@@ -6782,23 +6782,23 @@ WS     /ws/realtime                 # Updates en tiempo real
 
 #### Semana 1-2: Setup y Estabilización
 
-| Día | Tarea | Verificación |
-|-----|-------|--------------|
-| 1 | Deploy en servidor | Sistema accesible |
-| 2 | Conectar Darwinex demo | Conexión estable |
-| 3 | Abrir primer ciclo manual | Ciclo funciona |
-| 4-7 | Monitoreo intensivo | Sin errores críticos |
-| 8-14 | Operación supervisada | Métricas razonables |
+| Día  | Tarea                     | Verificación         |
+| ---- | ------------------------- | -------------------- |
+| 1    | Deploy en servidor        | Sistema accesible    |
+| 2    | Conectar Darwinex demo    | Conexión estable     |
+| 3    | Abrir primer ciclo manual | Ciclo funciona       |
+| 4-7  | Monitoreo intensivo       | Sin errores críticos |
+| 8-14 | Operación supervisada     | Métricas razonables  |
 
 #### Semana 3-4: Operación Autónoma
 
-| Métrica | Target | Acción si Falla |
-|---------|--------|-----------------|
-| Uptime | >99% | Revisar infraestructura |
-| Reconciliation errors | 0 | Revisar sincronización |
-| Profit factor | >1.2 | Revisar parámetros |
-| Max drawdown | <300 pips | Activar pausa |
-| Recovery ratio | <2.0 | Ajustar TPs |
+| Métrica               | Target    | Acción si Falla         |
+| --------------------- | --------- | ----------------------- |
+| Uptime                | >99%      | Revisar infraestructura |
+| Reconciliation errors | 0         | Revisar sincronización  |
+| Profit factor         | >1.2      | Revisar parámetros      |
+| Max drawdown          | <300 pips | Activar pausa           |
+| Recovery ratio        | <2.0      | Ajustar TPs             |
 
 #### Checklist Fin de Paper Trading
 
@@ -6880,34 +6880,34 @@ PRODUCTION_CONFIG_MONTH_3 = {
 
 #### Criterios de Escalado
 
-| Condición | Acción |
-|-----------|--------|
-| Profit factor >1.3 por 1 mes | Puede escalar |
-| Profit factor 1.0-1.3 | Mantener nivel actual |
-| Profit factor <1.0 | Reducir exposición |
-| Max drawdown >500 pips | Pausa y revisión |
-| Recovery ratio >3.0 | Revisar parámetros |
+| Condición                    | Acción                |
+| ---------------------------- | --------------------- |
+| Profit factor >1.3 por 1 mes | Puede escalar         |
+| Profit factor 1.0-1.3        | Mantener nivel actual |
+| Profit factor <1.0           | Reducir exposición    |
+| Max drawdown >500 pips       | Pausa y revisión      |
+| Recovery ratio >3.0          | Revisar parámetros    |
 
 ---
 
 ## Glosario de Términos
 
-| Término | Definición |
-|---------|------------|
-| **Ciclo Principal** | Conjunto de operaciones BUY/SELL simultáneas + recovery asociados |
-| **Recovery** | Operaciones de recuperación que buscan +80 pips para compensar pérdidas |
-| **Cobertura/Hedge** | Operación que neutraliza la pérdida de otra, encapsulándola |
-| **Neutralización** | Estado donde una pérdida queda "congelada" por una cobertura |
-| **FIFO** | First In, First Out - Sistema que cierra primero los recovery más antiguos |
-| **Drawdown** | Pérdida desde el máximo histórico de balance |
-| **TP (Take Profit)** | Nivel de precio objetivo donde se cierra con beneficio |
-| **Pips** | Unidad mínima de precio en forex (0.0001 para EURUSD, 0.01 para JPY) |
-| **Lotaje** | Tamaño de posición (0.01 = micro lote = ~1€/pip en EURUSD) |
-| **Spread** | Diferencia entre precio de compra (ask) y venta (bid) |
-| **Swap** | Costo/ingreso diario por mantener posición overnight |
-| **ECN Broker** | Broker con acceso directo al mercado, spreads variables, comisiones fijas |
-| **Gap** | Salto de precio entre cierre y apertura de mercado |
-| **Portfolio descorrelacionado** | Conjunto de pares que no se mueven juntos |
+| Término                         | Definición                                                                 |
+| ------------------------------- | -------------------------------------------------------------------------- |
+| **Ciclo Principal**             | Conjunto de operaciones BUY/SELL simultáneas + recovery asociados          |
+| **Recovery**                    | Operaciones de recuperación que buscan +80 pips para compensar pérdidas    |
+| **Cobertura/Hedge**             | Operación que neutraliza la pérdida de otra, encapsulándola                |
+| **Neutralización**              | Estado donde una pérdida queda "congelada" por una cobertura               |
+| **FIFO**                        | First In, First Out - Sistema que cierra primero los recovery más antiguos |
+| **Drawdown**                    | Pérdida desde el máximo histórico de balance                               |
+| **TP (Take Profit)**            | Nivel de precio objetivo donde se cierra con beneficio                     |
+| **Pips**                        | Unidad mínima de precio en forex (0.0001 para EURUSD, 0.01 para JPY)       |
+| **Lotaje**                      | Tamaño de posición (0.01 = micro lote = ~1€/pip en EURUSD)                 |
+| **Spread**                      | Diferencia entre precio de compra (ask) y venta (bid)                      |
+| **Swap**                        | Costo/ingreso diario por mantener posición overnight                       |
+| **ECN Broker**                  | Broker con acceso directo al mercado, spreads variables, comisiones fijas  |
+| **Gap**                         | Salto de precio entre cierre y apertura de mercado                         |
+| **Portfolio descorrelacionado** | Conjunto de pares que no se mueven juntos                                  |
 
 ---
 
@@ -6964,31 +6964,31 @@ Tasa_Éxito_Mínima = 33.3%
 
 ### Métricas de Rentabilidad
 
-| Métrica | Fórmula | Objetivo |
-|---------|---------|----------|
-| **Balance Final** | Σ(pips_ganados - costos) | > 0 |
-| **ROI Anualizado** | (balance_final / inicial)^(365/días) - 1 | > 20% |
-| **Sharpe Ratio** | retorno_promedio / volatilidad_retornos | > 1.5 |
-| **Profit Factor** | beneficios_totales / pérdidas_totales | > 1.5 |
-| **Expectancy** | (win_rate × avg_win) - (loss_rate × avg_loss) | > 5 pips |
+| Métrica            | Fórmula                                       | Objetivo |
+| ------------------ | --------------------------------------------- | -------- |
+| **Balance Final**  | Σ(pips_ganados - costos)                      | > 0      |
+| **ROI Anualizado** | (balance_final / inicial)^(365/días) - 1      | > 20%    |
+| **Sharpe Ratio**   | retorno_promedio / volatilidad_retornos       | > 1.5    |
+| **Profit Factor**  | beneficios_totales / pérdidas_totales         | > 1.5    |
+| **Expectancy**     | (win_rate × avg_win) - (loss_rate × avg_loss) | > 5 pips |
 
 ### Métricas de Riesgo
 
-| Métrica | Fórmula | Límite |
-|---------|---------|--------|
-| **Drawdown Máximo** | balance - max(balance_histórico) | < 500 pips |
-| **Drawdown Promedio** | promedio(todos_drawdowns) | < 200 pips |
-| **Recovery Time** | tiempo_promedio_recuperar_drawdown | < 5 días |
-| **VaR (95%)** | pérdida_máxima_95%_confianza | < 100 pips/día |
+| Métrica               | Fórmula                            | Límite         |
+| --------------------- | ---------------------------------- | -------------- |
+| **Drawdown Máximo**   | balance - max(balance_histórico)   | < 500 pips     |
+| **Drawdown Promedio** | promedio(todos_drawdowns)          | < 200 pips     |
+| **Recovery Time**     | tiempo_promedio_recuperar_drawdown | < 5 días       |
+| **VaR (95%)**         | pérdida_máxima_95%_confianza       | < 100 pips/día |
 
 ### Métricas Operativas
 
-| Métrica | Descripción | Target |
-|---------|-------------|--------|
-| **Recovery Ratio** | recovery_creados / ciclos_completados | < 1.5 |
-| **Ciclos/Día** | ciclos_completados / días_operados | > 3 |
-| **Tiempo Ciclo** | duración_promedio_ciclo | < 24h |
-| **Tasa Éxito Principal** | ciclos_sin_recovery / total_ciclos | > 40% |
+| Métrica                  | Descripción                           | Target |
+| ------------------------ | ------------------------------------- | ------ |
+| **Recovery Ratio**       | recovery_creados / ciclos_completados | < 1.5  |
+| **Ciclos/Día**           | ciclos_completados / días_operados    | > 3    |
+| **Tiempo Ciclo**         | duración_promedio_ciclo               | < 24h  |
+| **Tasa Éxito Principal** | ciclos_sin_recovery / total_ciclos    | > 40%  |
 
 ### Cálculo de Métricas
 
@@ -7247,13 +7247,33 @@ def emergency_shutdown(reason: str):
 
 ## Estado del Debate: Todas las Objeciones Resueltas
 
-| # | Objeción | Solución | Estado |
-|---|----------|----------|--------|
-| 1 | Neutralización congela pérdidas | Swaps incluidos + flujo de principales compensa | ✅ |
-| 2 | Acumulación en lateral | 40 pips separación + trailing stop opcional | ✅ |
-| 3 | Movimientos fuertes 400+ pips | Solo activa una dirección, favorece al sistema | ✅ |
-| 4 | Pérdidas potenciales | 2k€/par = margen 300 ops, lineal no exponencial | ✅ |
-| 5 | Correlación entre pares | Portfolio descorrelacionado, cálculo previo | ✅ |
-| 6 | Eventos alta volatilidad | Pausar principales, mantener recovery | ✅ |
-| 7 | Spreads variables | Broker ECN + controlador de spreads | ✅ |
-| 8 | Gaps fin de semana | Aceptar + fondo reserva 20% | ✅ |
+| #   | Objeción                        | Solución                                        | Estado |
+| --- | ------------------------------- | ----------------------------------------------- | ------ |
+| 1   | Neutralización congela pérdidas | Swaps incluidos + flujo de principales compensa | ✅      |
+| 2   | Acumulación en lateral          | 40 pips separación + trailing stop opcional     | ✅      |
+| 3   | Movimientos fuertes 400+ pips   | Solo activa una dirección, favorece al sistema  | ✅      |
+| 4   | Pérdidas potenciales            | 2k€/par = margen 300 ops, lineal no exponencial | ✅      |
+| 5   | Correlación entre pares         | Portfolio descorrelacionado, cálculo previo     | ✅      |
+| 6   | Eventos alta volatilidad        | Pausar principales, mantener recovery           | ✅      |
+| 7   | Spreads variables               | Broker ECN + controlador de spreads             | ✅      |
+| 8   | Gaps fin de semana              | Aceptar + fondo reserva 20%                     | ✅      |
+
+---
+
+## Roadmap y Estado de Ejecución (Source of Truth)
+
+### ✅ Logros Técnicos
+- **[2026-01-05]** Creación de `requirements.txt` con todas las dependencias (Supabase, FastAPI, MT5, etc.).
+- **[2026-01-05]** Instalación exitosa de dependencias en el entorno virtual `venv`.
+- **[2026-01-05]** Creación de la estructura de directorios (`src/wsplumber/domain`, `infrastructure`, etc.) siguiendo Clean Architecture.
+- **[2026-01-05]** Configuración de `.gitignore` en **Debug Mode** (permitiendo `.env` y backtests) y protección del core bajo el namespace `wsplumber`.
+
+### 🚀 Próximos Pasos (Pendientes)
+- [ ] Configuración del archivo `.env` con credenciales de Supabase.
+- [ ] Implementación de las entidades de dominio básicas (`Cycle`, `Operation`).
+- [ ] Implementación del adaptador inicial para MetaTrader 5.
+
+### 📝 Notas y Observaciones (Lo que falta o se ha pasado por alto)
+- *Nota:* Debemos asegurar que el compilador de Cython esté configurado correctamente para la protección del core en la fase de distribución.
+- *Nota:* Pendiente definir el umbral exacto de spread para el controlador de seguridad del broker.
+
