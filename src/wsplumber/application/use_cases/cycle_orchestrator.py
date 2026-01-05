@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
+from decimal import Decimal
 from typing import Dict, List, Optional
 
 from wsplumber.domain.interfaces.ports import (
@@ -100,19 +101,25 @@ class CycleOrchestrator:
 
             tick: TickData = tick_res.value
 
-            # 2. Consultar a la estrategia core (Secreto)
+            # 2. Monitorear estado de operaciones activas (detección de activación y TP)
+            # DEBE ocurrir antes de consultar la estrategia para que esta vea el estado real
+            await self._check_operations_status(pair)
+
+            # 3. Consultar a la estrategia core (Secreto)
             signal: StrategySignal = self.strategy.process_tick(
                 pair=tick.pair,
                 bid=float(tick.bid),
                 ask=float(tick.ask),
                 timestamp=tick.timestamp
             )
+            
+            # Solo para debug
+            current_cycle = self._active_cycles.get(pair)
+            if current_cycle:
+                logger.info(f"Cycle {current_cycle.id} status: {current_cycle.status}, Signal: {signal.signal_type}")
 
             if signal.signal_type == SignalType.NO_ACTION:
                 return
-
-            # 3. Monitorear estado de operaciones activas (detección de TP)
-            await self._check_operations_status(pair)
 
             # 4. Procesar señal
             await self._handle_signal(signal, tick)
@@ -154,7 +161,18 @@ class CycleOrchestrator:
                     timestamp=datetime.now()
                 )
                 if signal.signal_type != SignalType.NO_ACTION:
-                    await self._handle_signal(signal, TickData(pair=pair, bid=0, ask=0, timestamp=datetime.now()))
+                    await self._handle_signal(signal, TickData(pair=pair, bid=Decimal("0"), ask=Decimal("0"), timestamp=datetime.now()))
+            
+            elif op.status == OperationStatus.ACTIVE and cycle.status == CycleStatus.ACTIVE:
+                # Verificar si ambas principales se activaron para pasar a HEDGED
+                main_ops = [o for o in ops_res.value if o.is_main]
+                if all(o.status == OperationStatus.ACTIVE for o in main_ops) and len(main_ops) >= 2:
+                    logger.info("Both main operations active. Activating hedge.", cycle_id=cycle.id)
+                    cycle.activate_hedge()
+                    await self.repository.save_cycle(cycle)
+                    # Sincronizar con la estrategia si es necesario
+                    if hasattr(self.strategy, 'register_cycle'):
+                        self.strategy.register_cycle(cycle)
 
     async def _handle_signal(self, signal: StrategySignal, tick: TickData):
         """Maneja las señales emitidas por la estrategia."""
@@ -202,7 +220,7 @@ class CycleOrchestrator:
         # 4. Crear Operaciones Duales (Buy y Sell)
         # La estrategia dice: TP a 10 pips. 
         # NOTA: En una implementación real, esto vendría parametrizado o del core.
-        tp_distance = 0.0010 # 10 pips
+        tp_distance = Decimal("0.0010") # 10 pips
         
         # Operación BUY
         op_buy = Operation(
@@ -247,7 +265,10 @@ class CycleOrchestrator:
         results = await asyncio.gather(*tasks)
         
         if any(r.success for r in results):
+            for op in [op_buy, op_sell]:
+                cycle.add_operation(op)
             self._active_cycles[pair] = cycle
+            self.strategy.register_cycle(cycle)
             logger.info("New dual cycle opened", cycle_id=cycle.id, pair=pair)
         else:
             logger.error("Failed to open dual cycle", cycle_id=cycle.id)
@@ -325,9 +346,9 @@ class CycleOrchestrator:
             return
 
         # 2. Configuración de Recovery
-        recovery_distance = 0.0020  # 20 pips
-        tp_distance = 0.0080  # 80 pips
-        lot = 0.01  # En prod vendría del risk manager
+        recovery_distance = Decimal("0.0020")  # 20 pips
+        tp_distance = Decimal("0.0080")  # 80 pips
+        lot = Decimal("0.01")  # En prod vendría del risk manager
 
         # 3. Crear ciclo de Recovery
         recovery_level = parent_cycle.recovery_level + 1
@@ -409,7 +430,7 @@ class CycleOrchestrator:
             return
         
         # Obtener ciclo padre
-        parent_res = await self.repository.get_cycle_by_id(parent_cycle_id)
+        parent_res = await self.repository.get_cycle(parent_cycle_id)
         if not parent_res.success:
             return
         

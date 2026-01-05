@@ -344,6 +344,21 @@ class IRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_operations_by_cycle(
+        self, cycle_id: CycleId
+    ) -> Result[List[Operation]]:
+        """
+        Obtiene todas las operaciones de un ciclo.
+
+        Args:
+            cycle_id: ID del ciclo
+
+        Returns:
+            Lista de operaciones.
+        """
+        pass
+
+    @abstractmethod
     async def get_active_operations(
         self, pair: Optional[CurrencyPair] = None
     ) -> Result[List[Operation]]:
@@ -711,13 +726,15 @@ class IRiskManager(ABC):
         self,
         pair: CurrencyPair,
         current_exposure: float,
+        num_recoveries: int = 0,
     ) -> Result[bool]:
         """
-        Verifica si se puede abrir posición.
+        Verifica si se permite abrir una nueva posición.
 
         Args:
             pair: Par de divisas
             current_exposure: Exposición actual
+            num_recoveries: Número de recoveries activos (opcional)
 
         Returns:
             Result con True si se puede, False si no (con razón).

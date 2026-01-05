@@ -193,13 +193,19 @@ class Operation:
     # MÉTODOS DE NEGOCIO
     # ============================================
 
-    def activate(self, fill_price: Price, broker_ticket: BrokerTicket) -> None:
+    def mark_as_placed(self, broker_ticket: BrokerTicket) -> None:
+        """Marca la operación como enviada al broker (aún pendiente)."""
+        self.broker_ticket = broker_ticket
+        self.status = OperationStatus.PENDING
+
+    def activate(self, fill_price: Price, broker_ticket: BrokerTicket, timestamp: Optional[datetime] = None) -> None:
         """
         Activa la operación (orden ejecutada).
 
         Args:
             fill_price: Precio real de ejecución
             broker_ticket: Ticket del broker
+            timestamp: Momento de activación (opcional)
         """
         if self.status != OperationStatus.PENDING:
             raise ValueError(f"Cannot activate operation in status {self.status}")
@@ -207,7 +213,7 @@ class Operation:
         self.status = OperationStatus.ACTIVE
         self.actual_entry_price = fill_price
         self.broker_ticket = broker_ticket
-        self.activated_at = datetime.now()
+        self.activated_at = timestamp or datetime.now()
 
         # Calcular slippage
         expected = float(self.entry_price)
@@ -217,6 +223,21 @@ class Operation:
         # Convertir a pips (ajustar para JPY)
         multiplier = 100 if "JPY" in self.pair else 10000
         self.slippage_pips = Pips(diff * multiplier)
+
+    def close(self, price: Price, timestamp: Optional[datetime] = None) -> None:
+        """
+        Cierre genérico de la operación.
+        """
+        if self.status not in (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED):
+            raise ValueError(f"Cannot close operation in status {self.status}")
+
+        # Decidir si es TP o cierre normal
+        # Para simplificar, si el precio alcanza el TP, lo marcamos como TP_HIT
+        # En una implementación más compleja, compararíamos con tp_price
+        self.status = OperationStatus.CLOSED
+        self.actual_close_price = price
+        self.closed_at = timestamp or datetime.now()
+        self._calculate_profit()
 
     def close_with_tp(self, close_price: Price) -> None:
         """

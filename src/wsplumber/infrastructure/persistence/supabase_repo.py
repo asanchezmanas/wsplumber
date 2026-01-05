@@ -287,6 +287,34 @@ class SupabaseRepository(IRepository):
             )
             return Result.fail(str(e), "DB_ERROR")
 
+    async def get_operations_by_cycle(
+        self, cycle_id: CycleId
+    ) -> Result[List[Operation]]:
+        """Obtiene todas las operaciones de un ciclo."""
+        try:
+            # Primero necesitamos el UUID interno del ciclo si no es ya un UUID
+            cycle_uuid = await self._get_cycle_uuid(cycle_id)
+            if not cycle_uuid:
+                return Result.ok([])
+
+            result = (
+                self.client.table("operations")
+                .select("*")
+                .eq("cycle_id", cycle_uuid)
+                .execute()
+            )
+
+            operations = [
+                self._row_to_operation(row) for row in result.data or []
+            ]
+            return Result.ok(operations)
+
+        except Exception as e:
+            logger.error(
+                "Failed to get operations by cycle", exception=e, cycle_id=cycle_id
+            )
+            return Result.fail(str(e), "DB_ERROR")
+
     async def get_active_operations(
         self, pair: Optional[CurrencyPair] = None
     ) -> Result[List[Operation]]:

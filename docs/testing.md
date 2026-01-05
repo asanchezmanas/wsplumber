@@ -70,6 +70,142 @@ El sistema de testing usa **datos sintéticos en CSV** para simular escenarios d
 | MP03 | Par JPY (2 decimales vs 4)  | Cálculo de pips correcto      | 🟡 Alto    |
 | MP04 | Exposición total multi-par  | Suma de exposiciones validada | 🟡 Alto    |
 
+### Nivel 7: Gestión de Dinero (Money Management)
+
+| ID   | Escenario                      | Acción Esperada                            | Prioridad |
+| ---- | ------------------------------ | ------------------------------------------ | --------- |
+| MM01 | Balance inicial correcto       | Sistema lee balance de broker              | 🔴 Crítico |
+| MM02 | P&L de TP calculado            | +10 pips × lot × valor_pip = €             | 🔴 Crítico |
+| MM03 | P&L de SL calculado            | -50 pips × lot × valor_pip = €             | 🔴 Crítico |
+| MM04 | Balance actualiza tras TP      | balance += P&L                             | 🔴 Crítico |
+| MM05 | Balance actualiza tras SL      | balance -= P&L                             | 🔴 Crítico |
+| MM06 | Equity = Balance + Floating    | equity = balance + sum(open_pnl)           | 🔴 Crítico |
+| MM07 | Margen requerido por operación | margin = lot × contract / leverage         | 🟡 Alto    |
+| MM08 | Margen libre disponible        | free_margin = equity - margin_used         | 🟡 Alto    |
+| MM09 | Lot sizing por % riesgo        | lot = (balance × risk%) / (SL × pip_value) | 🟡 Alto    |
+| MM10 | Acumulación P&L en Recovery    | Total P&L incluye todas las ops            | 🟡 Alto    |
+
+---
+
+## Detalle de Escenarios: Gestión de Dinero
+
+### MM02: Cálculo de P&L en TP
+
+```
+ENTRADA:
+  - Par: EURUSD
+  - Lot: 0.10
+  - Entry: 1.10000
+  - Exit: 1.10100 (TP +10 pips)
+  - Pip value EURUSD: $10 por lote estándar = $1 por 0.10 lotes
+
+CÁLCULO:
+  pips = (1.10100 - 1.10000) / 0.0001 = 10 pips
+  pnl = 10 × 0.10 × $10 = $10.00
+
+VALIDACIONES:
+  ✓ operation.pnl_pips == 10
+  ✓ operation.pnl_money == 10.00
+  ✓ operation.status == CLOSED_TP
+```
+
+### MM03: Cálculo de P&L en SL
+
+```
+ENTRADA:
+  - Par: EURUSD
+  - Lot: 0.10
+  - Entry: 1.10000
+  - Exit: 1.09500 (SL -50 pips)
+  - Pip value: $1 por 0.10 lotes
+
+CÁLCULO:
+  pips = (1.09500 - 1.10000) / 0.0001 = -50 pips
+  pnl = -50 × 0.10 × $10 = -$50.00
+
+VALIDACIONES:
+  ✓ operation.pnl_pips == -50
+  ✓ operation.pnl_money == -50.00
+  ✓ cycle.blocked_pips == 50 (para recovery)
+```
+
+### MM06: Cálculo de Equity
+
+```
+ESTADO:
+  - Balance: 10,000.00
+  - Operaciones abiertas:
+    - EURUSD BUY: floating +$15.00
+    - GBPUSD SELL: floating -$8.00
+    - USDJPY BUY: floating +$3.00
+
+CÁLCULO:
+  floating_total = 15 + (-8) + 3 = $10.00
+  equity = 10,000 + 10 = $10,010.00
+
+VALIDACIONES:
+  ✓ account.balance == 10000.00
+  ✓ account.floating_pnl == 10.00
+  ✓ account.equity == 10010.00
+```
+
+### MM07: Cálculo de Margen
+
+```
+ENTRADA:
+  - Par: EURUSD
+  - Lot: 0.10
+  - Leverage: 1:100
+  - Contract size: 100,000
+
+CÁLCULO:
+  notional = 0.10 × 100,000 = 10,000 unidades
+  margin = 10,000 / 100 = $100.00
+
+VALIDACIONES:
+  ✓ operation.margin_required == 100.00
+  ✓ account.margin_used incluye este valor
+  ✓ account.free_margin = equity - margin_used
+```
+
+### MM09: Lot Sizing por % de Riesgo
+
+```
+ENTRADA:
+  - Balance: 10,000
+  - Riesgo por trade: 1%
+  - SL: 50 pips
+  - Pip value (EURUSD): $10 por lote
+
+CÁLCULO:
+  risk_amount = 10,000 × 0.01 = $100
+  lot = 100 / (50 × 10) = 0.20 lotes
+
+VALIDACIONES:
+  ✓ Si SL se activa, pérdida = 50 × 0.20 × 10 = $100 (= 1% del balance)
+  ✓ risk_manager.calculate_lot_size() retorna 0.20
+```
+
+### MM10: P&L Acumulado en Recovery Multinivel
+
+```
+SECUENCIA:
+  1. Main SL: -50 pips → blocked = 50
+  2. Recovery N1 SL: -50 pips → blocked = 100
+  3. Recovery N2 TP: +80 pips → recovered
+
+CÁLCULO:
+  total_loss = 50 + 50 = 100 pips bloqueados
+  recovery_gain = 80 pips
+  net_after_r2 = -100 + 80 = -20 pips (aún en déficit)
+
+VALIDACIONES:
+  ✓ cycle.accounting.total_blocked == 100
+  ✓ cycle.accounting.total_recovered == 80
+  ✓ cycle.accounting.is_fully_recovered == False
+```
+
+
 ---
 
 ## Detalle de Escenarios: Qué Debe Pasar Exactamente

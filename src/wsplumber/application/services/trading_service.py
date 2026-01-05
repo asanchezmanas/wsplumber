@@ -52,11 +52,16 @@ class TradingService:
 
             # 2. Actualizar entidad con datos del broker
             order_res = broker_result.value
-            operation.activate(
-                ticket=order_res.broker_ticket,
-                price=order_res.fill_price,
-                timestamp=order_res.timestamp or datetime.now()
-            )
+            if order_res.fill_price:
+                # Orden ejecutada inmediatamente (Market order o fill inmediato)
+                operation.activate(
+                    broker_ticket=order_res.broker_ticket,
+                    fill_price=order_res.fill_price,
+                    timestamp=order_res.timestamp or datetime.now()
+                )
+            else:
+                # Orden pendiente (Stop/Limit)
+                operation.mark_as_placed(order_res.broker_ticket)
 
             # 3. Persistir en repositorio
             save_result = await self.repository.save_operation(operation)
@@ -106,31 +111,54 @@ class TradingService:
     async def sync_all_active_positions(self, pair: Optional[CurrencyPair] = None) -> Result[int]:
         """
         Sincroniza las posiciones abiertas entre el broker y la base de datos.
-        Útil para recuperarse de reinicios o fallos de red.
         """
-        # 1. Obtener posiciones del broker
+        # 1. Obtener estado actual del broker
         broker_positions_res = await self.broker.get_open_positions()
         if not broker_positions_res.success:
             return Result.fail("Could not get positions from broker", "SYNC_ERROR")
         
         broker_positions = {str(p["ticket"]): p for p in broker_positions_res.value}
 
-        # 2. Obtener operaciones activas del repo
-        repo_ops_res = await self.repository.get_active_operations(pair)
-        if not repo_ops_res.success:
-            return Result.fail("Could not get active operations from repo", "SYNC_ERROR")
+        # 2. Obtener operaciones del repo (Activas y Pendientes)
+        repo_active_res = await self.repository.get_active_operations(pair)
+        repo_pending_res = await self.repository.get_pending_operations(pair)
         
-        repo_ops = repo_ops_res.value
+        if not repo_active_res.success or not repo_pending_res.success:
+            return Result.fail("Could not get operations from repo", "SYNC_ERROR")
+        
         sync_count = 0
 
-        # 3. Comparar y corregir
-        for op in repo_ops:
-            if op.broker_ticket not in broker_positions:
-                # La operación está en el repo como activa pero NO en el broker
-                # Probablemente se cerró por TP/SL manual o externo
-                logger.warning("Operation in repo but not in broker. Syncing as closed.", operation_id=op.id, ticket=op.broker_ticket)
-                # Habría que buscar el deal history para tener el precio real de cierre
-                op.status = OperationStatus.CLOSED
+        # 3. Sincronizar Pendientes -> Activas (Detección de activación)
+        for op in repo_pending_res.value:
+            if op.broker_ticket and str(op.broker_ticket) in broker_positions:
+                logger.info("Pending operation activated in broker. Syncing.", operation_id=op.id)
+                broker_pos = broker_positions[str(op.broker_ticket)]
+                op.activate(
+                    broker_ticket=op.broker_ticket,
+                    fill_price=broker_pos.get("entry_price") or broker_pos.get("fill_price"),
+                    timestamp=broker_pos.get("open_time") or datetime.now()
+                )
+                await self.repository.save_operation(op)
+                sync_count += 1
+
+        # 4. Sincronizar Activas -> Cerradas (Detección de cierre)
+        for op in repo_active_res.value:
+            if op.broker_ticket and str(op.broker_ticket) not in broker_positions:
+                # La operación ya no está activa en el broker
+                logger.warning("Active operation no longer in broker. Syncing as closed.", operation_id=op.id)
+                # Intentamos buscar el precio de cierre en el historial del broker
+                history_res = await self.broker.get_order_history()
+                close_price = op.tp_price # Fallback si no lo encontramos
+                close_time = datetime.now()
+                
+                if history_res.success:
+                    for h_pos in history_res.value:
+                        if str(h_pos.get("ticket")) == str(op.broker_ticket):
+                            close_price = h_pos.get("actual_close_price") or h_pos.get("close_price") or op.tp_price
+                            close_time = h_pos.get("closed_at") or h_pos.get("close_time") or datetime.now()
+                            break
+                            
+                op.close(price=close_price, timestamp=close_time)
                 await self.repository.save_operation(op)
                 sync_count += 1
         
