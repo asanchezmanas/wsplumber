@@ -7265,6 +7265,9 @@ def emergency_shutdown(reason: str):
 ### ✅ Logros Técnicos
 - **[2026-01-05]** Creación de `requirements.txt` con todas las dependencias (Supabase, FastAPI, MT5, etc.).
 - **[2026-01-05]** Instalación exitosa de dependencias en el entorno virtual `venv`.
+- **[2026-01-05]** Implementación de la capa de aplicación y orquestación: **TradingService**, **RiskManager** y **CycleOrchestrator**.
+- **[2026-01-05]** Creación del punto de entrada principal `main.py` para el arranque coordinado del sistema.
+- **[2026-01-05]** Alineación técnica con la arquitectura de "Core Secreto": Actualización de `.gitignore` y estandarización de nombres con prefijo `_`.
 - **[2026-01-05]** Implementación del adaptador **MetaTrader 5 (MT5Broker)** cumpliendo con la interfaz `IBroker`. Soporta órdenes a mercado, cierres, modificaciones de SL/TP y lectura de historial.
 - **[2026-01-05]** Limpieza del repositorio eliminando archivos redundantes en el directorio `new/`.
 - **[2026-01-05]** Estandarización de la configuración usando **Pydantic v2** (eliminando uso de v1 deprecado).
