@@ -7265,15 +7265,27 @@ def emergency_shutdown(reason: str):
 ### ✅ Logros Técnicos
 - **[2026-01-05]** Creación de `requirements.txt` con todas las dependencias (Supabase, FastAPI, MT5, etc.).
 - **[2026-01-05]** Instalación exitosa de dependencias en el entorno virtual `venv`.
+- **[2026-01-05]** Limpieza del repositorio eliminando archivos redundantes en el directorio `new/`.
+- **[2026-01-05]** Estandarización de la configuración usando **Pydantic v2** (eliminando uso de v1 deprecado).
+- **[2026-01-05]** Migración e integración de activos avanzados desde el directorio `new/`:
+    - Centralización de tipos y enums en `src/wsplumber/domain/types.py`.
+    - Entidades `Cycle` y `Operation` avanzadas con lógica de negocio y contabilidad FIFO.
+    - Interfaces de dominio (ports) en `src/wsplumber/domain/interfaces/ports.py`.
+    - Logging seguro y sanitizado en `src/wsplumber/infrastructure/logging/safe_logger.py`.
+    - Gestión de configuración con Pydantic en `src/wsplumber/config/settings.py`.
+    - Implementación del `SupabaseRepository` en `src/wsplumber/infrastructure/persistence/supabase_repo.py`.
+- **[2026-01-05]** Configuración del archivo `.env` con placeholders para todas las claves (Supabase, MT5, API).
 - **[2026-01-05]** Creación de la estructura de directorios (`src/wsplumber/domain`, `infrastructure`, etc.) siguiendo Clean Architecture.
-- **[2026-01-05]** Configuración de `.gitignore` en **Debug Mode** (permitiendo `.env` y backtests) y protección del core bajo el namespace `wsplumber`.
 
 ### 🚀 Próximos Pasos (Pendientes)
-- [ ] Configuración del archivo `.env` con credenciales de Supabase.
-- [ ] Implementación de las entidades de dominio básicas (`Cycle`, `Operation`).
-- [ ] Implementación del adaptador inicial para MetaTrader 5.
+- [ ] Implementación del adaptador inicial para MetaTrader 5 (MT5Adapter).
+- [ ] Implementación de los servicios de aplicación y orquestación de ciclos.
+- [ ] Implementación del controlador de riesgo (RiskManager).
+- [ ] Configuración del servidor API (FastAPI) y dashboard en tiempo real.
 
 ### 📝 Notas y Observaciones (Lo que falta o se ha pasado por alto)
 - *Nota:* Debemos asegurar que el compilador de Cython esté configurado correctamente para la protección del core en la fase de distribución.
 - *Nota:* Pendiente definir el umbral exacto de spread para el controlador de seguridad del broker.
+- *Nota:* La migración del código desde `new/` incluyó corrección de namespaces (`fontanero` -> `wsplumber`) y adición de comentarios de ruta en cada archivo.
+
 
