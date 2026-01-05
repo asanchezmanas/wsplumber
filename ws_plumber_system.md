@@ -7260,12 +7260,26 @@ def emergency_shutdown(reason: str):
 
 ---
 
+## Arquitectura y Filosofía del Frontend
+
+### Principios Fundamentales
+Para asegurar la longevidad y mantenibilidad del sistema sin depender de ciclos de obsolescencia tecnológica rápidos, el frontend seguirá estos principios:
+
+1. **Simplicidad Estructural**: Uso de **HTML5** y **Vanilla CSS** para el diseño. Se evitarán frameworks pesados (React, Vue, Angular) para prevenir la depreciación semestral de dependencias.
+2. **Backend-Driven Rendering**: Implementación de plantillas **Jinja2** integradas con FastAPI. Esto permite centralizar la lógica en Python y reducir la complejidad del lado del cliente.
+3. **DRY (Don't Repeat Yourself)**: Centralización de componentes UI y hojas de estilo para maximizar la reutilización y consistencia visual.
+4. **Cero Dependencias Complejas**: Sin herramientas de construcción (build tools) complejas o runtimes pesados que dificulten el despliegue o la depuración.
+5. **Enfoque en Datos**: El dashboard priorizará la visualización fluida de métricas de trading y el estado en tiempo real de los ciclos mediante WebSockets.
+
+---
+
 ## Roadmap y Estado de Ejecución (Source of Truth)
 
 ### ✅ Logros Técnicos
 - **[2026-01-05]** Creación de `requirements.txt` con todas las dependencias (Supabase, FastAPI, MT5, etc.).
 - **[2026-01-05]** Instalación exitosa de dependencias en el entorno virtual `venv`.
 - **[2026-01-05]** Creación de todos los `__init__.py` (17 archivos) para estructura de paquetes correcta.
+- **[2026-01-05]** Avance en **Fase 2: Operativa Normal**: Implementación de `_renew_cycle`, `_open_recovery_cycle` y `_handle_recovery_tp` con lógica FIFO.
 - **[2026-01-05]** Completada **Fase 1: Inicio**: Apertura dual de operaciones (Buy/Sell), límites de riesgo de emergencia (`EMERGENCY_LIMITS`) y monitoreo de ejecución activo.
 - **[2026-01-05]** Configuración global del proyecto: Creación de `pyproject.toml` en la raíz con configuraciones para `black`, `ruff`, `mypy` y `pytest`.
 - **[2026-01-05]** Implementación de la capa de aplicación y orquestación: **TradingService**, **RiskManager** y **CycleOrchestrator**.

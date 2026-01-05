@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>503 - Service Unavailable</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#144bb8",
+                        "primary-dark": "#0f3685",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#111621",
+                        "surface-dark": "#1a202e",
+                        "text-main": "#f3f4f6",
+                        "text-muted": "#9ca3af",
+                        "border-dark": "#2d3748",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "sans": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.375rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    backgroundImage: {
+                        'subtle-gradient': 'radial-gradient(circle at 50% 0%, #1a2333 0%, #111621 60%)'
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.8s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+</head>
+
+<body
+    class="bg-background-light dark:bg-background-dark text-gray-900 dark:text-text-main antialiased selection:bg-primary/30 selection:text-white">
+    <div class="relative flex min-h-screen w-full flex-col overflow-hidden bg-subtle-gradient">
+        <header class="flex w-full items-center justify-between px-6 py-6 md:px-12 lg:px-20 z-10">
+            <div class="flex items-center gap-3 text-white">
+                <div class="flex h-8 w-8 items-center justify-center rounded bg-primary/20 text-primary">
+                    <span class="material-symbols-outlined" style="font-size: 20px;">science</span>
+                </div>
+                <h2 class="text-lg font-bold tracking-tight text-white">A/B AI</h2>
+            </div>
+            <nav class="hidden md:flex items-center gap-8">
+                <a class="text-sm font-medium text-text-muted hover:text-white transition-colors duration-200"
+                    href="#">Product</a>
+                <a class="text-sm font-medium text-text-muted hover:text-white transition-colors duration-200"
+                    href="#">Resources</a>
+            </nav>
+        </header>
+        <main class="flex flex-1 flex-col items-center justify-center px-6 md:px-12 relative z-10">
+            <div
+                class="absolute pointer-events-none opacity-[0.03] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full border border-white">
+            </div>
+            <div
+                class="absolute pointer-events-none opacity-[0.03] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-white">
+            </div>
+            <div class="flex w-full max-w-[640px] flex-col items-center text-center space-y-10 animate-fade-in-up">
+                <div class="flex flex-col items-center gap-4">
+                    <h1 class="text-8xl font-light tracking-tight text-white/90 md:text-9xl">503</h1>
+                    <div class="h-px w-16 bg-gradient-to-r from-transparent via-primary to-transparent opacity-50">
+                    </div>
+                    <p class="text-2xl font-light text-white md:text-3xl">Service Unavailable</p>
+                    <p class="text-base text-text-muted leading-relaxed max-w-lg mx-auto font-light">
+                        Our AI engine is currently undergoing scheduled maintenance to improve performance.
+                        Please check back shortly or view our status page for real-time updates.
+                    </p>
+                </div>
+                <div class="flex w-full flex-col gap-6 items-center">
+                    <div class="flex flex-col sm:flex-row gap-4 w-full justify-center">
+                        <a class="inline-flex h-12 min-w-[160px] items-center justify-center rounded-lg bg-primary px-8 text-sm font-medium text-white transition-all duration-200 hover:bg-primary-dark hover:shadow-[0_0_15px_rgba(20,75,184,0.3)] focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-[#111621]"
+                            href="#">
+                            System Status
+                        </a>
+                        <a class="inline-flex h-12 min-w-[160px] items-center justify-center rounded-lg border border-border-dark bg-transparent px-8 text-sm font-medium text-white transition-all duration-200 hover:bg-surface-dark focus:outline-none focus:ring-2 focus:ring-border-dark focus:ring-offset-2 focus:ring-offset-[#111621]"
+                            href="#">
+                            Contact Support
+                        </a>
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center justify-center gap-6 pt-4 text-sm">
+                    <a class="flex items-center gap-1.5 text-text-muted transition-colors hover:text-primary cursor-pointer"
+                        onclick="window.location.reload()">
+                        <span class="material-symbols-outlined" style="font-size: 16px;">refresh</span>
+                        <span>Retry Connection</span>
+                    </a>
+                    <span class="text-gray-700 select-none">•</span>
+                    <a class="text-text-muted transition-colors hover:text-white" href="#">Help Center</a>
+                </div>
+            </div>
+        </main>
+        <footer class="w-full border-t border-white/5 py-8 px-6 md:px-12 z-10">
+            <div
+                class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 md:flex-row text-xs text-text-muted/60">
+                <p>© 2024 A/B AI. All rights reserved.</p>
+                <div class="flex gap-6">
+                    <a class="hover:text-text-muted transition-colors" href="#">Privacy</a>
+                    <a class="hover:text-text-muted transition-colors" href="#">Terms</a>
+                    <a class="hover:text-text-muted transition-colors" href="#">Contact Support</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+</body>
+
+</html>

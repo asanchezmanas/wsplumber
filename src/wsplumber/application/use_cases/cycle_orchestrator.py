@@ -20,7 +20,12 @@ from wsplumber.domain.interfaces.ports import (
 )
 from wsplumber.domain.types import (
     CurrencyPair,
+    CycleType,
+    OperationStatus,
+    OperationType,
     OrderRequest,
+    Pips,
+    RecoveryId,
     Result,
     SignalType,
     StrategySignal,
@@ -160,21 +165,30 @@ class CycleOrchestrator:
         
         elif signal.signal_type == SignalType.CLOSE_OPERATIONS:
             await self._close_cycle_operations(signal)
+        
+        elif signal.signal_type == SignalType.OPEN_RECOVERY:
+            await self._open_recovery_cycle(signal, tick)
             
-        # ... otros tipos de señales (HEDGE, RECOVERY) se implementan aquí
+        # Manejo de renovación automática (Fase 2)
+        # Cuando una main toca TP, se renueva el ciclo
 
     async def _open_new_cycle(self, signal: StrategySignal, tick: TickData):
         """Inicia un nuevo ciclo de trading con dos operaciones (Buy + Sell)."""
         pair = signal.pair
         
-        # 1. Verificar riesgo (Simplificado)
+        # 1. Obtener métricas de exposición reales
+        exposure_pct, num_recoveries = await self._get_exposure_metrics(pair)
         acc_info = await self.trading_service.broker.get_account_info()
         balance = acc_info.value["balance"] if acc_info.success else 10000.0
 
-        # Para un nuevo ciclo abrimos 2 operaciones, validamos exposición base
-        can_open = self.risk_manager.can_open_position(pair, current_exposure=0.0) 
+        # Validar con el RiskManager
+        can_open = self.risk_manager.can_open_position(
+            pair, 
+            current_exposure=exposure_pct,
+            num_recoveries=num_recoveries
+        )
         if not can_open.success:
-            logger.warning("Risk manager denied cycle opening", reason=can_open.error)
+            logger.warning("Risk manager denied cycle opening", reason=can_open.error, exposure=exposure_pct)
             return
 
         # 2. Calcular lote
@@ -259,3 +273,189 @@ class CycleOrchestrator:
         await self.repository.save_cycle(cycle)
         del self._active_cycles[pair]
         logger.info("Cycle closed", cycle_id=cycle.id)
+
+    # ============================================
+    # FASE 2: RENOVACIÓN Y RECOVERY
+    # ============================================
+
+    async def _renew_cycle(self, pair: CurrencyPair, tick: TickData):
+        """
+        Renueva el ciclo principal inmediatamente después de un TP.
+        
+        Según el Documento Madre (línea 115):
+        'Cuando un ciclo principal toca TP, inmediatamente se abre otro nuevo'
+        """
+        logger.info("Renewing cycle after TP", pair=pair)
+        
+        # Crear señal de apertura y delegar
+        signal = StrategySignal(
+            signal_type=SignalType.OPEN_CYCLE,
+            pair=pair,
+            metadata={"reason": "auto_renewal"}
+        )
+        await self._open_new_cycle(signal, tick)
+
+    async def _open_recovery_cycle(self, signal: StrategySignal, tick: TickData):
+        """
+        Abre un ciclo de Recovery para recuperar pérdidas neutralizadas.
+        
+        Según el Documento Madre (líneas 156-166):
+        - TP a 80 pips
+        - Posicionamiento a 20 pips del precio actual
+        - Separación de 40 pips entre niveles
+        """
+        pair = signal.pair
+        parent_cycle = self._active_cycles.get(pair)
+        
+        if not parent_cycle:
+            logger.warning("No active cycle to attach recovery", pair=pair)
+            return
+
+        # 1. Obtener métricas de exposición reales
+        exposure_pct, num_recoveries = await self._get_exposure_metrics(pair)
+
+        # Validar con el RiskManager
+        can_open = self.risk_manager.can_open_position(
+            pair, 
+            current_exposure=exposure_pct,
+            num_recoveries=num_recoveries
+        )
+        if not can_open.success:
+            logger.warning("Risk manager denied recovery opening", reason=can_open.error, exposure=exposure_pct)
+            return
+
+        # 2. Configuración de Recovery
+        recovery_distance = 0.0020  # 20 pips
+        tp_distance = 0.0080  # 80 pips
+        lot = 0.01  # En prod vendría del risk manager
+
+        # 3. Crear ciclo de Recovery
+        recovery_level = parent_cycle.recovery_level + 1
+        recovery_id = f"REC_{pair}_{recovery_level}_{datetime.now().strftime('%H%M%S')}"
+        
+        recovery_cycle = Cycle(
+            id=recovery_id,
+            pair=pair,
+            cycle_type=CycleType.RECOVERY,
+            parent_cycle_id=parent_cycle.id,
+            recovery_level=recovery_level
+        )
+
+        # 4. Crear operaciones de Recovery (Buy y Sell)
+        # Según doc: 'Se coloca a 20 pips del precio actual'
+        ask = tick.ask
+        bid = tick.bid
+        
+        op_rec_buy = Operation(
+            id=f"{recovery_id}_B",
+            cycle_id=recovery_cycle.id,
+            pair=pair,
+            op_type=OperationType.RECOVERY_BUY,
+            status=OperationStatus.PENDING,
+            entry_price=ask + recovery_distance,
+            tp_price=ask + recovery_distance + tp_distance,
+            lot_size=lot,
+            recovery_id=recovery_id
+        )
+        
+        op_rec_sell = Operation(
+            id=f"{recovery_id}_S",
+            cycle_id=recovery_cycle.id,
+            pair=pair,
+            op_type=OperationType.RECOVERY_SELL,
+            status=OperationStatus.PENDING,
+            entry_price=bid - recovery_distance,
+            tp_price=bid - recovery_distance - tp_distance,
+            lot_size=lot,
+            recovery_id=recovery_id
+        )
+
+        # 5. Guardar en DB
+        await self.repository.save_cycle(recovery_cycle)
+        
+        # 6. Registrar en la cola FIFO del ciclo padre
+        parent_cycle.add_recovery_to_queue(RecoveryId(recovery_id))
+        await self.repository.save_cycle(parent_cycle)
+
+        # 7. Ejecutar aperturas
+        tasks = []
+        for op in [op_rec_buy, op_rec_sell]:
+            request = OrderRequest(
+                operation_id=op.id,
+                pair=pair,
+                order_type=op.op_type,
+                entry_price=op.entry_price,
+                tp_price=op.tp_price,
+                lot_size=op.lot_size
+            )
+            tasks.append(self.trading_service.open_operation(request, op))
+        
+        results = await asyncio.gather(*tasks)
+        
+        if any(r.success for r in results):
+            logger.info("Recovery cycle opened", recovery_id=recovery_id, level=recovery_level)
+        else:
+            logger.error("Failed to open recovery cycle", recovery_id=recovery_id)
+
+    async def _handle_recovery_tp(self, recovery_cycle: Cycle, tick: TickData):
+        """
+        Maneja el TP de un ciclo Recovery: neutraliza deudas FIFO.
+        
+        Según el Documento Madre (líneas 84-86):
+        - 'Los 80 pips de beneficio se usan para cerrar ciclos recovery antiguos'
+        """
+        parent_cycle_id = recovery_cycle.parent_cycle_id
+        if not parent_cycle_id:
+            return
+        
+        # Obtener ciclo padre
+        parent_res = await self.repository.get_cycle_by_id(parent_cycle_id)
+        if not parent_res.success:
+            return
+        
+        parent_cycle = parent_res.value
+        
+        # Neutralizar el recovery más antiguo (FIFO)
+        closed_recovery_id = parent_cycle.close_oldest_recovery()
+        if closed_recovery_id:
+            logger.info("Neutralized oldest recovery (FIFO)", closed_id=closed_recovery_id)
+            parent_cycle.record_recovery_tp(Pips(80.0))
+            await self.repository.save_cycle(parent_cycle)
+        
+        # Verificar si se completó la recuperación
+        if parent_cycle.accounting.is_fully_recovered:
+            logger.info("Cycle fully recovered!", cycle_id=parent_cycle.id)
+            parent_cycle.status = CycleStatus.CLOSED
+            await self.repository.save_cycle(parent_cycle)
+
+    # ============================================
+    # UTILIDADES DE RIESGO
+    # ============================================
+
+    async def _get_exposure_metrics(self, pair: CurrencyPair) -> tuple[float, int]:
+        """
+        Calcula la exposición actual y el número de recoveries activos.
+        
+        Returns:
+            Tuple (exposure_percentage, num_active_recoveries)
+        """
+        # 1. Exposición por margen (MT5)
+        exposure_pct = 0.0
+        acc_res = await self.trading_service.broker.get_account_info()
+        if acc_res.success:
+            equity = acc_res.value.get("equity", 0.0)
+            margin = acc_res.value.get("margin", 0.0)
+            if equity > 0:
+                exposure_pct = (margin / equity) * 100
+        
+        # 2. Conteo de recoveries activos para este par
+        num_recoveries = 0
+        cycles_res = await self.repository.get_active_cycles(pair)
+        if cycles_res.success:
+            # Contamos cuántos ciclos de tipo RECOVERY hay activos
+            # (El diseño actual asume un MAIN cycle que 'contiene' u 'orquesta' recoveries,
+            # pero aquí contamos todos los ciclos secundarios activos)
+            num_recoveries = sum(1 for c in cycles_res.value if c.cycle_type == CycleType.RECOVERY)
+            
+        logger.debug("Exposure metrics", pair=pair, exposure=exposure_pct, recoveries=num_recoveries)
+        return (exposure_pct, num_recoveries)

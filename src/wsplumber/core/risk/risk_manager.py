@@ -45,19 +45,26 @@ class RiskManager(IRiskManager):
         self,
         pair: CurrencyPair,
         current_exposure: float,
+        num_recoveries: int = 0,
     ) -> Result[bool]:
         """
         Verifica si se permite abrir una nueva posición.
         """
-        # 1. Verificar exposición total
+        # 1. Verificar exposición total (30% límite)
         max_exp = EMERGENCY_LIMITS['max_exposure_percent']
         if current_exposure >= max_exp:
             msg = f"Max exposure reached: {current_exposure:.2f}% >= {max_exp}%"
             logger.warning(msg, pair=pair)
             return Result.fail(msg, "RISK_EXPOSURE_LIMIT")
 
-        # 2. Verificar límites de drawdown (esto debería venir de métricas en tiempo real)
-        # Por ahora es una implementación básica
+        # 2. Verificar número de recoveries simultáneos (20 límite)
+        max_rec = EMERGENCY_LIMITS['max_concurrent_recovery']
+        if num_recoveries >= max_rec:
+            msg = f"Max concurrent recoveries reached for {pair}: {num_recoveries} >= {max_rec}"
+            logger.warning(msg, pair=pair)
+            return Result.fail(msg, "RISK_RECOVERY_LIMIT")
+
+        # 3. Verificar límites de drawdown (Placeholder)
         if self.check_emergency_stop():
             return Result.fail("Emergency stop active", "RISK_EMERGENCY_STOP")
 
