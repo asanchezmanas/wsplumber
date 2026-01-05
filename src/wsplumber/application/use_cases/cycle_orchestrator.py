@@ -200,6 +200,7 @@ class CycleOrchestrator:
                             pair=pair,
                             order_type=hedge_type,
                             entry_price=hedge_op.entry_price,
+                            tp_price=hedge_op.tp_price,
                             lot_size=hedge_op.lot_size
                         )
                         hedge_tasks.append(self.trading_service.open_operation(request, hedge_op))
@@ -279,7 +280,11 @@ class CycleOrchestrator:
 
         # 2. Validar que no haya ya un ciclo activo para este par
         if pair in self._active_cycles and self._active_cycles[pair].status.name not in ["CLOSED", "PAUSED"]:
-            logger.debug("Signal ignored: Cycle already active/pending", pair=pair)
+            active_cycle = self._active_cycles[pair]
+            logger.debug("Signal ignored: Cycle already active/pending", 
+                         pair=pair, 
+                         existing_cycle_id=active_cycle.id, 
+                         status=active_cycle.status.name)
             return
 
         # 3. Calcular lote
@@ -472,6 +477,7 @@ class CycleOrchestrator:
         await self.repository.save_cycle(recovery_cycle)
         
         # 6. Registrar en la cola FIFO del ciclo padre
+        parent_cycle.recovery_level = recovery_level
         parent_cycle.add_recovery_to_queue(RecoveryId(recovery_id))
         await self.repository.save_cycle(parent_cycle)
 
@@ -491,7 +497,7 @@ class CycleOrchestrator:
         results = await asyncio.gather(*tasks)
         
         if any(r.success for r in results):
-            logger.info("Recovery cycle opened", recovery_id=recovery_id, level=recovery_level)
+            logger.info("Recovery cycle opened", recovery_id=recovery_id, recovery_level=recovery_level)
         else:
             logger.error("Failed to open recovery cycle", recovery_id=recovery_id)
 

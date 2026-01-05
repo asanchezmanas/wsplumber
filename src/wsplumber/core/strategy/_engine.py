@@ -205,9 +205,8 @@ class WallStreetPlumberStrategy(IStrategy):
         if not cycle.needs_recovery and not cycle.is_hedged:
             return None
             
-        current_recovery_level = len(cycle.recovery_operations)
-        if current_recovery_level >= MAX_RECOVERY_LEVELS:
-            return None
+        current_recovery_level = len(cycle.accounting.recovery_queue)
+        # Limite removido por petición del usuario: "cero limites"
 
         reference_price = self._get_reference_price(cycle)
         if reference_price is None:

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from wsplumber.infrastructure.logging.safe_logger import get_logger, setup_logging as setup_safe_logging
 import time
 from datetime import datetime
 from decimal import Decimal
@@ -12,8 +13,7 @@ from wsplumber.core.risk.risk_manager import RiskManager
 from wsplumber.infrastructure.persistence.in_memory_repo import InMemoryRepository
 from tests.fixtures.simulated_broker import SimulatedBroker
 from wsplumber.domain.types import CurrencyPair
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, environment="development")
 
 class BacktestEngine:
     """
@@ -89,7 +89,10 @@ class BacktestEngine:
             # Reportar progreso cada 10%
             pct = int((tick_count / total_ticks) * 100)
             if pct >= last_report_pct + 10:
-                logger.info(f"Progreso: {pct}% ({tick_count}/{total_ticks} ticks)")
+                acc = await self.broker.get_account_info()
+                balance = acc.value["balance"] if acc.success else 0
+                equity = acc.value["equity"] if acc.success else 0
+                logger.info(f"Progreso: {pct}% | Balance: {balance:.2f} | Equity: {equity:.2f} ({tick_count}/{total_ticks} ticks)")
                 last_report_pct = pct
 
         end_time = time.time()
@@ -110,10 +113,23 @@ class BacktestEngine:
         active_cycles = [c for c in cycles if c.status.name not in ["CLOSED", "PAUSED"]]
         closed_cycles = [c for c in cycles if c.status.name == "CLOSED"]
         
+        # Estadísticas de Recovery
+        max_rec_level = 0
+        cycles_with_recovery = 0
+        for c in cycles:
+            rec_level = len(c.recovery_operations)
+            if rec_level > 0:
+                cycles_with_recovery += 1
+                if rec_level > max_rec_level:
+                    max_rec_level = rec_level
+        
         # Categorización de operaciones
         active_ops = [op for op in ops if op.status.name == "ACTIVE"]
         pending_ops = [op for op in ops if op.status.name == "PENDING"]
-        tp_ops = [op for op in ops if op.status.name == "TP_HIT"]
+        tp_ops = [op for op in ops if op.status.name in ["TP_HIT", "CLOSED"]] # Incluimos cerrados por Sync
+        
+        # Cálculo de pips totales (solo cerrados)
+        total_pips_won = sum(op.profit_pips or 0.0 for op in ops if op.status.name in ["TP_HIT", "CLOSED"])
         
         # Cálculo de flotante
         floating_pips = sum(op.current_pips or 0.0 for op in active_ops)
@@ -129,29 +145,35 @@ class BacktestEngine:
         print(f"💰 Balance Final:       {acc_info['balance']:.2f} EUR")
         print(f"📉 Equity Final:        {acc_info['equity']:.2f} EUR")
         print(f"📊 Profit/Loss Realizado:{acc_info['balance'] - 10000.0:.2f} EUR")
+        print(f"🏆 Pips Cerrados:       {total_pips_won:+.2f} pips")
         print(f"🌊 Flotante (Pips):     {floating_pips:+.2f} pips")
         print("-" * 60)
         print(f"🔄 Ciclos Totales:      {len(cycles)}")
         print(f"   └─ ✅ Cerrados:      {len(closed_cycles)}")
         print(f"   └─ 🕒 Activos:       {len(active_cycles)}")
+        print(f"   └─ 🚑 Con Recovery:  {cycles_with_recovery} (Max Nivel: {max_rec_level})")
         print(f"🏗️  Operaciones Totales: {len(ops)}")
-        print(f"   └─ 🎯 Take Profits:  {len(tp_ops)}")
+        print(f"   └─ 🎯 Finalizadas:   {len(tp_ops)}")
         print(f"   └─ 🔥 Activas:       {len(active_ops)}")
         print(f"   └─ ⏳ Pendientes:    {len(pending_ops)}")
         
         if active_cycles:
             print("-" * 60)
             print("📜 ESTADO DE CICLOS ACTIVOS:")
-            for c in active_cycles:
-                rec_count = len(c.accounting.recovery_queue) if hasattr(c, 'accounting') else 0
-                print(f"   • {c.id:35} | Status: {c.status.name:12} | Recov: {rec_count}")
+            sorted_cycles = sorted(active_cycles, key=lambda x: len(x.recovery_operations), reverse=True)
+            for c in sorted_cycles[:10]: # Mostrar top 10 por nivel de recovery
+                rec_count = len(c.recovery_operations)
+                needs_rec = "⚠️ NEED_REC" if c.needs_recovery else ""
+                print(f"   • {c.id:30} | {c.status.name:10} | Lvl: {rec_count:2} | {needs_rec}")
+            if len(active_cycles) > 10:
+                print(f"   ... y otros {len(active_cycles)-10} ciclos activos.")
         
         print("="*60 + "\n")
 
 if __name__ == "__main__":
     # Script rápido para lanzar desde consola
     import sys
-    logging.basicConfig(level=logging.INFO)
+    setup_safe_logging(level="INFO")
     
     if len(sys.argv) < 2:
         print("Uso: python backtest_engine.py <csv_path> [pair]")

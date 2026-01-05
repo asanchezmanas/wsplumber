@@ -28,8 +28,8 @@ EMERGENCY_LIMITS = {
     'max_daily_loss_pips': 100,      # Pausa automática
     'max_weekly_loss_pips': 300,     # Revisión obligatoria
     'max_monthly_loss_pips': 500,    # Stop total del sistema
-    'max_concurrent_recovery': 20,   # Pausa nuevos ciclos
-    'max_exposure_percent': 30       # No abrir más operaciones
+    'max_concurrent_recovery': 999999, # Límite prácticamente eliminado por petición
+    'max_exposure_percent': 999999.0   # Límite prácticamente eliminado por petición
 }
 
 

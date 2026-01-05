@@ -161,7 +161,12 @@ class SimulatedBroker(IBroker):
         )
         self.pending_orders[ticket] = order
         
-        logger.info("Broker: Order placed", ticket=ticket, operation_id=request.operation_id, price=request.entry_price)
+        logger.info("Broker: Order placed", 
+                    ticket=ticket, 
+                    operation_id=request.operation_id, 
+                    price=float(request.entry_price),
+                    lots=float(request.lot_size),
+                    tp=float(request.tp_price))
         return Result.ok(OrderResult(
             success=True,
             broker_ticket=ticket,
@@ -208,9 +213,19 @@ class SimulatedBroker(IBroker):
         return Result.fail("Order/Position not found")
 
     async def get_open_positions(self) -> Result[List[Dict[str, Any]]]:
-        print(f">>> Broker[{id(self)}]: get_open_positions called. Count: {len(self.open_positions)}")
-        for t, p in self.open_positions.items():
-            print(f">>>   Broker[{id(self)}] has pos {t} for {p.operation_id}")
+        # Eliminamos los prints ruidosos y usamos debug con info relevante
+        if self.open_positions:
+            logger.debug("Broker Open Positions Status", 
+                         count=len(self.open_positions),
+                         positions=[{
+                             "ticket": p.ticket,
+                             "id": p.operation_id,
+                             "type": p.order_type.name,
+                             "lots": float(p.lot_size),
+                             "entry": float(p.entry_price),
+                             "tp": float(p.tp_price),
+                             "pips": p.current_pnl_pips
+                         } for p in self.open_positions.values()])
         return Result.ok([vars(p) for p in self.open_positions.values()])
 
     async def get_pending_orders(self) -> Result[List[Dict[str, Any]]]:

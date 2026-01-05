@@ -43,7 +43,12 @@ class TradingService:
         """
         try:
             # 1. Enviar al broker
-            logger.info("Placing order", operation_id=operation.id, pair=operation.pair)
+            logger.info("Placing order", 
+                        operation_id=operation.id, 
+                        pair=operation.pair,
+                        lots=float(request.lot_size),
+                        entry=float(request.entry_price),
+                        tp=float(request.tp_price))
             broker_result = await self.broker.place_order(request)
 
             if not broker_result.success:
@@ -188,5 +193,8 @@ class TradingService:
                 op.close(price=close_price, timestamp=close_time)
                 await self.repository.save_operation(op)
                 sync_count += 1
+        
+        if sync_count > 0:
+            logger.info("Trading summary synchronized", sync_count=sync_count, pair=pair)
         
         return Result.ok(sync_count)

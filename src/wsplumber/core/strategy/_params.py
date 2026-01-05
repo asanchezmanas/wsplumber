@@ -22,7 +22,7 @@ RECOVERY_LEVEL_STEP = 40.0    # Separación mínima entre niveles de recovery
 NEUTRALIZATION_RATIO = 2.0 
 
 # Límites de Seguridad Operativa
-MAX_RECOVERY_LEVELS = 10 # Máximo niveles por par antes de pausa total
+MAX_RECOVERY_LEVELS = 999999 # Límite eliminado por petición
 
 # Configuración de Spreads
 MAX_SPREAD_PIPS = 3.0    # No operar si el spread es superior
