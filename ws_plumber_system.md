@@ -7265,6 +7265,7 @@ def emergency_shutdown(reason: str):
 ### ✅ Logros Técnicos
 - **[2026-01-05]** Creación de `requirements.txt` con todas las dependencias (Supabase, FastAPI, MT5, etc.).
 - **[2026-01-05]** Instalación exitosa de dependencias en el entorno virtual `venv`.
+- **[2026-01-05]** Implementación del adaptador **MetaTrader 5 (MT5Broker)** cumpliendo con la interfaz `IBroker`. Soporta órdenes a mercado, cierres, modificaciones de SL/TP y lectura de historial.
 - **[2026-01-05]** Limpieza del repositorio eliminando archivos redundantes en el directorio `new/`.
 - **[2026-01-05]** Estandarización de la configuración usando **Pydantic v2** (eliminando uso de v1 deprecado).
 - **[2026-01-05]** Migración e integración de activos avanzados desde el directorio `new/`:
@@ -7278,7 +7279,6 @@ def emergency_shutdown(reason: str):
 - **[2026-01-05]** Creación de la estructura de directorios (`src/wsplumber/domain`, `infrastructure`, etc.) siguiendo Clean Architecture.
 
 ### 🚀 Próximos Pasos (Pendientes)
-- [ ] Implementación del adaptador inicial para MetaTrader 5 (MT5Adapter).
 - [ ] Implementación de los servicios de aplicación y orquestación de ciclos.
 - [ ] Implementación del controlador de riesgo (RiskManager).
 - [ ] Configuración del servidor API (FastAPI) y dashboard en tiempo real.
@@ -7287,5 +7287,6 @@ def emergency_shutdown(reason: str):
 - *Nota:* Debemos asegurar que el compilador de Cython esté configurado correctamente para la protección del core en la fase de distribución.
 - *Nota:* Pendiente definir el umbral exacto de spread para el controlador de seguridad del broker.
 - *Nota:* La migración del código desde `new/` incluyó corrección de namespaces (`fontanero` -> `wsplumber`) y adición de comentarios de ruta en cada archivo.
+- *Nota:* Las pruebas integrales de conexión (Supabase, MT5) están pausadas hasta que se disponga de credenciales válidas en el `.env`.
 
 
