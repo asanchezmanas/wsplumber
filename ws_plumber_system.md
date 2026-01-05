@@ -7339,6 +7339,124 @@ Este apartado detalla la correspondencia entre los requisitos teóricos y la imp
 - *Nota:* Debemos asegurar que el compilador de Cython esté configurado correctamente para la protección del core en la fase de distribución.
 - *Nota:* Pendiente definir el umbral exacto de spread para el controlador de seguridad del broker.
 - *Nota:* La migración del código desde `new/` incluyó corrección de namespaces (`fontanero` -> `wsplumber`) y adición de comentarios de ruta en cada archivo.
-- *Nota:* Las pruebas integrales de conexión (Supabase, MT5) están pausadas hasta que se disponga de credenciales válidas en el `.env`.
 
+
+---
+
+## 🖥️ Dashboard V2: Implementación de Alta Densidad
+
+### Filosofía de Diseño (Híbrido)
+El Dashboard combina dos referencias estéticas:
+- **Estructura**: Alta densidad de widgets inspirada en `dashboard_img.webp` (múltiples KPIs, gráficos de área, tablas densas).
+- **Estética**: Dark Glassmorphism / "Black Onyx" (negro puro `#050505`, bordes `white/5`, efectos de desenfoque de vidrio).
+
+### Layout de 3 Columnas
+```
+┌─────────────┬─────────────────────────────────┬─────────────────┐
+│  SIDEBAR    │         MAIN CONTENT FLOW       │  RIGHT WIDGETS  │
+│  (Nav)      │         (Scrollable)            │  (Insights)     │
+├─────────────┼─────────────────────────────────┼─────────────────┤
+│ Dashboard◉  │ [Header: Search + User Info]    │ Financial Ovw   │
+│ News Feed   │ [News Ticker Animado]           │ Device Donut    │
+│ Tour        │ [4x Radial Gauges]              │ OS Performance  │
+│ Support     │ [System Alert Banner]           │ Report Today    │
+│ ───────     │ [General Statistics Chart SVG]  │ Campaign Status │
+│ Logout      │ [Multi-tab Activity Table]      │ Second Tier Pgm │
+│             │ [Top 10 Tables x2]              │                 │
+│             │ [Latest News & Campaigns]       │                 │
+│             │ [Tickets + Transactions]        │                 │
+│             │ [Bottom Banners x3]             │                 │
+└─────────────┴─────────────────────────────────┴─────────────────┘
+```
+
+### Componentes Implementados
+
+| Sección                   | Descripción                                                   | Estado |
+| :------------------------ | :------------------------------------------------------------ | :----- |
+| **Sidebar Izquierda**     | Navegación fija (Dashboard, News Feed, Tour, Support, Logout) | ✅      |
+| **Header + Search**       | Barra de búsqueda, info usuario, iconos de notificación       | ✅      |
+| **News Ticker**           | Marquesina animada con señales en tiempo real (CSS animation) | ✅      |
+| **4x Radial Gauges**      | Balance, Pips Goal, Volatility, Efficiency con SVG donut      | ✅      |
+| **System Alert Banner**   | Banner promocional/alerta con gradiente y paginación          | ✅      |
+| **General Statistics**    | Gráfico de línea SVG (Equity Curve) con selector de tiempo    | ✅      |
+| **Multi-tab Table**       | Clicks/Leads/Sales/Conversions con pestañas interactivas      | ✅      |
+| **Top 10 Tables**         | Dos tablas lado a lado (Impressions & Clicks, Leads & Sales)  | ✅      |
+| **Latest News**           | Tarjetas de artículos con fecha y extracto                    | ✅      |
+| **Latest Campaigns**      | Tabla de rendimiento por campaña (Click, Lead, Sales %)       | ✅      |
+| **Latest Tickets**        | Historial de mensajes de soporte                              | ✅      |
+| **Assessed Transactions** | Barra de ratio de validación + tabla de transacciones         | ✅      |
+| **Bottom Banners**        | 3 tarjetas publicitarias estilo "ZARA"                        | ✅      |
+| **Financial Overview**    | Widget derecho con comisiones y saldo pendiente               | ✅      |
+| **Device Distribution**   | Donut chart (Desktop/Mobile/Tablet) con leyenda               | ✅      |
+| **OS Performance**        | Barras de progreso (Android/iOS/WinXP)                        | ✅      |
+| **Report Today**          | Resumen diario (Impressions, Leads, Sales, App Installs)      | ✅      |
+| **Campaign Per Status**   | Iconos de estado (Accepted/Not Subscribed/Cancelled)          | ✅      |
+| **Second Tier Program**   | Widget de referidos con botón de detalles                     | ✅      |
+
+### Adaptación al Contexto de Trading
+
+| Elemento Original (Referencia) | Equivalente "El Fontanero"                      |
+| :----------------------------- | :---------------------------------------------- |
+| Clicks / Leads (Radial)        | **Margen / Exposición** (Radial Gauge)          |
+| General Statistics (Chart)     | **Equity vs Drawdown** (Dual Line Chart)        |
+| Lists of Campaigns             | **Cycles & Operations List** (FIFO Ledger)      |
+| Devices (Donut)                | **Portfolio Distribution** (Exposición por par) |
+| Commission / Outstanding       | **Profit/Loss & Floating** (Balance real)       |
+
+### Stack Técnico Frontend V2
+
+| Tecnología     | Uso                                                     |
+| :------------- | :------------------------------------------------------ |
+| **Jinja2**     | Plantillas server-side para renderizado rápido          |
+| **Tailwind**   | Utility-first CSS via CDN (sin build step)              |
+| **Vanilla JS** | WebSocket client para actualizaciones parciales del DOM |
+| **SVG**        | Gráficos de equidad y gauges sin dependencias externas  |
+| **CSS Anim**   | Marquesina del ticker, pulsos, transiciones hover       |
+
+### WebSocket Integration (Próximo Paso)
+
+```javascript
+// dashboard.js - Conexión en tiempo real
+const socket = new WebSocket('ws://localhost:8000/ws/dashboard');
+
+socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    
+    if (data.type === 'state_update') {
+        updateGauges(data.equity, data.exposure);
+        updateFifoTable(data.active_cycles);
+        updateTicker(data.latest_signals);
+    }
+};
+```
+
+### Archivos Clave
+
+| Archivo                                            | Propósito                                |
+| :------------------------------------------------- | :--------------------------------------- |
+| `src/wsplumber/api/templates/pages/dashboard.html` | Template HTML principal del Dashboard    |
+| `src/wsplumber/api/templates/layouts/base.html`    | Layout base con head y scripts comunes   |
+| `src/wsplumber/api/static/css/shared.css`          | Variables CSS y estilos compartidos      |
+| `src/wsplumber/api/routers/websocket.py`           | Endpoint WebSocket `/ws/dashboard`       |
+| `src/wsplumber/api/app.py`                         | Configuración FastAPI con rutas y static |
+
+---
+
+## 📊 Estado por Fases (Actualizado)
+
+| Fase       | Descripción                       | Estado       |
+| ---------- | --------------------------------- | ------------ |
+| **Fase 0** | Infraestructura y Alineación      | ✅ Completada |
+| **Fase 1** | Inicio (Apertura Dual, Riesgo)    | ✅ Completada |
+| **Fase 2** | Operativa Normal (Recovery, FIFO) | ✅ Completada |
+| **Fase 3** | API y Dashboard (Alta Densidad)   | 🔄 En Proceso |
+| **Fase 4** | Optimización y Distribución       | ⏳ Pendiente  |
+
+### Próximos Pasos Fase 3
+
+- [ ] Conectar `ConnectionManager` de WebSockets con el estado vivo de `CycleOrchestrator`.
+- [ ] Implementar `dashboard.js` para actualizar métricas (Equity, Drawdown) sin recarga.
+- [ ] Mapear el Ledger de Reparaciones FIFO a la tabla de Dashboard en tiempo real.
+
+---
 
