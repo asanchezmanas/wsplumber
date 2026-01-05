@@ -23,6 +23,15 @@ from wsplumber.infrastructure.logging.safe_logger import get_logger
 
 logger = get_logger(__name__)
 
+# Límites de emergencia extraídos del documento madre (pág. 7219)
+EMERGENCY_LIMITS = {
+    'max_daily_loss_pips': 100,      # Pausa automática
+    'max_weekly_loss_pips': 300,     # Revisión obligatoria
+    'max_monthly_loss_pips': 500,    # Stop total del sistema
+    'max_concurrent_recovery': 20,   # Pausa nuevos ciclos
+    'max_exposure_percent': 30       # No abrir más operaciones
+}
+
 
 class RiskManager(IRiskManager):
     """
@@ -41,7 +50,7 @@ class RiskManager(IRiskManager):
         Verifica si se permite abrir una nueva posición.
         """
         # 1. Verificar exposición total
-        max_exp = self.settings.trading.max_exposure_percent
+        max_exp = EMERGENCY_LIMITS['max_exposure_percent']
         if current_exposure >= max_exp:
             msg = f"Max exposure reached: {current_exposure:.2f}% >= {max_exp}%"
             logger.warning(msg, pair=pair)

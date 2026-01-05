@@ -106,11 +106,30 @@ class CycleOrchestrator:
             if signal.signal_type == SignalType.NO_ACTION:
                 return
 
-            # 3. Procesar señal
+            # 3. Monitorear estado de operaciones activas (detección de TP)
+            await self._check_operations_status(pair)
+
+            # 4. Procesar señal
             await self._handle_signal(signal, tick)
 
         except Exception as e:
             logger.error("Error processing tick", exception=e, pair=pair)
+
+    async def _check_operations_status(self, pair: CurrencyPair):
+        """
+        Sincroniza y detecta cierres de operaciones para informar a la estrategia.
+        """
+        # Sincronizar con el broker
+        sync_res = await self.trading_service.sync_all_active_positions(pair)
+        if not sync_res.success or sync_res.value == 0:
+            return
+
+        # Si hubo cambios, obtener operaciones cerradas recientemente
+        # En una versión real buscaríamos en el historial. 
+        # Por ahora, si sync devolvió > 0, consultamos el repo.
+        ops_res = await self.repository.get_active_operations(pair)
+        # (Este flujo se refinará para ser más eficiente y basado en eventos reales)
+        logger.info("Cycle status check triggered synchronous update", pair=pair, changed=sync_res.value)
 
     async def _handle_signal(self, signal: StrategySignal, tick: TickData):
         """Maneja las señales emitidas por la estrategia."""
@@ -125,15 +144,15 @@ class CycleOrchestrator:
         # ... otros tipos de señales (HEDGE, RECOVERY) se implementan aquí
 
     async def _open_new_cycle(self, signal: StrategySignal, tick: TickData):
-        """Inicia un nuevo ciclo de trading."""
+        """Inicia un nuevo ciclo de trading con dos operaciones (Buy + Sell)."""
         pair = signal.pair
         
-        # 1. Verificar riesgo
-        # Simplificamos obteniendo un balance de cuenta ficticio o real
+        # 1. Verificar riesgo (Simplificado)
         acc_info = await self.trading_service.broker.get_account_info()
         balance = acc_info.value["balance"] if acc_info.success else 10000.0
 
-        can_open = self.risk_manager.can_open_position(pair, current_exposure=0.0) # Placeholder
+        # Para un nuevo ciclo abrimos 2 operaciones, validamos exposición base
+        can_open = self.risk_manager.can_open_position(pair, current_exposure=0.0) 
         if not can_open.success:
             logger.warning("Risk manager denied cycle opening", reason=can_open.error)
             return
@@ -141,45 +160,63 @@ class CycleOrchestrator:
         # 2. Calcular lote
         lot = self.risk_manager.calculate_lot_size(pair, balance)
 
-        # 3. Crear Entidades
-        # (Aquí se usaría un UUID generator real)
-        cycle_id = f"{pair}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        # 3. Crear Entidad Ciclo
+        # Usamos un ID descriptivo o UUID
+        cycle_id = f"CYC_{pair}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         cycle = Cycle(id=cycle_id, pair=pair)
         
-        op_id = f"{cycle_id}_MAIN"
-        # En la estrategia el core decide el TP, aquí lo obtenemos del signal metadata o config
-        tp_price = tick.ask + 0.0010 # Ejemplo 10 pips
+        # 4. Crear Operaciones Duales (Buy y Sell)
+        # La estrategia dice: TP a 10 pips. 
+        # NOTA: En una implementación real, esto vendría parametrizado o del core.
+        tp_distance = 0.0010 # 10 pips
         
-        operation = Operation(
-            id=op_id,
+        # Operación BUY
+        op_buy = Operation(
+            id=f"{cycle_id}_B",
             cycle_id=cycle.id,
             pair=pair,
-            op_type=signal.metadata.get("op_type", "main_buy"),
+            op_type=OperationType.MAIN_BUY,
             status=OperationStatus.PENDING,
             entry_price=tick.ask,
-            tp_price=tp_price,
+            tp_price=tick.ask + tp_distance,
             lot_size=lot
         )
         
-        # 4. Ejecutar a través de TradingService
-        request = OrderRequest(
-            operation_id=operation.id,
+        # Operación SELL
+        op_sell = Operation(
+            id=f"{cycle_id}_S",
+            cycle_id=cycle.id,
             pair=pair,
-            order_type=operation.op_type,
-            entry_price=operation.entry_price,
-            tp_price=operation.tp_price,
-            lot_size=operation.lot_size
+            op_type=OperationType.MAIN_SELL,
+            status=OperationStatus.PENDING,
+            entry_price=tick.bid,
+            tp_price=tick.bid - tp_distance,
+            lot_size=lot
         )
 
-        # Iniciar ciclo en DB primero
+        # 5. Guardar Ciclo en DB
         await self.repository.save_cycle(cycle)
         
-        # Abrir operación
-        res = await self.trading_service.open_operation(request, operation)
+        # 6. Ejecutar aperturas
+        tasks = []
+        for op in [op_buy, op_sell]:
+            request = OrderRequest(
+                operation_id=op.id,
+                pair=pair,
+                order_type=op.op_type,
+                entry_price=op.entry_price,
+                tp_price=op.tp_price,
+                lot_size=op.lot_size
+            )
+            tasks.append(self.trading_service.open_operation(request, op))
         
-        if res.success:
+        results = await asyncio.gather(*tasks)
+        
+        if any(r.success for r in results):
             self._active_cycles[pair] = cycle
-            logger.info("New cycle opened and active", cycle_id=cycle.id)
+            logger.info("New dual cycle opened", cycle_id=cycle.id, pair=pair)
+        else:
+            logger.error("Failed to open dual cycle", cycle_id=cycle.id)
 
     async def _close_cycle_operations(self, signal: StrategySignal):
         """Cierra todas las operaciones de un ciclo."""
