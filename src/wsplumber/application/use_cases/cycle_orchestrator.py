@@ -117,19 +117,39 @@ class CycleOrchestrator:
 
     async def _check_operations_status(self, pair: CurrencyPair):
         """
-        Sincroniza y detecta cierres de operaciones para informar a la estrategia.
+        Detecta cierres de operaciones y notifica a la estrategia.
         """
         # Sincronizar con el broker
         sync_res = await self.trading_service.sync_all_active_positions(pair)
-        if not sync_res.success or sync_res.value == 0:
+        if not sync_res.success:
             return
 
-        # Si hubo cambios, obtener operaciones cerradas recientemente
-        # En una versión real buscaríamos en el historial. 
-        # Por ahora, si sync devolvió > 0, consultamos el repo.
-        ops_res = await self.repository.get_active_operations(pair)
-        # (Este flujo se refinará para ser más eficiente y basado en eventos reales)
-        logger.info("Cycle status check triggered synchronous update", pair=pair, changed=sync_res.value)
+        # Si hubo cambios o simplemente para asegurar consistencia,
+        # consultamos las operaciones activas en el REPO antes y después.
+        # Una implementación más robusta compararía snapshots.
+        
+        # Obtenemos el ciclo activo para este par
+        cycle = self._active_cycles.get(pair)
+        if not cycle:
+            return
+
+        # Buscamos operaciones que estaban activas en el ciclo pero ya no lo están
+        # (Esto es una simplificación; en prod usaríamos eventos o historial)
+        ops_res = await self.repository.get_operations_by_cycle(cycle.id)
+        if not ops_res.success:
+            return
+
+        for op in ops_res.value:
+            if op.status == OperationStatus.CLOSED or op.status == OperationStatus.TP_HIT:
+                # Notificar a la estrategia
+                logger.info("Operation closed, notifying strategy", op_id=op.id, ticket=op.broker_ticket)
+                signal = self.strategy.process_tp_hit(
+                    operation_id=op.id,
+                    profit_pips=float(op.profit_pips or 0),
+                    timestamp=datetime.now()
+                )
+                if signal.signal_type != SignalType.NO_ACTION:
+                    await self._handle_signal(signal, TickData(pair=pair, bid=0, ask=0, timestamp=datetime.now()))
 
     async def _handle_signal(self, signal: StrategySignal, tick: TickData):
         """Maneja las señales emitidas por la estrategia."""

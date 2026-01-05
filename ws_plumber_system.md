@@ -7265,6 +7265,7 @@ def emergency_shutdown(reason: str):
 ### ✅ Logros Técnicos
 - **[2026-01-05]** Creación de `requirements.txt` con todas las dependencias (Supabase, FastAPI, MT5, etc.).
 - **[2026-01-05]** Instalación exitosa de dependencias en el entorno virtual `venv`.
+- **[2026-01-05]** Completada **Fase 1: Inicio**: Apertura dual de operaciones (Buy/Sell), límites de riesgo de emergencia (`EMERGENCY_LIMITS`) y monitoreo de ejecución activo.
 - **[2026-01-05]** Configuración global del proyecto: Creación de `pyproject.toml` en la raíz con configuraciones para `black`, `ruff`, `mypy` y `pytest`.
 - **[2026-01-05]** Implementación de la capa de aplicación y orquestación: **TradingService**, **RiskManager** y **CycleOrchestrator**.
 - **[2026-01-05]** Creación del punto de entrada principal `main.py` para el arranque coordinado del sistema.
@@ -7283,8 +7284,7 @@ def emergency_shutdown(reason: str):
 - **[2026-01-05]** Creación de la estructura de directorios (`src/wsplumber/domain`, `infrastructure`, etc.) siguiendo Clean Architecture.
 
 ### 🚀 Próximos Pasos (Pendientes)
-- [ ] Implementación de los servicios de aplicación y orquestación de ciclos.
-- [ ] Implementación del controlador de riesgo (RiskManager).
+- [ ] **Fase 2: Operativa Normal**: Renovación automática de ciclos y gestión de Recovery.
 - [ ] Configuración del servidor API (FastAPI) y dashboard en tiempo real.
 
 ### 📝 Notas y Observaciones (Lo que falta o se ha pasado por alto)
