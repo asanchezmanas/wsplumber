@@ -11,6 +11,7 @@ from wsplumber.domain.types import (
     Result, BrokerTicket, Price, LotSize, OperationType,
     OperationStatus, Timestamp, Pips, Direction
 )
+from wsplumber.infrastructure.data.m1_data_loader import M1DataLoader
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ class SimulatedBroker(IBroker):
         self._connected = False
 
     def load_csv(self, csv_path: str):
-        """Carga ticks desde un archivo CSV."""
+        """Carga ticks desde un archivo CSV (Formato TickData)."""
         self.ticks = []
         with open(csv_path, mode='r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
@@ -81,6 +82,16 @@ class SimulatedBroker(IBroker):
                 ))
         self.current_tick_index = 0
         logger.info(f"Loaded {len(self.ticks)} ticks from {csv_path}")
+
+    def load_m1_csv(self, csv_path: str, pair: Optional[CurrencyPair] = None):
+        """Carga ticks desde un archivo CSV M1 (Formato OHLC)."""
+        if not pair:
+            pair = M1DataLoader.detect_pair_from_filename(csv_path)
+        
+        loader = M1DataLoader(pair)
+        self.ticks = list(loader.parse_m1_csv(csv_path))
+        self.current_tick_index = 0
+        logger.info(f"Loaded {len(self.ticks)} synthetic ticks from M1 CSV: {csv_path}")
 
     async def connect(self) -> Result[bool]:
         self._connected = True

@@ -7863,3 +7863,37 @@ tests/scenarios/
 Ver [docs/testing.md](docs/testing.md) para la matriz completa de escenarios y el formato CSV.
 
 ---
+---
+
+## Motor de Backtesting M1 y Métricas de Rendimiento
+
+El sistema ha evolucionado de pruebas sintéticas aisladas a un **Motor de Backtesting de Alta Velocidad** capaz de procesar décadas de datos M1 históricos.
+
+### Validación y Debugging Masivo
+
+El backtesting con datos M1 no es solo una prueba de rentabilidad, sino una herramienta crítica de ingeniería:
+
+1.  **Herramienta de Debug**: Los logs detallados permiten rastrear exactamente por qué falló una lógica de cobertura ante un movimiento errático del mercado que un escenario sintético simple no capturaría.
+2.  **Impresión de Lógica**: Obliga al sistema a realizar miles de transiciones de estado (`ACTIVE` ↔ `HEDGED` ↔ `RECOVERY`) en segundos, verificando la robustez de la máquina de estados.
+3.  **Verificación Determinística**: Al ser datos fijos (CSV), podemos comparar versiones del código y asegurar que una optimización no introduce regresiones en el comportamiento de los recovery.
+
+### Mecánica de Simulación OHLC
+
+Para mantener la precisión del "tick-data" usando velas M1, el `M1DataLoader` expande cada vela en una secuencia de **4 ticks sintéticos**:
+- `OPEN` -> `LOW` -> `HIGH` -> `CLOSE` (o viceversa)
+Esta secuencia "pesimista" garantiza que el sistema toque los niveles de riesgo (mínimos y máximos) antes de cerrar en el precio final de la vela, evitando "sobrevivir" falsamente a un movimiento brusco.
+
+### Métricas Clave de Cálculo
+
+Para un análisis profesional de la estrategia, el motor calcula y reporta:
+
+| Métrica                     | Definición                                                               | Cálculo Necesario                     |
+| :-------------------------- | :----------------------------------------------------------------------- | :------------------------------------ |
+| **Win Rate (Mains)**        | % de ciclos principales que tocan TP sin entrar en cobertura.            | `Mains_TP / Mains_Totales`            |
+| **Profundidad de Recovery** | Nivel máximo de recovery alcanzado en la racha más larga.                | `MAX(cycle.recovery_level)`           |
+| **Factor de Recuperación**  | Eficiencia de los +80 pips contra las deudas de -20/-40.                 | `Profit_Recovery / Loss_Neutralizada` |
+| **Drawdown Máximo (DD)**    | Peor caída de Equity (flotante) durante la simulación.                   | `MAX(Peak_Balance - Valley_Equity)`   |
+| **Tiempo de Resolución**    | Tiempo promedio que tarda un ciclo en cerrarse (desde PENDING a CLOSED). | `AVG(Closed_at - Created_at)`         |
+| **Ratio de Renovación**     | Velocidad a la que el sistema abre nuevos ciclos tras un TP.             | `Ops_Cerradas / Tiempo_Total`         |
+
+---

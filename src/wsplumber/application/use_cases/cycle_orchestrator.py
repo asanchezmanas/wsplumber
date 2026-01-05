@@ -94,20 +94,14 @@ class CycleOrchestrator:
                 self._active_cycles[pair] = res.value[0]
                 logger.info("Loaded active cycle", pair=pair, cycle_id=self._active_cycles[pair].id)
 
-    async def _process_tick_for_pair(self, pair: CurrencyPair):
-        """Procesa un tick para un par específico."""
+    async def process_tick(self, tick: TickData):
+        """Procesa un tick inyectado directamente (útil para backtesting)."""
+        pair = tick.pair
         try:
-            # 1. Obtener tick del broker
-            tick_res = await self.trading_service.broker.get_current_price(pair)
-            if not tick_res.success:
-                return
-
-            tick: TickData = tick_res.value
-
-            # 2. Monitorear estado de operaciones activas (detección de activación y TP)
+            # 1. Monitorear estado de operaciones activas (detección de activación y TP)
             await self._check_operations_status(pair, tick)
 
-            # 3. Consultar a la estrategia core (Secreto)
+            # 2. Consultar a la estrategia core (Secreto)
             signal: StrategySignal = self.strategy.process_tick(
                 pair=tick.pair,
                 bid=float(tick.bid),
@@ -123,11 +117,19 @@ class CycleOrchestrator:
             if signal.signal_type == SignalType.NO_ACTION:
                 return
 
-            # 4. Procesar señal
+            # 3. Procesar señal
             await self._handle_signal(signal, tick)
 
         except Exception as e:
             logger.error("Error processing tick", exception=e, pair=pair)
+
+    async def _process_tick_for_pair(self, pair: CurrencyPair):
+        """Procesa un tick para un par específico obteniéndolo del broker."""
+        tick_res = await self.trading_service.broker.get_current_price(pair)
+        if not tick_res.success:
+            return
+
+        await self.process_tick(tick_res.value)
 
     async def _check_operations_status(self, pair: CurrencyPair, tick: TickData):
         """
@@ -272,19 +274,19 @@ class CycleOrchestrator:
             logger.warning("Risk manager denied cycle opening", reason=can_open.error, exposure=exposure_pct)
             return
 
-        # 2. Calcular lote
+        # 2. Validar que no haya ya un ciclo activo para este par
+        if pair in self._active_cycles and self._active_cycles[pair].status.name not in ["CLOSED", "PAUSED"]:
+            logger.debug("Skipping OPEN_CYCLE: Already active/pending", pair=pair)
+            return
+
+        # 3. Calcular lote
         lot = self.risk_manager.calculate_lot_size(pair, balance)
 
-        # 3. Crear Entidad Ciclo
+        # 4. Crear Entidad Ciclo
         # Usamos un ID con sufijo aleatorio para evitar colisiones en renovaciones rápidas
         import random
         suffix = random.randint(100, 999)
         cycle_id = f"CYC_{pair}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{suffix}"
-        
-        # Si ya hay un ciclo activo del par en cache, lo reemplazamos
-        old_cycle = self._active_cycles.get(pair)
-        if old_cycle:
-            logger.info("Replacing old cycle in cache", old_id=old_cycle.id, new_id=cycle_id)
 
         cycle = Cycle(id=cycle_id, pair=pair, status=CycleStatus.PENDING)
         self._active_cycles[pair] = cycle # Guardar en caché local
