@@ -2,10 +2,10 @@
 # 🔴 CRÍTICO: PROTECCIÓN DEL CORE SECRETO
 # ============================================
 
-# NUNCA subir código fuente del core
-src/wsplumber/core/strategy/_*.py
-src/wsplumber/core/signals/_*.py
-src/wsplumber/core/risk/_*.py
+# NUNCA subir código fuente del core (COMENTADO PARA DESARROLLO)
+# src/wsplumber/core/strategy/_*.py
+# src/wsplumber/core/signals/_*.py
+# src/wsplumber/core/risk/_*.py
 
 # NUNCA subir parámetros de estrategia
 config/strategy_params.yaml
