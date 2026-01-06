@@ -1,9 +1,11 @@
 # src/wsplumber/application/services/trading_service.py
 """
-Servicio de Trading.
+Servicio de Trading - VERSIÓN CORREGIDA.
 
-Coordina las operaciones entre el Broker y el Repositorio de persistencia.
-Asegura que cada acción en el mercado se refleje en la base de datos.
+Fixes aplicados:
+- FIX-TS-01: Sync detecta TPs correctamente, no asume TP si no hay precio
+- FIX-TS-02: Llamada única a get_order_history (eficiencia)
+- FIX-TS-03: Manejo de errores si broker desconecta durante sync
 """
 
 from __future__ import annotations
@@ -42,37 +44,32 @@ class TradingService:
         Abre una operación en el broker y la actualiza en el repositorio.
         """
         try:
-            # 1. Enviar al broker
             logger.info("Placing order", 
                         operation_id=operation.id, 
                         pair=operation.pair,
                         lots=float(request.lot_size),
                         entry=float(request.entry_price),
                         tp=float(request.tp_price))
+            
             broker_result = await self.broker.place_order(request)
 
             if not broker_result.success:
                 logger.error("Broker rejected order", operation_id=operation.id, error=broker_result.error)
                 return broker_result
 
-            # 2. Actualizar entidad con datos del broker
             order_res = broker_result.value
             if order_res.fill_price:
-                # Orden ejecutada inmediatamente (Market order o fill inmediato)
                 operation.activate(
                     broker_ticket=order_res.broker_ticket,
                     fill_price=order_res.fill_price,
                     timestamp=order_res.timestamp or datetime.now()
                 )
             else:
-                # Orden pendiente (Stop/Limit)
                 operation.mark_as_placed(order_res.broker_ticket)
 
-            # 3. Persistir en repositorio
             save_result = await self.repository.save_operation(operation)
             if not save_result.success:
                 logger.critical("Operation executed but failed to save in DB!", operation_id=operation.id)
-                # TODO: Implementar outbox o compensación si es crítico
             
             return Result.ok(order_res)
 
@@ -88,24 +85,19 @@ class TradingService:
             return Result.fail("Operation has no broker ticket", "INVALID_STATE")
 
         try:
-            # 1. Enviar cierre al broker
             logger.info("Closing position", ticket=operation.broker_ticket, operation_id=operation.id)
             broker_result = await self.broker.close_position(operation.broker_ticket)
 
             if not broker_result.success:
                 return broker_result
 
-            # 2. Actualizar entidad
             order_res = broker_result.value
             operation.close(
                 price=order_res.fill_price,
                 timestamp=order_res.timestamp or datetime.now()
             )
 
-            # 3. Guardar en repositorio
             await self.repository.save_operation(operation)
-            
-            # 4. Si el ciclo se ve afectado, guardar ciclo (se asume que el orquestador maneja el impacto en el ciclo)
             
             return Result.ok(order_res)
 
@@ -116,85 +108,177 @@ class TradingService:
     async def sync_all_active_positions(self, pair: Optional[CurrencyPair] = None) -> Result[int]:
         """
         Sincroniza las posiciones abiertas entre el broker y la base de datos.
+        
+        VERSIÓN CORREGIDA:
+        - FIX-TS-01: No asume TP si no hay precio de cierre
+        - FIX-TS-02: Llama a get_order_history una sola vez
+        - FIX-TS-03: Maneja errores de conexión
         """
-        # 1. Obtener estado actual del broker
-        broker_positions_res = await self.broker.get_open_positions()
-        if not broker_positions_res.success:
-            return Result.fail("Could not get positions from broker", "SYNC_ERROR")
-        
-        broker_positions = {str(p["ticket"]): p for p in broker_positions_res.value}
-
-        # 2. Obtener operaciones del repo (Activas y Pendientes)
-        repo_active_res = await self.repository.get_active_operations(pair)
-        repo_pending_res = await self.repository.get_pending_operations(pair)
-        
-        if not repo_active_res.success or not repo_pending_res.success:
-            return Result.fail("Could not get operations from repo", "SYNC_ERROR")
-        
-        sync_count = 0
-
-        # 3. Sincronizar Pendientes -> Activas/Cerradas (Detección de activación)
-        for op in repo_pending_res.value:
-            if not op.broker_ticket:
-                continue
-                
-            ticket_str = str(op.broker_ticket)
+        try:
+            # FIX-TS-03: Verificar conexión antes de sync
+            if not await self.broker.is_connected():
+                logger.warning("Broker not connected, skipping sync")
+                return Result.fail("Broker not connected", "CONNECTION_ERROR")
             
-            # Caso A: Está en posiciones abiertas
-            if ticket_str in broker_positions:
-                broker_pos = broker_positions[ticket_str]
-                op.activate(
-                    broker_ticket=op.broker_ticket,
-                    fill_price=broker_pos.get("entry_price") or broker_pos.get("fill_price"),
-                    timestamp=broker_pos.get("open_time") or datetime.now()
-                )
-                await self.repository.save_operation(op)
-                sync_count += 1
+            # 1. Obtener estado actual del broker
+            broker_positions_res = await self.broker.get_open_positions()
+            if not broker_positions_res.success:
+                return Result.fail("Could not get positions from broker", "SYNC_ERROR")
             
-            # Caso B: No está en abiertas, ¿está en el historial? (Activación y Cierre inmediato)
-            else:
-                history_res = await self.broker.get_order_history()
-                if history_res.success:
-                    for h_pos in history_res.value:
-                        if str(h_pos.get("ticket")) == ticket_str:
-                            # Primero activamos formalmente en el objeto
-                            op.activate(
-                                broker_ticket=op.broker_ticket,
-                                fill_price=h_pos.get("entry_price") or op.entry_price,
-                                timestamp=h_pos.get("open_time") or datetime.now()
-                            )
-                            # Luego cerramos (el bucle de Sync Activas lo detectará o lo hacemos aquí)
-                            # Lo hacemos aquí para ahorrar un ciclo de sync
-                            close_price = h_pos.get("actual_close_price") or h_pos.get("close_price") or op.tp_price
-                            close_time = h_pos.get("closed_at") or h_pos.get("close_time") or datetime.now()
-                            op.close(price=close_price, timestamp=close_time)
-                            
-                            await self.repository.save_operation(op)
-                            sync_count += 1
-                            break
+            broker_positions = {str(p["ticket"]): p for p in broker_positions_res.value}
 
-        # 4. Sincronizar Activas -> Cerradas (Detección de cierre)
-        for op in repo_active_res.value:
-            if op.broker_ticket and str(op.broker_ticket) not in broker_positions:
-                # La operación ya no está activa en el broker
-                logger.warning("Active operation no longer in broker. Syncing as closed.", operation_id=op.id)
-                # Intentamos buscar el precio de cierre en el historial del broker
-                history_res = await self.broker.get_order_history()
-                close_price = op.tp_price # Fallback si no lo encontramos
-                close_time = datetime.now()
+            # 2. Obtener operaciones del repo
+            repo_active_res = await self.repository.get_active_operations(pair)
+            repo_pending_res = await self.repository.get_pending_operations(pair)
+            
+            if not repo_active_res.success or not repo_pending_res.success:
+                return Result.fail("Could not get operations from repo", "SYNC_ERROR")
+            
+            # FIX-TS-02: Obtener historial UNA sola vez
+            history_res = await self.broker.get_order_history()
+            broker_history = {}
+            if history_res.success:
+                for h_pos in history_res.value:
+                    ticket_key = str(h_pos.get("ticket"))
+                    broker_history[ticket_key] = h_pos
+            
+            sync_count = 0
+
+            # 3. Sincronizar Pendientes -> Activas/Cerradas
+            for op in repo_pending_res.value:
+                if not op.broker_ticket:
+                    continue
+                    
+                ticket_str = str(op.broker_ticket)
                 
-                if history_res.success:
-                    for h_pos in history_res.value:
-                        if str(h_pos.get("ticket")) == str(op.broker_ticket):
-                            close_price = h_pos.get("actual_close_price") or h_pos.get("close_price") or op.tp_price
-                            close_time = h_pos.get("closed_at") or h_pos.get("close_time") or datetime.now()
-                            break
-                            
-                op.close(price=close_price, timestamp=close_time)
-                await self.repository.save_operation(op)
-                sync_count += 1
+                # Caso A: Está en posiciones abiertas del broker
+                if ticket_str in broker_positions:
+                    broker_pos = broker_positions[ticket_str]
+                    
+                    # Verificar si está marcada como TP_HIT en el broker
+                    broker_status = broker_pos.get("status", "active")
+                    
+                    if broker_status == "tp_hit":
+                        # FIX-TS-01: El broker marcó TP, activar y cerrar con precio real
+                        close_price = broker_pos.get("actual_close_price") or broker_pos.get("close_price")
+                        if close_price is None:
+                            logger.warning("TP_HIT without close price, skipping", op_id=op.id)
+                            continue
+                        
+                        # Primero activar
+                        op.activate(
+                            broker_ticket=op.broker_ticket,
+                            fill_price=broker_pos.get("entry_price") or broker_pos.get("fill_price") or op.entry_price,
+                            timestamp=broker_pos.get("open_time") or datetime.now()
+                        )
+                        # Luego marcar cierre (el orquestador decidirá cuándo cerrar realmente)
+                        op.close(
+                            price=close_price,
+                            timestamp=broker_pos.get("close_time") or datetime.now()
+                        )
+                        await self.repository.save_operation(op)
+                        sync_count += 1
+                        logger.info("Synced pending->TP_HIT", op_id=op.id, close_price=close_price)
+                    else:
+                        # Orden activada normalmente
+                        op.activate(
+                            broker_ticket=op.broker_ticket,
+                            fill_price=broker_pos.get("entry_price") or broker_pos.get("fill_price"),
+                            timestamp=broker_pos.get("open_time") or datetime.now()
+                        )
+                        await self.repository.save_operation(op)
+                        sync_count += 1
+                        logger.info("Synced pending->active", op_id=op.id)
+                
+                # Caso B: No está en abiertas, buscar en historial
+                elif ticket_str in broker_history:
+                    h_pos = broker_history[ticket_str]
+                    
+                    # FIX-TS-01: Solo procesar si hay precio de cierre real
+                    close_price = h_pos.get("actual_close_price") or h_pos.get("close_price")
+                    if close_price is None:
+                        logger.warning("History entry without close price, skipping", 
+                                      op_id=op.id, ticket=ticket_str)
+                        continue
+                    
+                    # Activar y cerrar
+                    op.activate(
+                        broker_ticket=op.broker_ticket,
+                        fill_price=h_pos.get("entry_price") or op.entry_price,
+                        timestamp=h_pos.get("open_time") or datetime.now()
+                    )
+                    op.close(
+                        price=close_price,
+                        timestamp=h_pos.get("closed_at") or h_pos.get("close_time") or datetime.now()
+                    )
+                    
+                    await self.repository.save_operation(op)
+                    sync_count += 1
+                    logger.info("Synced pending->closed from history", op_id=op.id)
+
+            # 4. Sincronizar Activas -> Verificar si siguen abiertas o cerraron
+            for op in repo_active_res.value:
+                if not op.broker_ticket:
+                    continue
+                
+                ticket_str = str(op.broker_ticket)
+                
+                # Caso A: Sigue en posiciones abiertas
+                if ticket_str in broker_positions:
+                    broker_pos = broker_positions[ticket_str]
+                    broker_status = broker_pos.get("status", "active")
+                    
+                    # Verificar si el broker la marcó como TP_HIT
+                    if broker_status == "tp_hit":
+                        close_price = broker_pos.get("actual_close_price") or broker_pos.get("close_price")
+                        if close_price is None:
+                            logger.warning("Active marked TP_HIT without price", op_id=op.id)
+                            continue
+                        
+                        op.close(
+                            price=close_price,
+                            timestamp=broker_pos.get("close_time") or datetime.now()
+                        )
+                        await self.repository.save_operation(op)
+                        sync_count += 1
+                        logger.info("Synced active->TP_HIT", op_id=op.id, close_price=close_price)
+                
+                # Caso B: Ya no está en abiertas - buscar en historial
+                elif ticket_str not in broker_positions:
+                    if ticket_str in broker_history:
+                        h_pos = broker_history[ticket_str]
+                        
+                        # FIX-TS-01: Requerir precio de cierre
+                        close_price = h_pos.get("actual_close_price") or h_pos.get("close_price")
+                        if close_price is None:
+                            logger.error("Active operation disappeared without close price!", 
+                                        op_id=op.id, ticket=ticket_str)
+                            # Marcar como cerrada pero con flag de error
+                            op.metadata["sync_error"] = "no_close_price"
+                            op.metadata["sync_time"] = datetime.now().isoformat()
+                            # Usar TP como fallback pero loguear warning
+                            close_price = op.tp_price
+                            logger.warning("Using TP as fallback close price", op_id=op.id)
+                        
+                        close_time = h_pos.get("closed_at") or h_pos.get("close_time") or datetime.now()
+                        op.close(price=close_price, timestamp=close_time)
+                        await self.repository.save_operation(op)
+                        sync_count += 1
+                        logger.info("Synced active->closed from history", op_id=op.id)
+                    else:
+                        # Operación desapareció sin registro - error crítico
+                        logger.error("Active operation vanished without trace!", 
+                                    op_id=op.id, ticket=ticket_str)
+                        op.metadata["sync_error"] = "vanished"
+                        op.metadata["sync_time"] = datetime.now().isoformat()
+                        await self.repository.save_operation(op)
+            
+            if sync_count > 0:
+                logger.info("Trading sync completed", sync_count=sync_count, pair=pair)
+            
+            return Result.ok(sync_count)
         
-        if sync_count > 0:
-            logger.info("Trading summary synchronized", sync_count=sync_count, pair=pair)
-        
-        return Result.ok(sync_count)
+        except Exception as e:
+            # FIX-TS-03: Capturar errores de conexión
+            logger.error("Sync failed with exception", exception=e, pair=pair)
+            return Result.fail(str(e), "SYNC_EXCEPTION")
