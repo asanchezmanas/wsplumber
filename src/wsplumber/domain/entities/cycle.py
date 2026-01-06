@@ -5,7 +5,12 @@ Entidad Cycle - Representa un ciclo de trading completo.
 Un ciclo contiene:
 - Operaciones principales (main): BUY y SELL
 - Operaciones de cobertura (hedge): Cuando ambas main se activan
-- Operaciones de recovery: Para recuperar pérdidas neutralizadas
+- Operaciones de recovery: Para recuperar pérdidas neutralizadas.
+
+Entidad Cycle - VERSIÓN CORREGIDA (solo CycleAccounting.get_recovery_cost)
+
+Fix aplicado:
+- FIX-CY-01: get_recovery_cost basado en posición en cola, no en pips_recovered
 
 El ciclo implementa la contabilidad FIFO para cerrar recoveries.
 """
@@ -31,7 +36,6 @@ from wsplumber.domain.types import (
 )
 from wsplumber.domain.entities.operation import Operation
 
-
 @dataclass
 class CycleAccounting:
     """
@@ -40,28 +44,21 @@ class CycleAccounting:
     Esta clase implementa la lógica FIFO para recoveries:
     - El primer recovery cuesta 20 pips (incluye las main)
     - Los siguientes cuestan 40 pips cada uno
+    
+    FIX-CY-01: El costo ahora se basa en la posición en la cola,
+    no en los pips ya recuperados.
     """
 
     pips_locked: Pips = Pips(0.0)
-    """Pips 'congelados' por operaciones neutralizadas."""
-
     pips_recovered: Pips = Pips(0.0)
-    """Pips recuperados por TPs de recovery."""
-
     total_main_tps: int = 0
-    """Número de TPs de operaciones main."""
-
     total_recovery_tps: int = 0
-    """Número de TPs de operaciones recovery."""
-
     total_commissions: Money = Money(Decimal("0"))
-    """Total de comisiones pagadas."""
-
     total_swaps: Money = Money(Decimal("0"))
-    """Total de swaps pagados/recibidos."""
-
     recovery_queue: List[RecoveryId] = field(default_factory=list)
-    """Cola FIFO de recoveries pendientes."""
+    
+    # FIX-CY-01: Contador de recoveries procesados (para determinar costo)
+    recoveries_closed_count: int = 0
 
     def add_locked_pips(self, pips: Pips) -> None:
         """Añade pips bloqueados (cuando se neutraliza)."""
@@ -75,29 +72,37 @@ class CycleAccounting:
         """
         Calcula el costo del próximo recovery en la cola.
         
+        FIX-CY-01: Basado en cuántos recoveries ya se han cerrado,
+        no en pips_recovered.
+        
         Según la teoría:
-        - El primer recovery gestionado cuesta 20 pips (cubre deuda de mains).
-        - Los siguientes cuestan 40 pips cada uno.
+        - El primer recovery cuesta 20 pips (cubre deuda inicial de mains)
+        - Los siguientes cuestan 40 pips cada uno
+        
+        Returns:
+            Pips: Costo del próximo recovery a cerrar
         """
-        # Si pips_recovered is 0, significa que aún no hemos cerrado el 'primero'
-        if float(self.pips_recovered) < 20.0:
-            return Pips(20.0)
-        return Pips(40.0)
+        if self.recoveries_closed_count == 0:
+            return Pips(20.0)  # Primer recovery
+        return Pips(40.0)  # Siguientes
+
+    def mark_recovery_closed(self) -> None:
+        """
+        FIX-CY-01: Incrementa el contador de recoveries cerrados.
+        Llamar después de cerrar un recovery.
+        """
+        self.recoveries_closed_count += 1
 
     def get_recoveries_needed(self) -> int:
         """
         Calcula cuántos recoveries se necesitan para cubrir lo bloqueado.
-
-        La fórmula es:
-        - Primer recovery cubre 80 pips pero cuesta 20 → neto +60
-        - Siguientes cubren 80 pips pero cuestan 40 → neto +40
         """
         remaining = float(self.pips_locked) - float(self.pips_recovered)
         if remaining <= 0:
             return 0
 
-        # Primer recovery
-        if remaining <= 60:  # 80 - 20 = 60 pips neto
+        # Primer recovery cubre 80 pips pero cuesta 20 → neto +60
+        if remaining <= 60:
             return 1
 
         # Recoveries adicionales (40 pips neto cada uno)
@@ -116,6 +121,20 @@ class CycleAccounting:
         """True si se han recuperado todos los pips bloqueados."""
         return float(self.pips_recovered) >= float(self.pips_locked)
 
+
+# ====================================================================
+# INSTRUCCIONES DE APLICACIÓN:
+# 
+# 1. Abrir src/wsplumber/domain/entities/cycle.py
+# 2. En la clase CycleAccounting:
+#    - Añadir campo: recoveries_closed_count: int = 0
+#    - Reemplazar método get_recovery_cost() con la versión de arriba
+#    - Añadir método mark_recovery_closed()
+# 
+# 3. En cycle_orchestrator.py, cuando se cierra un recovery en FIFO:
+#    - Después de: closed_rec_id = parent_cycle.close_oldest_recovery()
+#    - Añadir: parent_cycle.accounting.mark_recovery_closed()
+# ====================================================================
 
 @dataclass
 class Cycle:

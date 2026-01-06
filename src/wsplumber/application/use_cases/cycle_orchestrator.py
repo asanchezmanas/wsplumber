@@ -220,9 +220,20 @@ class CycleOrchestrator:
                 # Evitar procesar el mismo TP múltiples veces
                 if op.metadata.get("tp_processed"):
                     continue
-                
+
                 op.metadata["tp_processed"] = True
                 await self.repository.save_operation(op)
+
+                # FIX-SB-01: Cerrar la posición en el broker (solo marca TP, no cierra)
+                if op.broker_ticket and op.status == OperationStatus.TP_HIT:
+                    logger.info("Closing TP_HIT position in broker",
+                               op_id=str(op.id),
+                               ticket=str(op.broker_ticket))
+                    close_result = await self.trading_service.close_operation(op)
+                    if not close_result.success:
+                        logger.error("Failed to close TP_HIT position",
+                                    op_id=str(op.id),
+                                    error=str(close_result.error))
 
                 if cycle.status == CycleStatus.PENDING:
                     cycle.status = CycleStatus.ACTIVE
@@ -687,6 +698,7 @@ class CycleOrchestrator:
             
             if pips_available >= cost:
                 closed_rec_id = parent_cycle.close_oldest_recovery()
+                parent_cycle.accounting.mark_recovery_closed()  # FIX-CY-01: Incrementar contador
                 pips_available -= cost
                 total_cost += cost
                 closed_count += 1

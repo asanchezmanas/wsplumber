@@ -92,7 +92,7 @@ class TradingService:
                 return broker_result
 
             order_res = broker_result.value
-            operation.close(
+            operation.close_v2(
                 price=order_res.fill_price,
                 timestamp=order_res.timestamp or datetime.now()
             )
@@ -172,7 +172,7 @@ class TradingService:
                             timestamp=broker_pos.get("open_time") or datetime.now()
                         )
                         # Luego marcar cierre (el orquestador decidirá cuándo cerrar realmente)
-                        op.close(
+                        op.close_v2(
                             price=close_price,
                             timestamp=broker_pos.get("close_time") or datetime.now()
                         )
@@ -207,7 +207,7 @@ class TradingService:
                         fill_price=h_pos.get("entry_price") or op.entry_price,
                         timestamp=h_pos.get("open_time") or datetime.now()
                     )
-                    op.close(
+                    op.close_v2(
                         price=close_price,
                         timestamp=h_pos.get("closed_at") or h_pos.get("close_time") or datetime.now()
                     )
@@ -235,7 +235,7 @@ class TradingService:
                             logger.warning("Active marked TP_HIT without price", op_id=op.id)
                             continue
                         
-                        op.close(
+                        op.close_v2(
                             price=close_price,
                             timestamp=broker_pos.get("close_time") or datetime.now()
                         )
@@ -261,7 +261,7 @@ class TradingService:
                             logger.warning("Using TP as fallback close price", op_id=op.id)
                         
                         close_time = h_pos.get("closed_at") or h_pos.get("close_time") or datetime.now()
-                        op.close(price=close_price, timestamp=close_time)
+                        op.close_v2(price=close_price, timestamp=close_time)
                         await self.repository.save_operation(op)
                         sync_count += 1
                         logger.info("Synced active->closed from history", op_id=op.id)

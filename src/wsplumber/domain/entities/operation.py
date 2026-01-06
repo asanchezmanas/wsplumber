@@ -224,30 +224,42 @@ class Operation:
         multiplier = 100 if "JPY" in self.pair else 10000
         self.slippage_pips = Pips(diff * multiplier)
 
-    def close(self, price: Price, timestamp: Optional[datetime] = None) -> None:
+
+
+    def close_v2(self, price: Price, timestamp: Optional[datetime] = None) -> None:
         """
-        Cierre genérico de la operación.
-        Detecta si el cierre fue por Take Profit.
+        Cierre de operación - versión alternativa más robusta.
+
+        Detecta TP comparando precios directamente con tolerancia relativa.
         """
-        if self.status not in (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED, OperationStatus.PENDING): # PENDING allowed for immediate fill&close
+        if self.status not in (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED, OperationStatus.PENDING):
             raise ValueError(f"Cannot close operation in status {self.status}")
 
         self.actual_close_price = price
         self.closed_at = timestamp or datetime.now()
-        
-        # Detectar si fue TP (con tolerancia para slippage/spread)
+
         if self.tp_price:
-            diff = abs(float(price) - float(self.tp_price))
-            multiplier = 100 if "JPY" in self.pair else 10000
-            pips_diff = diff * multiplier
-            
-            if pips_diff < 1.0: # Tolerancia de 1 pip
+            # Usar tolerancia relativa (0.01% del precio)
+            # Esto funciona igual para todos los pares
+            price_float = float(price)
+            tp_float = float(self.tp_price)
+
+            # Tolerancia de 0.01% del precio (~1 pip para la mayoría de pares)
+            tolerance = tp_float * 0.0001
+
+            if abs(price_float - tp_float) <= tolerance:
                 self.status = OperationStatus.TP_HIT
             else:
-                self.status = OperationStatus.CLOSED
+                # Verificar si superó el TP en la dirección correcta
+                if self.is_buy and price_float >= tp_float:
+                    self.status = OperationStatus.TP_HIT
+                elif self.is_sell and price_float <= tp_float:
+                    self.status = OperationStatus.TP_HIT
+                else:
+                    self.status = OperationStatus.CLOSED
         else:
             self.status = OperationStatus.CLOSED
-            
+
         self._calculate_profit()
 
     def close_with_tp(self, close_price: Price) -> None:

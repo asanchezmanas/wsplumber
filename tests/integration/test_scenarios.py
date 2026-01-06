@@ -126,8 +126,9 @@ def cycle_factory():
 async def test_scenario_tp_hit(mock_settings):
     # 1. Setup
     broker = SimulatedBroker(initial_balance=1000.0)
-    broker.load_csv('tests/scenarios/scenario_tp_hit.csv')
-    
+    broker.load_csv('tests/old_scenarios/scenario_tp_hit.csv')
+    await broker.connect()  # Conectar el broker
+
     from unittest.mock import patch
     with patch('wsplumber.core.risk.risk_manager.get_settings', return_value=mock_settings):
         repo = InMemoryRepository()
@@ -155,10 +156,24 @@ async def test_scenario_tp_hit(mock_settings):
         # El orquestador procesa el estado actual basándose en los ticks del broker
         await orchestrator._process_tick_for_pair(pair)
         
-    # 3. Assertions
+    # 3. Debugging - Imprimir estado final
+    print(f"\n=== ESTADO FINAL ===")
+    print(f"Cycles: {len(repo.cycles)}")
+    print(f"Operations: {len(repo.operations)}")
+    print(f"Balance: {broker.balance}")
+    print(f"Open positions: {len(broker.open_positions)}")
+    print(f"History: {len(broker.history)}")
+
+    for cycle_id, cycle in repo.cycles.items():
+        print(f"\nCycle {cycle_id}: status={cycle.status}")
+
+    for op_id, op in repo.operations.items():
+        print(f"Op {op_id}: status={op.status}, profit={op.profit_pips} pips")
+
+    # Assertions
     # Deberíamos tener un ciclo cerrado o al menos una operación completada
     assert len(repo.cycles) > 0
-    
+
     # Verificar que el balance aumentó (aprox $1 o más)
     assert broker.balance > Decimal("1000.0")
     # Aceptamos un rango debido a que el bid/ask puede cerrar un poco por encima del TP
@@ -168,8 +183,9 @@ async def test_scenario_tp_hit(mock_settings):
 async def test_scenario_coverage_basic(mock_settings):
     # 1. Setup
     broker = SimulatedBroker(initial_balance=1000.0)
-    broker.load_csv('tests/scenarios/scenario_coverage.csv')
-    
+    broker.load_csv('tests/old_scenarios/scenario_coverage.csv')
+    await broker.connect()  # Conectar el broker
+
     from unittest.mock import patch
     with patch('wsplumber.core.risk.risk_manager.get_settings', return_value=mock_settings):
         repo = InMemoryRepository()
@@ -203,8 +219,9 @@ async def test_scenario_coverage_basic(mock_settings):
 async def test_scenario_recovery_win(mock_settings):
     # 1. Setup
     broker = SimulatedBroker(initial_balance=1000.0)
-    broker.load_csv('tests/scenarios/scenario_recovery_win.csv')
-    
+    broker.load_csv('tests/old_scenarios/scenario_recovery_win.csv')
+    await broker.connect()  # Conectar el broker
+
     from unittest.mock import patch
     with patch('wsplumber.core.risk.risk_manager.get_settings', return_value=mock_settings):
         repo = InMemoryRepository()

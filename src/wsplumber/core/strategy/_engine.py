@@ -1,9 +1,11 @@
 # src/wsplumber/core/strategy/_engine.py
 """
-Motor Principal del Core Secreto - El Fontanero.
+Motor Principal del Core Secreto - El Fontanero - VERSIÓN CORREGIDA.
 
-Implementa IStrategy. Coordina la generación de señales 
-principales y de recuperación basadas en las fórmulas y parámetros.
+Fixes aplicados:
+- FIX-EN-01: process_tp_hit retorna NO_ACTION (orquestador maneja renovación)
+- FIX-EN-02: _analyze_cycle_for_recovery verifica status del ciclo
+- FIX-EN-03: Uso consistente de CurrencyPair (sin str())
 """
 
 from typing import Any, Dict, List, Optional
@@ -11,7 +13,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from wsplumber.domain.interfaces.ports import IStrategy
-from wsplumber.domain.entities.cycle import Cycle
+from wsplumber.domain.entities.cycle import Cycle, CycleStatus
 from wsplumber.domain.entities.operation import Operation
 from wsplumber.domain.types import (
     StrategySignal, 
@@ -38,8 +40,9 @@ from ._formulas import calculate_main_tp, calculate_recovery_setup
 logger = get_logger(__name__)
 
 
-def _pips_between(price1: Decimal, price2: Decimal, pair: str) -> float:
+def _pips_between(price1: Decimal, price2: Decimal, pair: CurrencyPair) -> float:
     """Calcula la distancia en pips entre dos precios."""
+    # FIX-EN-03: Usar pair directamente, no str(pair)
     multiplier = Decimal("100") if "JPY" in pair else Decimal("10000")
     return float(abs(price1 - price2) * multiplier)
 
@@ -48,18 +51,11 @@ class WallStreetPlumberStrategy(IStrategy):
     """
     Estrategia "El Fontanero de Wall Street".
     
-    Se basa en ciclos duales continuos y un sistema de recuperación 
-    matemática FIFO.
-    
-    Reglas de decisión:
-    1. Si no hay ciclo activo para el par → OPEN_CYCLE
-    2. Si el ciclo está en cobertura (hedged) y no tiene recovery → OPEN_RECOVERY
-    3. Si el ciclo tiene recovery pero el precio se ha movido 40+ pips
-       desde el último nivel de recovery → OPEN_RECOVERY (siguiente nivel)
+    VERSIÓN CORREGIDA con mejor manejo de señales y estados.
     """
     
     def __init__(self):
-        self._active_cycles: Dict[str, Cycle] = {}
+        self._active_cycles: Dict[CurrencyPair, Cycle] = {}
         self._state: Dict[str, Any] = {}
 
     # ============================================
@@ -76,7 +72,7 @@ class WallStreetPlumberStrategy(IStrategy):
         """
         Procesa un tick y retorna señal.
         """
-        spread_pips = _pips_between(Decimal(str(bid)), Decimal(str(ask)), str(pair))
+        spread_pips = _pips_between(Decimal(str(bid)), Decimal(str(ask)), pair)
         
         # Validar spread
         if spread_pips > MAX_SPREAD_PIPS:
@@ -87,7 +83,7 @@ class WallStreetPlumberStrategy(IStrategy):
             )
 
         # Verificar si hay ciclo activo
-        if str(pair) not in self._active_cycles:
+        if pair not in self._active_cycles:
             return StrategySignal(
                 signal_type=SignalType.OPEN_CYCLE,
                 pair=pair,
@@ -96,11 +92,12 @@ class WallStreetPlumberStrategy(IStrategy):
             )
 
         # Analizar ciclo existente para detectar necesidad de recovery
-        cycle = self._active_cycles[str(pair)]
+        cycle = self._active_cycles[pair]
         signal = self._analyze_cycle_for_recovery(cycle, Decimal(str(ask)), pair)
         
         if signal:
-            if not signal.metadata: signal.metadata = {}
+            if not signal.metadata: 
+                signal.metadata = {}
             signal.metadata["spread"] = spread_pips
             return signal
             
@@ -118,10 +115,9 @@ class WallStreetPlumberStrategy(IStrategy):
     ) -> StrategySignal:
         """Procesa ejecución de orden."""
         logger.info("Order filled", operation_id=operation_id, fill_price=fill_price)
-        # El orquestador se encarga de actualizar el estado
         return StrategySignal(
             signal_type=SignalType.NO_ACTION,
-            pair=CurrencyPair(""),  # Se llenará por el orquestador
+            pair=CurrencyPair(""),
             metadata={"filled_operation": operation_id}
         )
 
@@ -131,14 +127,30 @@ class WallStreetPlumberStrategy(IStrategy):
         profit_pips: float,
         timestamp: datetime,
     ) -> StrategySignal:
-        """Procesa take profit alcanzado."""
-        logger.info("TP hit", operation_id=operation_id, profit_pips=profit_pips)
+        """
+        Procesa take profit alcanzado.
         
-        # Según Documento Madre: al tocar TP de una main, se renueva ciclo
+        FIX-EN-01: Retorna NO_ACTION porque el orquestador ya tiene 
+        _renew_main_operations() que maneja la renovación directamente.
+        
+        Antes retornaba OPEN_CYCLE con pair="" lo cual causaba comportamiento indefinido.
+        """
+        logger.info("TP hit processed by strategy", 
+                   operation_id=operation_id, 
+                   profit_pips=profit_pips)
+        
+        # FIX-EN-01: NO generar señal de apertura aquí
+        # El orquestador detecta el TP en _check_operations_status() y 
+        # llama a _renew_main_operations() directamente
         return StrategySignal(
-            signal_type=SignalType.OPEN_CYCLE, # Provoca renovación
-            pair=CurrencyPair(""),
-            metadata={"tp_operation": operation_id, "profit_pips": profit_pips, "reason": "tp_renewal"}
+            signal_type=SignalType.NO_ACTION,
+            pair=CurrencyPair(""),  # OK porque es NO_ACTION
+            metadata={
+                "event": "tp_acknowledged",
+                "tp_operation": operation_id, 
+                "profit_pips": profit_pips,
+                "note": "Renewal handled by orchestrator"
+            }
         )
 
     def get_current_state(self) -> Dict[str, Any]:
@@ -167,7 +179,6 @@ class WallStreetPlumberStrategy(IStrategy):
     async def generate_signals(self, tick: TickData, active_cycles: List[Cycle]) -> List[StrategySignal]:
         """
         Analiza el mercado y el estado actual para generar señales.
-        (Versión asíncrona para uso interno)
         """
         signals: List[StrategySignal] = []
         pair = tick.pair
@@ -201,18 +212,33 @@ class WallStreetPlumberStrategy(IStrategy):
         current_price: Decimal, 
         pair: CurrencyPair
     ) -> Optional[StrategySignal]:
-        """Analiza un ciclo para determinar si necesita apertura de Recovery."""
+        """
+        Analiza un ciclo para determinar si necesita apertura de Recovery.
+        
+        FIX-EN-02: Verifica el status del ciclo antes de generar señales.
+        """
+        # FIX-EN-02: No generar recovery para ciclos cerrados o pausados
+        if cycle.status in (CycleStatus.CLOSED, CycleStatus.PAUSED):
+            return None
+        
+        # Solo generar recovery si está en estado HEDGED o necesita recovery
         if not cycle.needs_recovery and not cycle.is_hedged:
+            return None
+        
+        # FIX-EN-02: Verificar que el ciclo esté en estado válido para recovery
+        if cycle.status not in (CycleStatus.HEDGED, CycleStatus.IN_RECOVERY, CycleStatus.ACTIVE):
+            logger.debug("Cycle not in valid state for recovery", 
+                        cycle_id=cycle.id, 
+                        status=cycle.status.value)
             return None
             
         current_recovery_level = len(cycle.accounting.recovery_queue)
-        # Limite removido por petición del usuario: "cero limites"
 
         reference_price = self._get_reference_price(cycle)
         if reference_price is None:
             return None
 
-        distance_pips = _pips_between(current_price, reference_price, str(pair))
+        distance_pips = _pips_between(current_price, reference_price, pair)
         is_price_up = current_price > reference_price
         recovery_is_buy = not is_price_up
 
@@ -230,6 +256,7 @@ class WallStreetPlumberStrategy(IStrategy):
                 metadata={
                     "reason": "distance_threshold_met",
                     "cycle_id": cycle.id,
+                    "cycle_status": cycle.status.value,
                     "recovery_level": current_recovery_level + 1,
                     "distance_pips": distance_pips,
                     "is_buy": recovery_is_buy
@@ -268,8 +295,10 @@ class WallStreetPlumberStrategy(IStrategy):
 
     def register_cycle(self, cycle: Cycle) -> None:
         """Registra un ciclo activo en el estado interno."""
-        self._active_cycles[str(cycle.pair)] = cycle
+        # FIX-EN-03: Usar CurrencyPair directamente como key
+        self._active_cycles[cycle.pair] = cycle
 
     def unregister_cycle(self, pair: CurrencyPair) -> None:
         """Elimina un ciclo del estado interno."""
-        self._active_cycles.pop(str(pair), None)
+        # FIX-EN-03: Usar pair directamente
+        self._active_cycles.pop(pair, None)
