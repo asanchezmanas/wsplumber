@@ -1,3 +1,13 @@
+# tests/fixtures/simulated_broker.py
+"""
+SimulatedBroker - VERSIÓN CORREGIDA
+
+Fixes aplicados:
+- FIX-SB-01: No cerrar TPs internamente, solo marcar
+- FIX-SB-02: get_open_positions incluye posiciones TP_HIT
+- FIX-SB-03: Cálculo de P&L considera spread
+"""
+
 import csv
 import logging
 from datetime import datetime
@@ -16,6 +26,7 @@ from wsplumber.infrastructure.logging.safe_logger import get_logger
 
 logger = get_logger(__name__, environment="development")
 
+
 @dataclass
 class SimulatedPosition:
     ticket: BrokerTicket
@@ -29,6 +40,10 @@ class SimulatedPosition:
     current_pnl_pips: float = 0.0
     current_pnl_money: float = 0.0
     status: OperationStatus = OperationStatus.ACTIVE
+    # FIX-SB-01: Campos para tracking de cierre
+    actual_close_price: Optional[Price] = None
+    close_time: Optional[datetime] = None
+
 
 @dataclass
 class SimulatedOrder:
@@ -41,9 +56,13 @@ class SimulatedOrder:
     lot_size: LotSize
     status: OperationStatus = OperationStatus.PENDING
 
+
 class SimulatedBroker(IBroker):
     """
     Broker simulado que lee datos de un CSV para testing determinístico.
+    
+    VERSIÓN CORREGIDA: Los TPs se marcan pero NO se cierran internamente.
+    El orquestador debe detectar el TP via sync y luego llamar a close_position().
     """
 
     def __init__(self, initial_balance: float = 10000.0, leverage: int = 100):
@@ -54,7 +73,7 @@ class SimulatedBroker(IBroker):
         
         self.open_positions: Dict[BrokerTicket, SimulatedPosition] = {}
         self.pending_orders: Dict[BrokerTicket, SimulatedOrder] = {}
-        self.history: List[SimulatedPosition] = []
+        self.history: List[Dict[str, Any]] = []  # FIX: Ahora guarda dicts con más info
         
         self.ticket_counter = 1000
         self._connected = False
@@ -70,7 +89,6 @@ class SimulatedBroker(IBroker):
                 ask = Price(Decimal(row['ask']))
                 dt = datetime.fromisoformat(row['timestamp'])
                 
-                # Calcular spread (ya viene en el CSV TickData)
                 pips_mult = 100 if "JPY" in pair else 10000
                 spread = row.get('spread_pips', float((ask - bid) * pips_mult))
                 
@@ -92,14 +110,12 @@ class SimulatedBroker(IBroker):
         loader = M1DataLoader(pair)
         self.ticks = list(loader.parse_m1_csv(csv_path, max_bars=max_bars))
         for tick in self.ticks:
-            # Forzar spread mínimo de 1.0 pips si es 0 (para evitar rechazo por MAX_SPREAD_PIPS)
             if tick.spread_pips <= 0:
                 tick.spread_pips = Pips(1.0)
                 tick.ask = Price(tick.bid + Decimal("0.00010"))
                 
         self.current_tick_index = 0
         if self.ticks:
-            last_tick = self.ticks[-1]
             logger.info("Loaded synthetic ticks from M1 CSV", 
                         max_bars=max_bars, 
                         total_ticks=len(self.ticks), 
@@ -121,8 +137,6 @@ class SimulatedBroker(IBroker):
         
         for pos in self.open_positions.values():
             equity += Decimal(str(pos.current_pnl_money))
-            # Margen simple: lot * contract_size / leverage
-            # Asumimos contract_size = 100,000
             margin_used += Decimal(str(pos.lot_size)) * 100000 / self.leverage
             
         return Result.ok({
@@ -140,8 +154,6 @@ class SimulatedBroker(IBroker):
         
         tick = self.ticks[self.current_tick_index]
         if tick.pair != pair:
-            # En un entorno real buscaríamos el tick más reciente de ese par.
-            # Para los escenarios de testing, solemos usar 1 solo par por CSV.
             return Result.fail(f"Current tick is for {tick.pair}, not {pair}")
             
         return Result.ok(tick)
@@ -167,6 +179,7 @@ class SimulatedBroker(IBroker):
                     price=float(request.entry_price),
                     lots=float(request.lot_size),
                     tp=float(request.tp_price))
+        
         return Result.ok(OrderResult(
             success=True,
             broker_ticket=ticket,
@@ -176,25 +189,61 @@ class SimulatedBroker(IBroker):
     async def cancel_order(self, ticket: BrokerTicket) -> Result[bool]:
         if ticket in self.pending_orders:
             del self.pending_orders[ticket]
+            logger.info("Broker: Order cancelled", ticket=ticket)
             return Result.ok(True)
         return Result.fail("Order not found")
 
     async def close_position(self, ticket: BrokerTicket) -> Result[OrderResult]:
+        """
+        Cierra una posición abierta.
+        
+        FIX-SB-01: Este método ahora es el ÚNICO lugar donde se cierra una posición.
+        El broker NO cierra posiciones automáticamente en _process_executions().
+        """
         if ticket not in self.open_positions:
             return Result.fail("Position not found")
         
         pos = self.open_positions.pop(ticket)
         current_tick = self.ticks[self.current_tick_index]
         
+        # Determinar precio de cierre
+        if pos.actual_close_price:
+            # Ya fue marcado como TP_HIT, usar ese precio
+            close_price = pos.actual_close_price
+        else:
+            # Cierre manual, usar precio actual
+            close_price = current_tick.bid if pos.order_type.is_buy else current_tick.ask
+        
         # Realizar el cierre
         self.balance += Decimal(str(pos.current_pnl_money))
-        pos.status = OperationStatus.CLOSED
-        self.history.append(pos)
+        
+        # Guardar en historial con información completa
+        self.history.append({
+            "ticket": pos.ticket,
+            "operation_id": pos.operation_id,
+            "pair": pos.pair,
+            "order_type": pos.order_type.value,
+            "entry_price": float(pos.entry_price),
+            "close_price": float(close_price),
+            "actual_close_price": float(close_price),
+            "lot_size": float(pos.lot_size),
+            "profit_pips": pos.current_pnl_pips,
+            "profit_money": pos.current_pnl_money,
+            "open_time": pos.open_time,
+            "close_time": pos.close_time or current_tick.timestamp,
+            "closed_at": pos.close_time or current_tick.timestamp,
+            "status": pos.status.value
+        })
+        
+        logger.info("Broker: Position closed", 
+                    ticket=ticket, 
+                    profit_pips=pos.current_pnl_pips,
+                    close_price=float(close_price))
         
         return Result.ok(OrderResult(
             success=True,
             broker_ticket=ticket,
-            fill_price=current_tick.bid if pos.order_type.is_buy else current_tick.ask,
+            fill_price=close_price,
             timestamp=current_tick.timestamp
         ))
 
@@ -205,34 +254,74 @@ class SimulatedBroker(IBroker):
         new_sl: Optional[Price] = None,
     ) -> Result[bool]:
         if ticket in self.pending_orders:
-            if new_tp: self.pending_orders[ticket].tp_price = new_tp
+            if new_tp: 
+                self.pending_orders[ticket].tp_price = new_tp
             return Result.ok(True)
         if ticket in self.open_positions:
-            if new_tp: self.open_positions[ticket].tp_price = new_tp
+            if new_tp: 
+                self.open_positions[ticket].tp_price = new_tp
             return Result.ok(True)
         return Result.fail("Order/Position not found")
 
     async def get_open_positions(self) -> Result[List[Dict[str, Any]]]:
-        # Eliminamos los prints ruidosos y usamos debug con info relevante
-        if self.open_positions:
-            logger.debug("Broker Open Positions Status", 
-                         count=len(self.open_positions),
+        """
+        FIX-SB-02: Incluye posiciones marcadas como TP_HIT.
+        
+        El orquestador necesita ver estas posiciones para:
+        1. Detectar que el TP fue alcanzado
+        2. Ejecutar la lógica de renovación
+        3. Luego llamar a close_position()
+        """
+        result = []
+        for pos in self.open_positions.values():
+            result.append({
+                "ticket": pos.ticket,
+                "operation_id": pos.operation_id,
+                "symbol": pos.pair,
+                "pair": pos.pair,
+                "volume": float(pos.lot_size),
+                "type": "buy" if pos.order_type.is_buy else "sell",
+                "order_type": pos.order_type.value,
+                "entry_price": float(pos.entry_price),
+                "fill_price": float(pos.entry_price),  # Para compatibilidad
+                "tp": float(pos.tp_price),
+                "profit": pos.current_pnl_money,
+                "profit_pips": pos.current_pnl_pips,
+                "open_time": pos.open_time,
+                # FIX-SB-02: Incluir status y datos de cierre si es TP_HIT
+                "status": pos.status.value,
+                "actual_close_price": float(pos.actual_close_price) if pos.actual_close_price else None,
+                "close_price": float(pos.actual_close_price) if pos.actual_close_price else None,
+                "close_time": pos.close_time,
+                "closed_at": pos.close_time,
+            })
+        
+        if result:
+            logger.debug("Broker Open Positions", 
+                         count=len(result),
                          positions=[{
-                             "ticket": p.ticket,
-                             "id": p.operation_id,
-                             "type": p.order_type.name,
-                             "lots": float(p.lot_size),
-                             "entry": float(p.entry_price),
-                             "tp": float(p.tp_price),
-                             "pips": p.current_pnl_pips
-                         } for p in self.open_positions.values()])
-        return Result.ok([vars(p) for p in self.open_positions.values()])
+                             "ticket": p["ticket"],
+                             "status": p["status"],
+                             "pips": p["profit_pips"]
+                         } for p in result])
+        
+        return Result.ok(result)
 
     async def get_pending_orders(self) -> Result[List[Dict[str, Any]]]:
-        return Result.ok([vars(o) for o in self.pending_orders.values()])
+        return Result.ok([{
+            "ticket": o.ticket,
+            "operation_id": o.operation_id,
+            "symbol": o.pair,
+            "volume": float(o.lot_size),
+            "type": o.order_type.value,
+            "entry_price": float(o.entry_price),
+            "tp": float(o.tp_price),
+            "status": o.status.value
+        } for o in self.pending_orders.values()])
 
     async def get_order_history(self, from_date=None, to_date=None) -> Result[List[Dict[str, Any]]]:
-        return Result.ok([vars(p) for p in self.history])
+        """Retorna historial de posiciones cerradas."""
+        return Result.ok(self.history)
 
     async def get_historical_rates(self, pair, timeframe, count, from_date=None) -> Result[List[Dict[str, Any]]]:
         return Result.fail("Not implemented in SimulatedBroker")
@@ -253,14 +342,19 @@ class SimulatedBroker(IBroker):
         return tick
 
     async def _process_executions(self, tick: TickData):
-        """Verifica órdenes pendientes y TPs."""
-        # 1. Procesar Órdenes Pendientes (STOP orders)
+        """
+        Verifica órdenes pendientes y TPs.
+        
+        FIX-SB-01: Los TPs se MARCAN pero NO se cierran.
+        El orquestador debe detectarlos y llamar a close_position().
+        """
+        # 1. Procesar Órdenes Pendientes (activación)
         tickets_to_activate = []
         for ticket, order in self.pending_orders.items():
-            # Buy Stop: precio Ask toca o supera Entry
+            # Buy: precio Ask toca o supera Entry
             if order.order_type.is_buy and tick.ask >= order.entry_price:
                 tickets_to_activate.append(ticket)
-            # Sell Stop: precio Bid toca o cae por debajo de Entry
+            # Sell: precio Bid toca o cae por debajo de Entry
             elif order.order_type.is_sell and tick.bid <= order.entry_price:
                 tickets_to_activate.append(ticket)
         
@@ -271,37 +365,54 @@ class SimulatedBroker(IBroker):
                 operation_id=order.operation_id,
                 pair=order.pair,
                 order_type=order.order_type,
-                entry_price=order.entry_price, # Slippage 0 en simulación simple
+                entry_price=order.entry_price,
                 tp_price=order.tp_price,
                 lot_size=order.lot_size,
                 open_time=tick.timestamp
             )
             self.open_positions[t] = pos
-            logger.info(f"Order {t} activated at {tick.timestamp}")
+            logger.info(f"Broker: Order {t} activated", 
+                       operation_id=order.operation_id,
+                       entry_price=float(order.entry_price),
+                       timestamp=tick.timestamp)
 
-        # 2. Actualizar P&L y procesar TPs
-        tickets_to_close = []
+        # 2. Actualizar P&L y MARCAR TPs (NO cerrar)
         for ticket, pos in self.open_positions.items():
-            # Calcular Pips
+            # FIX-SB-03: Considerar spread en cálculo de P&L
             mult = 100 if "JPY" in pos.pair else 10000
+            
             if pos.order_type.is_buy:
+                # Buy: ganamos cuando bid sube (vendemos al bid)
+                # Spread ya fue pagado al abrir (compramos al ask)
                 pips = float((tick.bid - pos.entry_price) * mult)
             else:
+                # Sell: ganamos cuando ask baja (compramos al ask)
+                # Spread ya fue pagado al abrir (vendimos al bid)
                 pips = float((pos.entry_price - tick.ask) * mult)
             
             pos.current_pnl_pips = pips
-            # P&L Money: pips * lot * pip_value
-            # Simplificación: pip_value = 10 USD por lote estándar (1.0) en pares USD
-            # 0.01 lote -> 0.1 USD por pip
             pip_value_per_lot = 10.0 
             pos.current_pnl_money = pips * float(pos.lot_size) * pip_value_per_lot
             
-            # Verificar TP
-            if pos.order_type.is_buy and tick.bid >= pos.tp_price:
-                tickets_to_close.append(ticket)
-            elif pos.order_type.is_sell and tick.ask <= pos.tp_price:
-                tickets_to_close.append(ticket)
+            # FIX-SB-01: Solo MARCAR TP, NO cerrar
+            if pos.status == OperationStatus.ACTIVE:  # Solo si no está ya marcado
+                tp_hit = False
+                close_price = None
                 
-        for t in tickets_to_close:
-            await self.close_position(t)
-            logger.info(f"Position {t} closed by TP at {tick.timestamp}")
+                if pos.order_type.is_buy and tick.bid >= pos.tp_price:
+                    tp_hit = True
+                    close_price = tick.bid
+                elif pos.order_type.is_sell and tick.ask <= pos.tp_price:
+                    tp_hit = True
+                    close_price = tick.ask
+                    
+                if tp_hit:
+                    pos.status = OperationStatus.TP_HIT
+                    pos.actual_close_price = close_price
+                    pos.close_time = tick.timestamp
+                    logger.info(f"Broker: Position {ticket} marked as TP_HIT",
+                               operation_id=pos.operation_id,
+                               close_price=float(close_price),
+                               profit_pips=pos.current_pnl_pips)
+                    # NO llamar a close_position() aquí
+                    # El orquestador lo hará después de procesar
