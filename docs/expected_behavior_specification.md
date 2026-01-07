@@ -222,60 +222,99 @@ WHERE id = 'OP_001';
 
 ---
 
-### PASO 7: Actualizar Contabilidad y Crear Nueva Operación
+### PASO 7: Actualizar Contabilidad y Renovar Operaciones Main (FIX-001) ✅
 **Trigger:** TP alcanzado, ciclo continúa
+
+**⚠️ CAMBIO CRÍTICO:** Se crean **DOS nuevas operaciones** (BUY + SELL), no solo una.
 
 ```
 [10:00:30.060] [INFO] [AccountingService] Balance actualizado: 10000 → 10002
 [10:00:30.061] [DEBUG] [CycleOrchestrator] Ciclo CYC_001: TPs=1, pips_ganados=10
-[10:00:30.062] [INFO] [CycleOrchestrator] Creando nueva operación main para continuar ciclo
-[10:00:30.070] [INFO] [BrokerAdapter] Enviando nuevo BUY_STOP...
+[10:00:30.062] [INFO] [CycleOrchestrator] *** RENOVANDO OPERACIONES MAIN (BUY + SELL) ***
+[10:00:30.063] [DEBUG] [CycleOrchestrator] Precio actual: bid=1.10120, ask=1.10140
+[10:00:30.064] [DEBUG] [LotCalculator] Manteniendo lote: 0.02
+[10:00:30.065] [INFO] [BrokerAdapter] Enviando BUY_STOP: entry=1.10140, tp=1.10240, sl=1.09640
+[10:00:30.066] [INFO] [BrokerAdapter] Enviando SELL_STOP: entry=1.10120, tp=1.10020, sl=1.10620
+[10:00:30.150] [INFO] [BrokerAdapter] BUY_STOP confirmado: ticket=12347
+[10:00:30.151] [INFO] [BrokerAdapter] SELL_STOP confirmado: ticket=12348
+[10:00:30.152] [INFO] [CycleOrchestrator] Operaciones main renovadas exitosamente
+[10:00:30.153] [DEBUG] [CycleOrchestrator] Nueva BUY: OP_003, Nueva SELL: OP_004
 ```
 
 **Checks:**
 - [ ] `account.balance == 10002.00`
 - [ ] `cycle.accounting.total_tp_count == 1`
 - [ ] `cycle.accounting.total_pips_won == 10.0`
-- [ ] Nueva operación MAIN creada
+- [ ] `len([op for op in cycle.operations if op.is_main and op.status == PENDING]) == 2`
+- [ ] Nueva operación BUY: `id=OP_003, entry=1.10140, tp=1.10240, status=PENDING`
+- [ ] Nueva operación SELL: `id=OP_004, entry=1.10120, tp=1.10020, status=PENDING`
+- [ ] `cycle.status == CycleStatus.ACTIVE` (sin cambio)
+
+**DB Inserts:**
+```sql
+INSERT INTO operations (id, cycle_id, type, direction, status, entry_price, tp_price, broker_ticket)
+VALUES 
+  ('OP_003', 'CYC_001', 'MAIN', 'BUY', 'PENDING', 1.10140, 1.10240, '12347'),
+  ('OP_004', 'CYC_001', 'MAIN', 'SELL', 'PENDING', 1.10120, 1.10020, '12348');
+```
+
+**Justificación:**
+El documento madre establece que el ciclo opera indefinidamente con cobertura 
+bidireccional. Al cerrar un main con TP, se renuevan AMBAS operaciones (BUY+SELL)
+para mantener la estrategia activa.
 
 ---
 
-### ESTADO FINAL ESPERADO
+### ESTADO FINAL ESPERADO (CORREGIDO)
 
 ```yaml
 cycle:
   id: CYC_001
-  status: ACTIVE
+  status: ACTIVE  # Continúa operando
   total_tps: 1
   pips_won: 10
+  operations_count: 4  # 2 cerradas/canceladas + 2 nuevas pendientes
   
 operations:
+  # === ITERACIÓN 1 (Cerrada) ===
   - id: OP_001
     type: MAIN
     direction: SELL
     status: CANCELLED
     profit_pips: 0
+    cancel_reason: "counterpart_tp_hit"
     
   - id: OP_002
     type: MAIN
     direction: BUY
     status: TP_HIT
     profit_pips: 10
+    profit_money: 2.00
     
-  - id: OP_003  # Nueva
+  # === ITERACIÓN 2 (Activa) ===
+  - id: OP_003  # ✅ Nueva BUY
     type: MAIN
-    direction: BUY  # o SELL según precio
+    direction: BUY
     status: PENDING
+    entry_price: 1.10140
+    tp_price: 1.10240
+    
+  - id: OP_004  # ✅ Nueva SELL
+    type: MAIN
+    direction: SELL  
+    status: PENDING
+    entry_price: 1.10120
+    tp_price: 1.10020
     
 account:
-  balance: 10002.00
+  balance: 10002.00  # +2 EUR del TP
   equity: 10002.00
   
 system:
   pips_locked: 0
   recovery_active: 0
+  cycles_active: 1
 ```
-
 ---
 
 # ESCENARIO 2: Ambas Mains Se Activan (Hedge)
@@ -390,61 +429,130 @@ UPDATE cycles SET status = 'HEDGED' WHERE id = 'CYC_002';
 
 ---
 
-### PASO 5: Neutralizar SELL Main + Activar HEDGE_SELL
+### PASO 5: BUY Main Alcanza TP
+**Trigger:** `bid >= 1.10120`
+
+```
+[10:05:00.000] [INFO] [PriceMonitor] Tick: EURUSD bid=1.10125, ask=1.10145
+[10:05:00.001] [INFO] [BrokerAdapter] TP alcanzado: ticket=20001
+[10:05:00.002] [INFO] [CycleOrchestrator] OP_010 (MAIN_BUY) cerrada con TP: +10 pips
+[10:05:00.003] [DEBUG] [CycleOrchestrator] OP_010: ACTIVE → TP_HIT
+```
+
+**Checks:**
+- [ ] `main_buy.status == TP_HIT`
+- [ ] `main_buy.profit_pips == 10`
+
+---
+
+### PASO 5.5: Cancelar Hedge Pendiente Contrario (FIX-002) ⚠️ NUEVO PASO
+**Trigger:** Main cerró con TP → cancelar hedge pendiente opuesto
+
+```
+[10:05:00.010] [INFO] [CycleOrchestrator] Main TP detectado, verificando hedges pendientes
+[10:05:00.011] [DEBUG] [CycleOrchestrator] Buscando hedge pendiente contrario a OP_010 (BUY)...
+[10:05:00.012] [INFO] [CycleOrchestrator] Encontrado: OP_013 (HEDGE_SELL) - PENDING
+[10:05:00.013] [INFO] [BrokerAdapter] Cancelando orden: ticket=20004
+[10:05:00.050] [INFO] [BrokerAdapter] Orden cancelada exitosamente: ticket=20004
+[10:05:00.051] [INFO] [CycleOrchestrator] OP_013 cancelado
+[10:05:00.052] [DEBUG] [CycleOrchestrator] OP_013: PENDING → CANCELLED
+[10:05:00.053] [DEBUG] [CycleOrchestrator] Metadata: cancel_reason="counterpart_main_tp_hit"
+```
+
+**Checks:**
+- [ ] `hedge_sell.status == OperationStatus.CANCELLED`
+- [ ] `hedge_sell.cancelled_at != None`
+- [ ] Orden 20004 NO existe en broker
+- [ ] `hedge_sell.metadata["cancel_reason"] == "counterpart_main_tp_hit"`
+
+**DB Update:**
+```sql
+UPDATE operations 
+SET status = 'CANCELLED', 
+    cancelled_at = '2025-01-05 10:05:00.050',
+    metadata = jsonb_set(metadata, '{cancel_reason}', '"counterpart_main_tp_hit"')
+WHERE id = 'OP_013';
+```
+
+**Justificación:**
+Sin este paso, el HEDGE_SELL pendiente podría activarse después del cierre del 
+MAIN_BUY, creando posiciones huérfanas sin propósito.
+
+---
+### PASO 6: Neutralizar SELL Main + Activar HEDGE_BUY
 **Trigger:** Main contraria (SELL) debe neutralizarse
 
 ```
-[10:05:00.010] [INFO] [CycleOrchestrator] Neutralizando MAIN_SELL (OP_011)
-[10:05:00.011] [DEBUG] [CycleOrchestrator] SELL entry=1.09980, precio_actual=1.10125
-[10:05:00.012] [DEBUG] [PnLCalculator] Pérdida flotante SELL: (1.09980-1.10125)/0.0001 = -14.5 pips
-[10:05:00.013] [INFO] [CycleOrchestrator] OP_011: ACTIVE → NEUTRALIZED
-[10:05:00.014] [INFO] [CycleOrchestrator] Activando HEDGE_SELL para cubrir pérdida
+[10:05:00.060] [INFO] [CycleOrchestrator] Neutralizando MAIN_SELL (OP_011)
+[10:05:00.061] [DEBUG] [CycleOrchestrator] SELL entry=1.09980, precio_actual=1.10125
+[10:05:00.062] [DEBUG] [PnLCalculator] Pérdida flotante SELL: (1.09980-1.10125)/0.0001 = -14.5 pips
+[10:05:00.063] [INFO] [CycleOrchestrator] OP_011: ACTIVE → NEUTRALIZED
+[10:05:00.064] [INFO] [CycleOrchestrator] Activando HEDGE_BUY (OP_012) para cubrir pérdida
 ```
 
 **Checks:**
 - [ ] `main_sell.status == NEUTRALIZED`
 - [ ] `main_sell.neutralized_at != None`
+- [ ] `main_sell.neutralized_by == "OP_012"`
 - [ ] `main_sell.floating_pips < 0` (en pérdida)
-
-**Cálculo de Pérdida Bloqueada:**
-```
-# La pérdida que queda "bloqueada" es:
-# Desde entry de SELL (1.09980) hasta entry de BUY (1.10020) = 4 pips de separación
-# Más los 10 pips hasta el TP del BUY = 14 pips en contra
-# Pero según documento: se neutraliza a 20 pips fijos (separación + TP)
-
-pips_locked = 20  # Según documento madre
-```
+- [ ] `hedge_buy.status == PENDING` (esperando activación)
 
 ---
 
-### PASO 6: Actualizar Contabilidad de Pips Bloqueados
+### PASO 7: Actualizar Contabilidad y Preparar Recoveries (ACTUALIZADO)
 **Trigger:** Neutralización completada
 
 ```
-[10:05:00.020] [INFO] [AccountingService] Registrando pips bloqueados
-[10:05:00.021] [DEBUG] [AccountingService] Cálculo: separación(4) + TP(10) + margen = ~20 pips
-[10:05:00.022] [INFO] [AccountingService] Ciclo CYC_002: pips_locked = 20
-[10:05:00.023] [INFO] [CycleOrchestrator] Ciclo CYC_002: HEDGED → IN_RECOVERY
+[10:05:00.070] [INFO] [AccountingService] Calculando deuda total del ciclo
+[10:05:00.071] [DEBUG] [AccountingService] === COMPOSICIÓN DE LA DEUDA ===
+[10:05:00.072] [DEBUG] [AccountingService] Main SELL: entry=1.09980
+[10:05:00.073] [DEBUG] [AccountingService] Main BUY: entry=1.10020
+[10:05:00.074] [DEBUG] [AccountingService] Separación inicial: 4 pips
+[10:05:00.075] [DEBUG] [AccountingService] TP alcanzado por BUY: 10 pips (hasta 1.10120)
+[10:05:00.076] [DEBUG] [AccountingService] Margen de seguridad: 6 pips
+[10:05:00.077] [DEBUG] [AccountingService] TOTAL: 4 + 10 + 6 = 20 pips
+[10:05:00.078] [INFO] [AccountingService] Ciclo CYC_002: pips_locked = 20
+[10:05:00.079] [INFO] [CycleOrchestrator] Ciclo CYC_002: HEDGED → IN_RECOVERY
+[10:05:00.080] [INFO] [CycleOrchestrator] Preparando recoveries desde precio TP: 1.10120
+[10:05:00.081] [DEBUG] [CycleOrchestrator] Recovery BUY entry: 1.10140 (TP + 20 pips)
+[10:05:00.082] [DEBUG] [CycleOrchestrator] Recovery SELL entry: 1.10100 (TP - 20 pips)
 ```
 
 **Checks:**
 - [ ] `cycle.accounting.pips_locked == 20`
 - [ ] `cycle.status == CycleStatus.IN_RECOVERY`
-- [ ] `cycle.recovery_queue == ["OP_011"]` (SELL neutralizada en queue FIFO)
+- [ ] `cycle.recovery_queue == ["OP_011_debt_unit"]`
+- [ ] Recoveries colocados **desde TP del Main**, no desde precio actual
+- [ ] Metadata incluye `debt_composition`
+
+**Debt Unit Structure:**
+```json
+{
+  "id": "OP_011_debt_unit",
+  "main_id": "OP_011",
+  "hedge_id": "OP_012",
+  "cost_pips": 20,
+  "components": {
+    "separation": 4,
+    "tp_distance": 10,
+    "margin": 6
+  }
+}
+```
 
 ---
 
-### ESTADO FINAL ESPERADO
+### ESTADO FINAL ESPERADO (CORREGIDO)
 
 ```yaml
 cycle:
   id: CYC_002
   status: IN_RECOVERY
   pips_locked: 20
-  recovery_queue: ["OP_011"]
+  recovery_queue: ["OP_011_debt_unit"]  # Unidad: Main + Hedge
   
 operations:
+  # === MAIN OPERATIONS ===
   - id: OP_010
     type: MAIN
     direction: BUY
@@ -455,21 +563,57 @@ operations:
     type: MAIN
     direction: SELL
     status: NEUTRALIZED
-    neutralized_by: OP_012  # El hedge
+    neutralized_by: OP_012
+    entry_price: 1.09980
+    neutralized_at_price: 1.10120
+    debt_pips: 14  # Flotante cuando se neutralizó
     
+  # === HEDGE OPERATIONS ===
   - id: OP_012
     type: HEDGE
     direction: BUY
-    status: ACTIVE  # Cubriendo la SELL
+    status: ACTIVE  # ✅ Cubriendo OP_011
+    entry_price: 1.10020
+    tp_price: 1.10120
+    covering_operation: OP_011
     
   - id: OP_013
     type: HEDGE
     direction: SELL
-    status: PENDING  # Por si el precio baja
+    status: CANCELLED  # ✅ FIX-002: Cancelado cuando Main BUY tocó TP
+    cancel_reason: "counterpart_main_tp_hit"
+    cancelled_at: "2025-01-05 10:05:00.050"
+    
+  # === RECOVERY OPERATIONS (Desde TP = 1.10120) ===
+  - id: OP_014
+    type: RECOVERY
+    level: 1
+    direction: BUY
+    status: PENDING
+    entry_price: 1.10140  # ✅ TP + 20 pips
+    tp_price: 1.10220     # entry + 80 pips
+    
+  - id: OP_015
+    type: RECOVERY
+    level: 1
+    direction: SELL
+    status: PENDING
+    entry_price: 1.10100  # ✅ TP - 20 pips
+    tp_price: 1.10020     # entry - 80 pips
     
 account:
   balance: 10002.00  # +2 del TP del BUY
   pips_locked_total: 20
+  
+metadata:
+  debt_composition:
+    main_separation: 4      # Separación inicial entre mains
+    tp_distance: 10          # TP alcanzado
+    margin: 6                # Margen de seguridad
+    total: 20
+  recovery_placement:
+    reference_price: 1.10120  # TP del Main BUY
+    distance: 20              # Pips desde referencia
 ```
 
 ---
