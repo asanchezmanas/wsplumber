@@ -659,3 +659,391 @@ json{
     "margin": 6
   }
 }
+
+
+---
+
+# APÉNDICE: MATRIZ DE VALIDACIÓN RÁPIDA
+
+## Propósito
+
+Esta matriz complementa los 4 escenarios detallados anteriores, proporcionando especificaciones compactas para los 58 escenarios restantes. Cada fila define:
+
+- **Input**: Condiciones iniciales y secuencia de precios
+- **Output**: Estado final esperado del sistema
+- **Checks Críticos**: 2-4 assertions que DEBEN pasar
+
+**Leyenda de Prioridades:**
+- 🔴 **CRÍTICA**: Funcionalidad core, debe pasar siempre
+- 🟡 **ALTA**: Comportamiento importante, alta prioridad
+- 🟢 **MEDIA**: Caso edge, importante pero no bloqueante
+- ⚪ **BAJA**: Nice-to-have, puede diferirse
+
+---
+
+## CORE (1 escenario restante)
+
+### c04_no_activation
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Precio se mantiene en rango, no activa ninguna operación |
+| **Input** | • Balance: 10000 EUR<br>• Precio inicial: 1.10000<br>• Órdenes: BUY@1.10020, SELL@1.09980<br>• Movimiento: ±5 pips (no alcanza entry) |
+| **Output** | • Ambas operaciones: `PENDING`<br>• Balance: 10000 (sin cambios)<br>• Broker calls: 0 |
+| **Checks** | ✓ `buy_op.status == PENDING`<br>✓ `sell_op.status == PENDING`<br>✓ `len(broker.order_history) == 0`<br>✓ `account.balance == 10000.0` |
+| **CSV** | Rango: 1.09990 - 1.10010 (20 ticks, sin cruces) |
+
+---
+
+## CYCLES (2 escenarios restantes)
+
+### cy04_cancel_counter_main
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🔴 CRÍTICA |
+| **Descripción** | Cuando un main toca TP, la main contraria pendiente se cancela |
+| **Input** | • BUY activada: entry=1.10020<br>• SELL pendiente: entry=1.09980<br>• Precio sube: 1.10020 → 1.10120 (TP) |
+| **Output** | • BUY: `TP_HIT`, profit=10 pips<br>• SELL: `CANCELLED`<br>• 2 nuevas mains creadas (renovación) |
+| **Checks** | ✓ `buy.status == TP_HIT`<br>✓ `sell.status == CANCELLED`<br>✓ `sell.metadata['cancel_reason'] == "counterpart_tp_hit"`<br>✓ Nuevas ops: `len([op for op in cycle.operations if op.is_main and op.status == PENDING]) == 2` |
+| **CSV** | 1.10000 → 1.10020 (activa BUY) → 1.10120 (TP) |
+
+### cy06_multiple_cycles
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Múltiples pares operan independientemente sin interferencia |
+| **Input** | • Par 1: EURUSD @ 1.10000<br>• Par 2: GBPUSD @ 1.25000<br>• Ambos con ciclos activos |
+| **Output** | • 2 ciclos independientes<br>• EURUSD: 1 TP<br>• GBPUSD: 1 TP<br>• Sin cross-contamination |
+| **Checks** | ✓ `len(active_cycles) == 2`<br>✓ `eurusd_cycle.pair == "EURUSD"`<br>✓ `gbpusd_cycle.pair == "GBPUSD"`<br>✓ `eurusd_cycle.accounting.total_tp_count == 1`<br>✓ `gbpusd_cycle.accounting.total_tp_count == 1` |
+| **CSV** | 2 archivos: `cy06_eurusd.csv` + `cy06_gbpusd.csv` |
+
+---
+
+## HEDGED (6 escenarios restantes)
+
+### h05_sequential_activation
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Ambas mains se activan secuencialmente (no gap simultáneo) |
+| **Input** | • Start: 1.10000<br>• T1: 1.10020 (activa BUY)<br>• T2: 1.09990 (activa SELL)<br>• 10 segundos entre activaciones |
+| **Output** | • Estado: `HEDGED`<br>• pips_locked: 20<br>• HEDGE_BUY + HEDGE_SELL creados |
+| **Checks** | ✓ `cycle.status == HEDGED`<br>✓ `main_buy.status == NEUTRALIZED`<br>✓ `main_sell.status == NEUTRALIZED`<br>✓ `cycle.accounting.pips_locked == 20.0`<br>✓ `len([op for op in cycle.operations if op.is_hedge]) == 2` |
+| **CSV** | 1.10000 → 1.10020 (10 ticks) → 1.09990 (10 ticks) |
+
+### h06_simultaneous_gap
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Gap de fin de semana activa ambas mains en el mismo tick |
+| **Input** | • Viernes 22:00: 1.10000<br>• Lunes 00:01: 1.10050 (gap +50 pips)<br>• Ambas entries cruzadas |
+| **Output** | • Estado: `HEDGED` inmediato<br>• pips_locked: 20 + gap_cost<br>• Metadata: `gap_detected=true` |
+| **Checks** | ✓ `cycle.status == HEDGED`<br>✓ `cycle.metadata['gap_detected'] == True`<br>✓ `cycle.accounting.pips_locked >= 20.0`<br>✓ Ambas mains: `activated_at` mismo timestamp |
+| **CSV** | Tick 1: 1.10000 → Tick 2: 1.10050 (sin intermedios) |
+
+### h07_buy_tp_hedge_sell (FIX-002)
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🔴 CRÍTICA |
+| **Descripción** | Main BUY toca TP en estado HEDGED → cancelar HEDGE_SELL pendiente |
+| **Input** | • Estado: HEDGED<br>• Main BUY: ACTIVE<br>• Main SELL: NEUTRALIZED<br>• HEDGE_SELL: PENDING (entry=1.10100)<br>• Precio: 1.10120 (TP del BUY) |
+| **Output** | • Main BUY: `TP_HIT`<br>• HEDGE_SELL: `CANCELLED`<br>• Metadata: `cancel_reason="counterpart_main_tp_hit"` |
+| **Checks** | ✓ `main_buy.status == TP_HIT`<br>✓ `hedge_sell.status == CANCELLED`<br>✓ `hedge_sell.metadata['cancel_reason'] == "counterpart_main_tp_hit"`<br>✓ `hedge_sell.metadata['cancelled_by_operation'] == main_buy.id` |
+| **CSV** | 1.10000 → HEDGED → 1.10120 (TP) |
+
+### h08_sell_tp_hedge_buy
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Main SELL toca TP en HEDGED → cancelar HEDGE_BUY pendiente |
+| **Input** | • Estado: HEDGED<br>• Main SELL: ACTIVE<br>• HEDGE_BUY: PENDING<br>• Precio: 1.09920 (TP del SELL) |
+| **Output** | • Main SELL: `TP_HIT`<br>• HEDGE_BUY: `CANCELLED` |
+| **Checks** | ✓ `main_sell.status == TP_HIT`<br>✓ `hedge_buy.status == CANCELLED`<br>✓ `hedge_buy.metadata['cancel_reason'] == "counterpart_main_tp_hit"` |
+| **CSV** | 1.10000 → HEDGED → 1.09920 (TP) |
+
+---
+
+## RECOVERY (7 escenarios restantes)
+
+### r04_recovery_n1_tp_sell
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Recovery N1 SELL exitoso (variante de r03) |
+| **Input** | • Recovery N1 SELL entry: 1.10100<br>• TP: 1.10020 (-80 pips) |
+| **Output** | • Recovery SELL: `TP_HIT`<br>• pips_recovered: 20<br>• FIFO: Main + Hedge cerrados |
+| **Checks** | ✓ `recovery.status == TP_HIT`<br>✓ `recovery.profit_pips == 80.0`<br>✓ `parent_cycle.accounting.pips_recovered == 20.0`<br>✓ `len(parent_cycle.accounting.recovery_queue) == 0` |
+| **CSV** | Precio baja 80 pips desde entry |
+
+### r05_recovery_n1_fails_n2
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🔴 CRÍTICA |
+| **Descripción** | Recovery N1 no alcanza TP, se activa N2 por distancia |
+| **Input** | • Recovery N1 @ 1.10140 (BUY)<br>• Precio: 1.10140 → 1.10120 (no TP)<br>• Distancia N2: 40 pips adicionales |
+| **Output** | • N1: sigue `ACTIVE`<br>• N2 creado @ 1.10180<br>• recovery_queue: [N1, N2] |
+| **Checks** | ✓ `n1.status == ACTIVE`<br>✓ `n2.status == PENDING`<br>✓ `n2.entry_price == 1.10180`<br>✓ `len(parent_cycle.accounting.recovery_queue) == 2` |
+| **CSV** | 1.10140 → 1.10120 (N1 activa, no TP) → 1.10180 (N2 coloca) |
+
+### r07_cascade_n1_n2_n3
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Cascada de 3 niveles de recovery antes de resolución |
+| **Input** | • N1 @ 1.10140<br>• N2 @ 1.10180<br>• N3 @ 1.10220<br>• N3 toca TP |
+| **Output** | • N3: `TP_HIT` (80 pips)<br>• FIFO cierra: N1 (40) + parte N2 (40) |
+| **Checks** | ✓ `n3.status == TP_HIT`<br>✓ `parent_cycle.accounting.pips_recovered == 80.0`<br>✓ `len(closed_by_fifo) == 2` |
+| **CSV** | Cascada +40 pips cada nivel, luego reversa 80 pips |
+
+### r08_recovery_max_n6
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Alcanza nivel máximo de recovery (N6) |
+| **Input** | • Recoveries N1-N5 activos<br>• Distancia para N6 alcanzada |
+| **Output** | • N6 creado<br>• Sistema: alerta `max_recovery_level_reached`<br>• N6 esperando resolución |
+| **Checks** | ✓ `parent_cycle.recovery_level == 6`<br>✓ `len(recovery_queue) == 6`<br>✓ Alert creada: `severity=WARNING` |
+| **CSV** | Cascada extrema +240 pips (40*6) |
+
+### r09_cancel_recovery_counter
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Recovery BUY toca TP → cancelar SELL pendiente |
+| **Input** | • Recovery BUY: TP hit<br>• Recovery SELL: PENDING |
+| **Output** | • Recovery SELL: `CANCELLED` |
+| **Checks** | ✓ `recovery_buy.status == TP_HIT`<br>✓ `recovery_sell.status == CANCELLED`<br>✓ `recovery_sell.metadata['cancel_reason'] == "counterpart_tp_hit"` |
+| **CSV** | Recovery TP alcanzado unilateralmente |
+
+### r10_multiple_recovery_pairs
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟢 MEDIA |
+| **Descripción** | Múltiples pares con recoveries simultáneos |
+| **Input** | • EURUSD: N1+N2 activos<br>• GBPUSD: N1 activo |
+| **Output** | • 3 recoveries independientes<br>• Sin interferencia cross-pair |
+| **Checks** | ✓ `eurusd_cycle.recovery_level == 2`<br>✓ `gbpusd_cycle.recovery_level == 1`<br>✓ Recovery queues separadas |
+| **CSV** | 2 archivos paralelos |
+
+---
+
+## FIFO (2 escenarios restantes)
+
+### f03_fifo_atomic_close
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Cierre atómico de Main + Hedge como unidad |
+| **Input** | • Main SELL: NEUTRALIZED<br>• Hedge BUY: ACTIVE<br>• Recovery TP: 80 pips disponibles |
+| **Output** | • Ambos cerrados en mismo timestamp<br>• debt_unit_id compartido |
+| **Checks** | ✓ `main.status == CLOSED`<br>✓ `hedge.status == CLOSED`<br>✓ `main.closed_at == hedge.closed_at` (±1ms)<br>✓ `main.metadata['debt_unit_id'] == hedge.metadata['debt_unit_id']`<br>✓ `main.metadata['close_method'] == "atomic_with_hedge"` |
+| **CSV** | Recovery alcanza TP con deuda pendiente |
+
+### f04_fifo_multiple_close
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Un recovery TP cierra múltiples unidades de deuda |
+| **Input** | • Queue: [debt_unit_1 (20 pips), debt_unit_2 (40 pips)]<br>• Recovery TP: 80 pips |
+| **Output** | • Ambas unidades cerradas<br>• Profit neto: 20 pips |
+| **Checks** | ✓ `pips_recovered == 60.0` (20+40)<br>✓ `recovery_queue == []`<br>✓ `len(closed_units) == 2`<br>✓ `net_profit_pips == 20.0` |
+| **CSV** | Recovery con deuda acumulada 60 pips |
+
+---
+
+## RISK MANAGEMENT (3 escenarios adicionales de ejemplo)
+
+### rm03_daily_loss_limit
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Pérdida diaria excede límite → pausa hasta mañana |
+| **Input** | • Pérdidas acumuladas: -100 pips en el día<br>• Límite: 100 pips |
+| **Output** | • Sistema: `PAUSED`<br>• Metadata: `pause_reason="daily_loss_limit"`<br>• No nuevas operaciones |
+| **Checks** | ✓ Alerta generada: `severity=CRITICAL`<br>✓ `can_open_position() == False`<br>✓ `system.status == PAUSED` |
+| **CSV** | Secuencia de 10 TPs perdidos |
+
+### rm04_margin_insufficient
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Margen insuficiente rechaza nueva operación |
+| **Input** | • Free margin: 50 EUR<br>• Nueva operación requiere: 100 EUR |
+| **Output** | • Operación: rechazada<br>• Log: "Insufficient margin" |
+| **Checks** | ✓ `result.success == False`<br>✓ `result.error_code == "INSUFFICIENT_MARGIN"`<br>✓ `operation.status == PENDING` (sin cambios) |
+| **CSV** | N/A (test unitario, no CSV) |
+
+---
+
+## MONEY MANAGEMENT (1 ejemplo adicional)
+
+### mm08_recovery_pnl_accumulation
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | P&L de recoveries acumula correctamente |
+| **Input** | • N1 TP: +80 pips → -20 costo FIFO = +60 neto<br>• N2 TP: +80 pips → -40 costo FIFO = +40 neto |
+| **Output** | • Total recovered: 60 pips<br>• Profit neto: 100 pips |
+| **Checks** | ✓ `pips_recovered == 60.0`<br>✓ `net_profit_pips == 100.0`<br>✓ Balance incrementado correctamente |
+| **CSV** | 2 recoveries exitosos secuenciales |
+
+---
+
+## EDGE CASES (3 ejemplos)
+
+### e02_high_spread_rejection
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Spread >3 pips rechaza todas las operaciones |
+| **Input** | • Spread: 5 pips<br>• Señal: OPEN_CYCLE |
+| **Output** | • Operación: NO enviada<br>• Log: "Spread too high" |
+| **Checks** | ✓ `signal.signal_type == NO_ACTION`<br>✓ `signal.metadata['reason'] == "high_spread"`<br>✓ `len(broker.orders) == 0` |
+| **CSV** | Ticks con spread artificialmente alto |
+
+### e03_weekend_gap
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Gap atraviesa múltiples niveles (TP + Recovery entry) |
+| **Input** | • Viernes: 1.10000<br>• Lunes: 1.10200 (gap +200 pips) |
+| **Output** | • Detección de gap<br>• Metadata: `gap_size=200`<br>• Manejo especial de activaciones |
+| **Checks** | ✓ `cycle.metadata['gap_detected'] == True`<br>✓ `cycle.metadata['gap_size'] == 200.0`<br>✓ Operaciones activadas con precio post-gap |
+| **CSV** | Salto de 200 pips sin ticks intermedios |
+
+---
+
+## MULTI-PAIR (2 ejemplos)
+
+### mp01_dual_pair
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | EURUSD + GBPUSD operan simultáneamente sin conflictos |
+| **Input** | • EURUSD: ciclo con 1 TP<br>• GBPUSD: ciclo con 1 TP |
+| **Output** | • 2 ciclos independientes<br>• Balance: +20 EUR (+10 cada par) |
+| **Checks** | ✓ `len(cycles) == 2`<br>✓ `eurusd_balance_delta == 10.0`<br>✓ `gbpusd_balance_delta == 10.0`<br>✓ Sin cross-contamination |
+| **CSV** | 2 archivos: `mp01_eurusd.csv` + `mp01_gbpusd.csv` |
+
+### mp04_total_exposure
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Exposición total calcula suma de todos los pares |
+| **Input** | • EURUSD: 3 operaciones (0.03 lotes)<br>• GBPUSD: 2 operaciones (0.02 lotes) |
+| **Output** | • Exposición total: 0.05 lotes<br>• Porcentaje: calculado vs equity |
+| **Checks** | ✓ `total_lots == 0.05`<br>✓ `exposure_pct < 30.0` (límite) |
+| **CSV** | Multi-pair con varias operaciones activas |
+
+---
+
+## JPY PAIRS (2 ejemplos)
+
+### j02_usdjpy_hedged
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | USDJPY entra en hedge (2 decimales) |
+| **Input** | • USDJPY @ 110.00<br>• BUY @ 110.05 activada<br>• SELL @ 109.95 activada |
+| **Output** | • Estado: HEDGED<br>• pips_locked: 20 (ajustado para JPY) |
+| **Checks** | ✓ `cycle.status == HEDGED`<br>✓ `pips_locked == 20.0`<br>✓ Multiplicador × 100 aplicado correctamente |
+| **CSV** | USDJPY con precisión de 2 decimales |
+
+### j04_usdjpy_pips_calculation
+
+| Aspecto | Detalle |
+|---------|---------|
+| **Prioridad** | 🟡 ALTA |
+| **Descripción** | Cálculo de pips correcto para par JPY (multiplier × 100) |
+| **Input** | • Entry: 110.00<br>• Close: 110.10<br>• Diferencia: 0.10 |
+| **Output** | • Profit: 10 pips (0.10 × 100) |
+| **Checks** | ✓ `profit_pips == 10.0`<br>✓ Multiplicador correcto aplicado<br>✓ `_pips_between()` usa multiplier 100 |
+| **CSV** | USDJPY con movimiento de 10 pips |
+
+---
+
+## Formato de Checks
+
+Cada check sigue la convención:
+```python
+✓ assertion_expresion  # Debe ser True
+```
+
+Ejemplos:
+- `✓ operation.status == OperationStatus.TP_HIT`
+- `✓ len(cycle.operations) == 4`
+- `✓ cycle.accounting.pips_locked == 20.0`
+- `✓ "gap_detected" in cycle.metadata`
+
+---
+
+## Notas de Implementación
+
+### Generación de CSVs
+```python
+# El generador usa esta matriz como spec:
+SCENARIO_SPECS = {
+    'c04_no_activation': {
+        'pair': 'EURUSD',
+        'start': 1.10000,
+        'ticks': 20,
+        'price_range': (1.09990, 1.10010),  # No cruza entries
+        'expected_orders': 0
+    }
+}
+```
+
+### Ejecución de Tests
+```bash
+# Test individual
+pytest tests/test_scenarios/test_all_scenarios.py::test_scenario[c04_no_activation]
+
+# Categoría completa
+pytest tests/test_scenarios/ -k "CORE"
+
+# Todos
+pytest tests/test_scenarios/ -v
+```
+
+### Estructura de Reporte
+Al ejecutar los 62 tests, el reporte debe mostrar:
+```
+tests/test_scenarios/test_all_scenarios.py::test_scenario[c01_tp_simple_buy] PASSED
+tests/test_scenarios/test_all_scenarios.py::test_scenario[c04_no_activation] PASSED
+tests/test_scenarios/test_all_scenarios.py::test_scenario[cy04_cancel_counter_main] PASSED
+...
+===================== 62 passed in 45.23s =====================
+```
+
+---
+
+## Siguiente Paso
+
+Con esta matriz, puedes:
+1. ✅ **Generar CSVs automáticamente** usando script
+2. ✅ **Crear tests parametrizados** que lean esta spec
+3. ✅ **Validar cobertura** de los 62 escenarios
+4. ✅ **Documentar comportamiento esperado** de forma compacta
