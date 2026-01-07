@@ -41,12 +41,12 @@ class CycleAccounting:
     """
     Contabilidad del ciclo - rastrea pips y costos.
 
-    Esta clase implementa la lógica FIFO para recoveries:
-    - El primer recovery cuesta 20 pips (incluye las main)
-    - Los siguientes cuestan 40 pips cada uno
-    
-    FIX-CY-01: El costo ahora se basa en la posición en la cola,
+    FIX-003 APLICADO: El costo ahora se basa en la posición en la cola,
     no en los pips ya recuperados.
+    
+    Esta clase implementa la lógica FIFO para recoveries:
+    - El primer recovery cuesta 20 pips (incluye las main + hedge)
+    - Los siguientes cuestan 40 pips cada uno
     """
 
     pips_locked: Pips = Pips(0.0)
@@ -57,7 +57,7 @@ class CycleAccounting:
     total_swaps: Money = Money(Decimal("0"))
     recovery_queue: List[RecoveryId] = field(default_factory=list)
     
-    # FIX-CY-01: Contador de recoveries procesados (para determinar costo)
+    # FIX-003: Contador de recoveries procesados (para determinar costo)
     recoveries_closed_count: int = 0
 
     def add_locked_pips(self, pips: Pips) -> None:
@@ -70,42 +70,67 @@ class CycleAccounting:
 
     def get_recovery_cost(self) -> Pips:
         """
-        Calcula el costo del próximo recovery en la cola.
+        FIX-003: Calcula el costo del próximo recovery en la cola.
         
-        FIX-CY-01: Basado en cuántos recoveries ya se han cerrado,
-        no en pips_recovered.
+        Basado en cuántos recoveries ya se han cerrado, no en pips_recovered.
         
-        Según la teoría:
-        - El primer recovery cuesta 20 pips (cubre deuda inicial de mains)
+        Según la teoría del documento madre:
+        - El primer recovery cuesta 20 pips (cubre deuda inicial de mains + hedge)
         - Los siguientes cuestan 40 pips cada uno
         
         Returns:
             Pips: Costo del próximo recovery a cerrar
+            
+        Examples:
+            >>> accounting = CycleAccounting()
+            >>> accounting.get_recovery_cost()  # Primer recovery
+            Pips(20.0)
+            >>> accounting.mark_recovery_closed()
+            >>> accounting.get_recovery_cost()  # Segundo recovery
+            Pips(40.0)
         """
         if self.recoveries_closed_count == 0:
-            return Pips(20.0)  # Primer recovery
-        return Pips(40.0)  # Siguientes
+            return Pips(20.0)  # Primer recovery (incluye main + hedge)
+        return Pips(40.0)  # Siguientes recoveries
 
     def mark_recovery_closed(self) -> None:
         """
-        FIX-CY-01: Incrementa el contador de recoveries cerrados.
-        Llamar después de cerrar un recovery.
+        FIX-003: Incrementa el contador de recoveries cerrados.
+        
+        Este método debe llamarse después de cerrar un recovery mediante FIFO.
+        Afecta el cálculo del costo del próximo recovery.
+        
+        Examples:
+            >>> accounting = CycleAccounting()
+            >>> accounting.recoveries_closed_count
+            0
+            >>> accounting.mark_recovery_closed()
+            >>> accounting.recoveries_closed_count
+            1
         """
         self.recoveries_closed_count += 1
 
     def get_recoveries_needed(self) -> int:
         """
         Calcula cuántos recoveries se necesitan para cubrir lo bloqueado.
+        
+        Returns:
+            int: Número de recoveries TP necesarios
+            
+        Examples:
+            >>> accounting = CycleAccounting(pips_locked=Pips(100.0))
+            >>> accounting.get_recoveries_needed()
+            2  # 1 recovery (80-20=60) + 1 recovery (80-40=40) = 100
         """
         remaining = float(self.pips_locked) - float(self.pips_recovered)
         if remaining <= 0:
             return 0
 
-        # Primer recovery cubre 80 pips pero cuesta 20 → neto +60
+        # Primer recovery: 80 pips ganados - 20 pips costo = 60 pips neto
         if remaining <= 60:
             return 1
 
-        # Recoveries adicionales (40 pips neto cada uno)
+        # Recoveries adicionales: 80 pips ganados - 40 pips costo = 40 pips neto cada uno
         remaining -= 60
         additional = int(remaining / 40) + (1 if remaining % 40 > 0 else 0)
 
@@ -120,6 +145,7 @@ class CycleAccounting:
     def is_fully_recovered(self) -> bool:
         """True si se han recuperado todos los pips bloqueados."""
         return float(self.pips_recovered) >= float(self.pips_locked)
+
 
 
 # ====================================================================
