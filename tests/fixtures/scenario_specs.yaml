@@ -1,0 +1,516 @@
+# Especificaciones de los 62 escenarios de auditoría.
+# Usado por el generador de CSVs y los tests parametrizados.
+
+metadata:
+  version: "2.0"
+  total_scenarios: 62
+  last_updated: "2025-01-07"
+  fixes_applied:
+    - "FIX-001: Renovación dual de mains"
+    - "FIX-002: Cancelación de hedges pendientes"
+    - "FIX-003: FIFO atómico Main+Hedge"
+
+core:
+  c01_tp_simple_buy:
+    priority: critical
+    description: "BUY toca TP +10 pips"
+    pair: EURUSD
+    initial_balance: 10000.0
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020, event: "Start"}
+      - {time: 1, bid: 1.10020, ask: 1.10040, event: "BUY activates"}
+      - {time: 2, bid: 1.10050, ask: 1.10070, event: "Moving towards TP"}
+      - {time: 3, bid: 1.10120, ask: 1.10140, event: "TP hit at 1.10120"}
+    checks:
+      - "buy_op.status == OperationStatus.TP_HIT"
+      - "buy_op.profit_pips == 10.0"
+      - "sell_op.status == OperationStatus.CANCELLED"
+      - "account.balance == 10002.0"
+      - "len([op for op in cycle.operations if op.is_main and op.status == OperationStatus.PENDING]) == 2"
+
+  c01_tp_simple_sell:
+    priority: critical
+    pair: EURUSD
+    initial_balance: 10000.0
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020, event: "Start"}
+      - {time: 1, bid: 1.09980, ask: 1.10000, event: "SELL activates"}
+      - {time: 2, bid: 1.09950, ask: 1.09970, event: "Moving towards TP"}
+      - {time: 3, bid: 1.09880, ask: 1.09900, event: "TP hit"}
+    checks:
+      - "sell_op.status == OperationStatus.TP_HIT"
+      - "sell_op.profit_pips == 10.0"
+      - "buy_op.status == OperationStatus.CANCELLED"
+
+  c03_activation_no_tp:
+    priority: high
+    pair: EURUSD
+    initial_balance: 10000.0
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10020, ask: 1.10040, event: "BUY activates"}
+      - {time: 3, bid: 1.10080, ask: 1.10100, event: "Stops before TP"}
+    checks:
+      - "buy_op.status == OperationStatus.ACTIVE"
+
+  c04_no_activation:
+    priority: high
+    pair: EURUSD
+    initial_balance: 10000.0
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.09995, ask: 1.10015}
+    checks:
+      - "buy_op.status == OperationStatus.PENDING"
+      - "sell_op.status == OperationStatus.PENDING"
+
+  c05_gap_tp:
+    priority: critical
+    pair: EURUSD
+    initial_balance: 10000.0
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10020, ask: 1.10040, event: "BUY activates"}
+      - {time: 2, bid: 1.10200, ask: 1.10220, event: "Monday gap"}
+    checks:
+      - "buy_op.status == OperationStatus.TP_HIT"
+      - "cycle.metadata['gap_detected'] == True"
+
+cycles:
+  cy01_new_cycle:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020, event: "Open cycle"}
+    checks:
+      - "cycle.status == CycleStatus.PENDING"
+      - "len(cycle.main_operations) == 2"
+
+  cy02_tp_in_cycle:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10020, ask: 1.10040, event: "BUY activates"}
+      - {time: 2, bid: 1.10120, ask: 1.10140, event: "BUY TP"}
+    checks:
+      - "cycle.status == CycleStatus.ACTIVE"
+      - "cycle.accounting.total_main_tps == 1"
+
+  cy03_tp_renews_operations:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10020, ask: 1.10040}
+      - {time: 2, bid: 1.10120, ask: 1.10140}
+    checks:
+      - "len([op for op in cycle.operations if op.is_main and op.status == OperationStatus.PENDING]) == 2"
+
+  cy04_cancel_counter_main:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 2, bid: 1.10120, ask: 1.10140}
+    checks:
+      - "sell_op.status == OperationStatus.CANCELLED"
+
+  cy05_complete_10_tps:
+    priority: high
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10020, ask: 1.10040}
+      - {time: 10, bid: 1.11000, ask: 1.11020}
+    checks:
+      - "cycle.accounting.total_main_tps == 10"
+
+  cy06_multiple_cycles:
+    priority: high
+    pair: MULTI
+    pairs: [EURUSD, GBPUSD]
+    sequence:
+      - {time: 0, pair: EURUSD, bid: 1.10000, ask: 1.10020}
+      - {time: 1, pair: EURUSD, bid: 1.10120, ask: 1.10140}
+      - {time: 0, pair: GBPUSD, bid: 1.25000, ask: 1.25020}
+      - {time: 1, pair: GBPUSD, bid: 1.25120, ask: 1.25140}
+    checks:
+      - "len(active_cycles) == 2"
+
+hedged:
+  h01_both_active_hedged:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10020, ask: 1.10040}
+      - {time: 3, bid: 1.09980, ask: 1.10000}
+    checks:
+      - "cycle.status == CycleStatus.HEDGED"
+
+  h02_create_hedge_operations:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10050, ask: 1.10070}
+    checks:
+      - "len([op for op in cycle.operations if op.is_hedge]) == 2"
+
+  h03_neutralize_mains:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10020, ask: 1.10040}
+    checks:
+      - "main_buy.status == OperationStatus.NEUTRALIZED"
+
+  h04_lock_20_pips:
+    priority: critical
+    pair: EURUSD
+    checks:
+      - "cycle.accounting.pips_locked == 20.0"
+
+  h05_sequential_activation:
+    priority: high
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10020, ask: 1.10040}
+      - {time: 10, bid: 1.09980, ask: 1.10000}
+    checks:
+      - "cycle.status == CycleStatus.HEDGED"
+
+  h06_simultaneous_gap:
+    priority: high
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10050, ask: 1.10070}
+    checks:
+      - "cycle.status == CycleStatus.HEDGED"
+      - "cycle.metadata['gap_detected'] == True"
+
+  h07_buy_tp_hedge_sell:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 2, bid: 1.10120, ask: 1.10140}
+    checks:
+      - "hedge_sell.status == OperationStatus.CANCELLED"
+
+  h08_sell_tp_hedge_buy:
+    priority: high
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.09880, ask: 1.09900}
+    checks:
+      - "hedge_buy.status == OperationStatus.CANCELLED"
+
+recovery:
+  r01_open_from_tp:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10120, ask: 1.10140}
+    checks:
+      - "recovery_buy.metadata['reference_price'] == 1.10120"
+
+  r02_recovery_distance_20:
+    priority: critical
+    pair: EURUSD
+    checks:
+      - "abs(recovery_buy.entry_price - tp_price) == Decimal('0.00020')"
+
+  r03_recovery_n1_tp_buy:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10140, ask: 1.10160}
+      - {time: 1, bid: 1.10220, ask: 1.10240}
+    checks:
+      - "recovery.status == OperationStatus.TP_HIT"
+      - "parent_cycle.accounting.pips_recovered == 20.0"
+
+  r04_recovery_n1_tp_sell:
+    priority: high
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10100, ask: 1.10120}
+      - {time: 1, bid: 1.10020, ask: 1.10040}
+    checks:
+      - "recovery.status == OperationStatus.TP_HIT"
+
+  r05_recovery_n1_fails_n2:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10140, ask: 1.10160}
+      - {time: 1, bid: 1.10180, ask: 1.10200}
+    checks:
+      - "len(parent_cycle.accounting.recovery_queue) == 2"
+
+  r06_recovery_n2_success:
+    priority: high
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10180, ask: 1.10200}
+      - {time: 1, bid: 1.10260, ask: 1.10280}
+    checks:
+      - "parent_cycle.accounting.pips_recovered == 60.0"
+
+  r07_cascade_n1_n2_n3:
+    priority: high
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10140, ask: 1.10160}
+      - {time: 1, bid: 1.10180, ask: 1.10200}
+      - {time: 2, bid: 1.10220, ask: 1.10240}
+    checks:
+      - "parent_cycle.recovery_level == 3"
+
+  r08_recovery_max_n6:
+    priority: high
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10140, ask: 1.10160}
+      - {time: 5, bid: 1.10340, ask: 1.10360}
+    checks:
+      - "parent_cycle.recovery_level == 6"
+
+  r09_cancel_recovery_counter:
+    priority: high
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10140, ask: 1.10160}
+      - {time: 1, bid: 1.10220, ask: 1.10240}
+    checks:
+      - "recovery_sell.status == OperationStatus.CANCELLED"
+
+  r10_multiple_recovery_pairs:
+    priority: medium
+    pair: MULTI
+    pairs: [EURUSD, GBPUSD]
+    sequence:
+      - {time: 0, pair: EURUSD, bid: 1.10140, ask: 1.10160}
+      - {time: 1, pair: GBPUSD, bid: 1.25140, ask: 1.25160}
+    checks:
+      - "eurusd_cycle.recovery_level == 1"
+      - "gbpusd_cycle.recovery_level == 1"
+
+fifo:
+  f01_fifo_first_costs_20:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10140, ask: 1.10160}
+      - {time: 1, bid: 1.10220, ask: 1.10240}
+    checks:
+      - "parent_cycle.accounting.get_recovery_cost() == 20.0"
+      - "main.status == OperationStatus.CLOSED"
+
+  f02_fifo_subsequent_40:
+    priority: critical
+    pair: EURUSD
+    sequence:
+      - {time: 0, bid: 1.10180, ask: 1.10200}
+      - {time: 1, bid: 1.10260, ask: 1.10280}
+    checks:
+      - "parent_cycle.accounting.get_recovery_cost() == 40.0"
+
+  f03_fifo_atomic_close:
+    priority: high
+    pair: EURUSD
+    checks:
+      - "main.closed_at == hedge.closed_at"
+
+  f04_fifo_multiple_close:
+    priority: high
+    pair: EURUSD
+    checks:
+      - "len(closed_debt_units) == 2"
+
+risk_management:
+  rm01_exposure_limit:
+    priority: critical
+    checks:
+      - "exposure_pct < 30.0"
+
+  rm02_drawdown_limit:
+    priority: critical
+    checks:
+      - "system.status == 'PAUSED'"
+
+  rm03_daily_loss_limit:
+    priority: high
+    checks:
+      - "system.status == 'PAUSED'"
+
+  rm04_margin_insufficient:
+    priority: high
+    checks:
+      - "result.success == False"
+
+  rm05_recovery_exposure:
+    priority: high
+    checks:
+      - "total_exposure includes recovery operations"
+
+money_management:
+  mm01_balance_read:
+    priority: critical
+    checks:
+      - "account.balance == 10000.0"
+
+  mm02_pnl_tp:
+    priority: critical
+    checks:
+      - "operation.profit_pips == 10.0"
+
+  mm03_pnl_hedged:
+    priority: critical
+    checks:
+      - "cycle.accounting.pips_locked == 20.0"
+
+  mm04_balance_update_tp:
+    priority: critical
+    checks:
+      - "account.balance == 10002.0"
+
+  mm05_equity_calculation:
+    priority: critical
+    checks:
+      - "account.equity == account.balance + floating_pnl"
+
+  mm06_margin_calculation:
+    priority: high
+    checks:
+      - "margin_required ≈ 22.0"
+
+  mm07_free_margin:
+    priority: high
+    checks:
+      - "account.margin_free == account.equity - account.margin_used"
+
+  mm08_recovery_pnl_accumulation:
+    priority: high
+    checks:
+      - "total_pips_recovered == 60.0"
+
+edge_cases:
+  e01_spread_rejection:
+    priority: medium
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10035}
+    checks:
+      - "signal.signal_type == SignalType.NO_ACTION"
+
+  e02_high_spread_rejection:
+    priority: high
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10050}
+    checks:
+      - "strategy.can_trade() == False"
+
+  e03_weekend_gap:
+    priority: high
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10200, ask: 1.10220}
+    checks:
+      - "cycle.metadata['gap_detected'] == True"
+
+  e04_mega_move:
+    priority: high
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.12500, ask: 1.12520}
+    checks:
+      - "price_move > 200"
+
+  e05_return_to_origin:
+    priority: medium
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10200, ask: 1.10220}
+      - {time: 2, bid: 1.10000, ask: 1.10020}
+    checks:
+      - "current_price == initial_price"
+
+  e06_lateral_market:
+    priority: medium
+    sequence:
+      - {time: 0, bid: 1.10000, ask: 1.10020}
+      - {time: 1, bid: 1.10100, ask: 1.10120}
+      - {time: 3, bid: 1.10100, ask: 1.10120}
+    checks:
+      - "cycle.accounting.total_tps >= 2"
+
+  e07_connection_lost:
+    priority: medium
+    checks:
+      - "broker.is_connected() == True"
+
+  e08_rollover_swap:
+    priority: low
+    checks:
+      - "operation.swap_total != 0"
+
+multi_pair:
+  mp01_dual_pair:
+    priority: high
+    pair: MULTI
+    sequence:
+      - {time: 0, pair: EURUSD, bid: 1.10000}
+      - {time: 1, pair: EURUSD, bid: 1.10120}
+    checks:
+      - "len(active_cycles) == 2"
+
+  mp02_correlation_hedged:
+    priority: high
+    checks:
+      - "eurusd_cycle.status == CycleStatus.HEDGED"
+
+  mp03_jpy_calculation:
+    priority: high
+    pair: USDJPY
+    checks:
+      - "pip_multiplier == 100"
+
+  mp04_total_exposure:
+    priority: high
+    checks:
+      - "total_lots == 0.05"
+
+jpy_pairs:
+  j01_usdjpy_tp:
+    priority: high
+    pair: USDJPY
+    sequence:
+      - {time: 0, bid: 110.00, ask: 110.05}
+      - {time: 1, bid: 110.15, ask: 110.20}
+    checks:
+      - "operation.profit_pips == 10.0"
+
+  j02_usdjpy_hedged:
+    priority: high
+    pair: USDJPY
+    checks:
+      - "cycle.status == CycleStatus.HEDGED"
+
+  j03_usdjpy_recovery:
+    priority: high
+    pair: USDJPY
+    checks:
+      - "recovery.profit_pips == 80.0"
+
+  j04_usdjpy_pips_calculation:
+    priority: high
+    pair: USDJPY
+    checks:
+      - "profit_pips == 10.0"

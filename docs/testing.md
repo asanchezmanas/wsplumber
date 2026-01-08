@@ -4,433 +4,183 @@
 
 El sistema de testing usa **datos sintéticos en CSV** para simular escenarios de mercado sin depender de MT5. Cada CSV representa un "caso de prueba" que documenta el comportamiento esperado del sistema.
 
+> [!IMPORTANT]
+> **Arquitectura SIN Stop Loss (SL):** Este sistema usa **hedges** y **recoveries** en lugar de SL tradicionales. Cuando ambas operaciones main (BUY + SELL) se activan, entran en estado HEDGED y se neutralizan mutuamente.
+
 ---
 
 ## Matriz Completa de Escenarios
+
+> **Referencia:** Ver [scenarios.md](scenarios.md) para el índice completo de 62 escenarios.
 
 ### Nivel 1: Core (Operaciones Individuales)
 
 | ID  | Escenario                     | Acción Esperada                    | Prioridad |
 | --- | ----------------------------- | ---------------------------------- | --------- |
-| C01 | Precio sube 10 pips           | TP ejecutado, beneficio registrado | 🔴 Crítico |
-| C02 | Precio baja 50 pips           | SL ejecutado, pérdida registrada   | 🔴 Crítico |
-| C03 | Precio oscila sin tocar TP/SL | Operación permanece abierta        | 🔴 Crítico |
-| C04 | Gap de precio atraviesa TP    | TP ejecutado al precio de gap      | 🟡 Alto    |
-| C05 | Gap de precio atraviesa SL    | SL ejecutado al precio de gap      | 🟡 Alto    |
+| c01_tp_simple_buy | Precio sube 10 pips | TP ejecutado, beneficio registrado | 🔴 Crítico |
+| c01_tp_simple_sell | Precio baja 10 pips | TP ejecutado, beneficio registrado | 🔴 Crítico |
+| c03_activation_no_tp | Precio oscila sin tocar TP | Operación permanece abierta | 🟡 Alto |
+| c04_no_activation | Precio no activa orden | Operación permanece PENDING | 🟡 Alto |
+| c05_gap_tp | Gap de precio atraviesa TP | TP ejecutado al precio de gap | 🔴 Crítico |
 
 ### Nivel 2: Ciclos
 
 | ID   | Escenario                    | Acción Esperada                  | Prioridad |
 | ---- | ---------------------------- | -------------------------------- | --------- |
-| CY01 | Nuevo ciclo se abre          | Operación MAIN_BUY/SELL creada   | 🔴 Crítico |
-| CY02 | TP alcanzado en ciclo activo | Ciclo permanece activo, nueva op | 🔴 Crítico |
-| CY03 | SL alcanzado en ciclo activo | Ciclo pasa a estado RECOVERY     | 🔴 Crítico |
-| CY04 | Ciclo completa 10 TPs        | Ciclo se cierra exitosamente     | 🟡 Alto    |
-| CY05 | Múltiples ciclos simultáneos | Cada ciclo opera independiente   | 🟡 Alto    |
+| cy01_new_cycle | Nuevo ciclo se abre | Operación MAIN_BUY + MAIN_SELL creadas | 🔴 Crítico |
+| cy02_tp_in_cycle | TP alcanzado en ciclo activo | Ciclo permanece activo, nueva op | 🔴 Crítico |
+| cy03_tp_renews_operations | TP renueva operaciones | FIX-001: Crea nuevas BUY+SELL | 🔴 Crítico |
+| cy04_cancel_counter_main | TP cancela main contraria | Cuando una toca TP, la pendiente se cancela | 🔴 Crítico |
+| cy05_complete_10_tps | Ciclo completa 10 TPs | Ciclo exitoso completo | 🟡 Alto |
 
-### Nivel 3: Recovery
+### Nivel 3: Hedged (Cobertura)
 
 | ID  | Escenario                      | Acción Esperada                    | Prioridad |
 | --- | ------------------------------ | ---------------------------------- | --------- |
-| R01 | SL Main → Recovery N1 activa   | Operación Recovery nivel 1 abierta | 🔴 Crítico |
-| R02 | Recovery N1 alcanza TP         | Pips bloqueados se recuperan       | 🔴 Crítico |
-| R03 | Recovery N1 falla (SL)         | Recovery N2 se activa              | 🔴 Crítico |
-| R04 | Recovery N2 alcanza TP         | Pips N1 + N2 recuperados           | 🟡 Alto    |
-| R05 | Recovery llega a N6 (máximo)   | Sistema bloquea más recovery       | 🟡 Alto    |
-| R06 | Recovery N6 falla              | Ciclo pasa a BLOCKED               | 🟡 Alto    |
-| R07 | Múltiples recovery simultáneas | Cada una se gestiona independiente | 🟢 Medio   |
+| h01_both_active_hedged | Ambas main activas | Estado → HEDGED | 🔴 Crítico |
+| h02_create_hedge_operations | Crear hedges | HEDGE_BUY + HEDGE_SELL creados | 🔴 Crítico |
+| h03_neutralize_mains | Neutralizar mains | Status → NEUTRALIZED | 🔴 Crítico |
+| h04_lock_20_pips | Bloquear pips | pips_locked = 20 | 🔴 Crítico |
+| h07_buy_tp_hedge_sell | BUY TP en HEDGED | FIX-002: Cancela HEDGE_SELL pendiente | 🔴 Crítico |
 
-### Nivel 4: Risk Management
+### Nivel 4: Recovery
+
+| ID  | Escenario                      | Acción Esperada                    | Prioridad |
+| --- | ------------------------------ | ---------------------------------- | --------- |
+| r01_open_from_tp | Recovery desde TP | Operación Recovery abierta desde precio TP | 🔴 Crítico |
+| r02_recovery_distance_20 | Recovery a 20 pips | Entry a ±20 pips del TP | 🔴 Crítico |
+| r03_recovery_n1_tp | Recovery N1 alcanza TP | Pips bloqueados se recuperan (80 pips) | 🔴 Crítico |
+| r05_recovery_n1_fails_n2 | Recovery N1 no alcanza TP | Recovery N2 se activa a +40 pips | 🔴 Crítico |
+| r06_recovery_n2_success | Recovery N2 éxito | Pips N1 + N2 recuperados | 🟡 Alto |
+| r08_recovery_max_n6 | Recovery llega a N6 (máximo) | Sistema alerta max_recovery_level | 🟡 Alto |
+
+### Nivel 5: FIFO (Cierre de Deudas)
+
+| ID  | Escenario                      | Acción Esperada                    | Prioridad |
+| --- | ------------------------------ | ---------------------------------- | --------- |
+| f01_fifo_first_costs_20 | Primer recovery 20 pips | FIX-003: Incluye main+hedge | 🔴 Crítico |
+| f02_fifo_subsequent_40 | Siguientes 40 pips | Recovery adicionales cuestan 40 | 🔴 Crítico |
+| f03_fifo_atomic_close | Cierre atómico | Main + Hedge cierran juntos | 🟡 Alta |
+| f04_fifo_multiple_close | FIFO múltiple | 80 pips cierran varios | 🟡 Alta |
+
+### Nivel 6: Risk Management
 
 | ID   | Escenario                      | Acción Esperada            | Prioridad |
 | ---- | ------------------------------ | -------------------------- | --------- |
-| RM01 | Exposición alcanza límite      | Nuevos ciclos bloqueados   | 🔴 Crítico |
-| RM02 | Drawdown alcanza límite        | Sistema pausa operaciones  | 🔴 Crítico |
-| RM03 | Pérdida diaria alcanza límite  | Sistema pausa hasta mañana | 🟡 Alto    |
-| RM04 | Margen insuficiente            | Operación rechazada        | 🟡 Alto    |
-| RM05 | Recovery incrementa exposición | Validación de límites      | 🟡 Alto    |
+| rm01_exposure_limit | Exposición alcanza límite | Nuevos ciclos bloqueados | 🔴 Crítico |
+| rm02_drawdown_limit | Drawdown alcanza límite | Sistema pausa operaciones | 🔴 Crítico |
+| rm03_daily_loss_limit | Pérdida diaria alcanza límite | Sistema pausa hasta mañana | 🟡 Alto |
+| rm04_margin_insufficient | Margen insuficiente | Operación rechazada | 🟡 Alto |
 
-### Nivel 5: Edge Cases
-
-| ID  | Escenario                         | Acción Esperada                  | Prioridad |
-| --- | --------------------------------- | -------------------------------- | --------- |
-| E01 | Mercado lateral prolongado        | Múltiples TPs pequeños           | 🟢 Medio   |
-| E02 | Movimiento unidireccional fuerte  | Recovery múltiples niveles       | 🟢 Medio   |
-| E03 | Spread se amplía drásticamente    | Operaciones no abren             | 🟢 Medio   |
-| E04 | Conexión perdida durante op       | Estado se recupera al reconectar | 🟢 Medio   |
-| E05 | Operación modificada externamente | Sistema detecta inconsistencia   | 🟢 Medio   |
-| E06 | Rollover/swap aplicado            | P&L se ajusta correctamente      | 🟢 Bajo    |
-
-### Nivel 6: Multi-Par
-
-| ID   | Escenario                   | Acción Esperada               | Prioridad |
-| ---- | --------------------------- | ----------------------------- | --------- |
-| MP01 | EURUSD y GBPUSD simultáneos | Ciclos independientes         | 🟡 Alto    |
-| MP02 | Correlación: ambos en SL    | Dos recovery activas          | 🟡 Alto    |
-| MP03 | Par JPY (2 decimales vs 4)  | Cálculo de pips correcto      | 🟡 Alto    |
-| MP04 | Exposición total multi-par  | Suma de exposiciones validada | 🟡 Alto    |
-
-### Nivel 7: Gestión de Dinero (Money Management)
+### Nivel 7: Money Management
 
 | ID   | Escenario                      | Acción Esperada                            | Prioridad |
 | ---- | ------------------------------ | ------------------------------------------ | --------- |
-| MM01 | Balance inicial correcto       | Sistema lee balance de broker              | 🔴 Crítico |
-| MM02 | P&L de TP calculado            | +10 pips × lot × valor_pip = €             | 🔴 Crítico |
-| MM03 | P&L de SL calculado            | -50 pips × lot × valor_pip = €             | 🔴 Crítico |
-| MM04 | Balance actualiza tras TP      | balance += P&L                             | 🔴 Crítico |
-| MM05 | Balance actualiza tras SL      | balance -= P&L                             | 🔴 Crítico |
-| MM06 | Equity = Balance + Floating    | equity = balance + sum(open_pnl)           | 🔴 Crítico |
-| MM07 | Margen requerido por operación | margin = lot × contract / leverage         | 🟡 Alto    |
-| MM08 | Margen libre disponible        | free_margin = equity - margin_used         | 🟡 Alto    |
-| MM09 | Lot sizing por % riesgo        | lot = (balance × risk%) / (SL × pip_value) | 🟡 Alto    |
-| MM10 | Acumulación P&L en Recovery    | Total P&L incluye todas las ops            | 🟡 Alto    |
+| mm01_balance_read | Balance inicial correcto | Sistema lee balance de broker | 🔴 Crítico |
+| mm02_pnl_tp | P&L de TP calculado | +10 pips × lot × valor_pip = € | 🔴 Crítico |
+| mm03_pnl_hedged | P&L bloqueado en HEDGED | Pips neutralizados registrados | 🔴 Crítico |
+| mm04_balance_update_tp | Balance actualiza tras TP | balance += P&L | 🔴 Crítico |
+| mm05_equity_calculation | Equity | equity = balance + floating | 🔴 Crítico |
+| mm06_margin_calculation | Margen | margin = lot × contract / leverage | 🟡 Alto |
+| mm07_free_margin | Margen libre | free_margin = equity - margin | 🟡 Alto |
+| mm08_recovery_pnl | P&L en Recovery | Suma total de recovery | 🟡 Alto |
 
 ---
 
-## Detalle de Escenarios: Gestión de Dinero
+## Detalle de Escenarios Clave
 
-### MM02: Cálculo de P&L en TP
-
-```
-ENTRADA:
-  - Par: EURUSD
-  - Lot: 0.10
-  - Entry: 1.10000
-  - Exit: 1.10100 (TP +10 pips)
-  - Pip value EURUSD: $10 por lote estándar = $1 por 0.10 lotes
-
-CÁLCULO:
-  pips = (1.10100 - 1.10000) / 0.0001 = 10 pips
-  pnl = 10 × 0.10 × $10 = $10.00
-
-VALIDACIONES:
-  ✓ operation.pnl_pips == 10
-  ✓ operation.pnl_money == 10.00
-  ✓ operation.status == CLOSED_TP
-```
-
-### MM03: Cálculo de P&L en SL
-
-```
-ENTRADA:
-  - Par: EURUSD
-  - Lot: 0.10
-  - Entry: 1.10000
-  - Exit: 1.09500 (SL -50 pips)
-  - Pip value: $1 por 0.10 lotes
-
-CÁLCULO:
-  pips = (1.09500 - 1.10000) / 0.0001 = -50 pips
-  pnl = -50 × 0.10 × $10 = -$50.00
-
-VALIDACIONES:
-  ✓ operation.pnl_pips == -50
-  ✓ operation.pnl_money == -50.00
-  ✓ cycle.blocked_pips == 50 (para recovery)
-```
-
-### MM06: Cálculo de Equity
-
-```
-ESTADO:
-  - Balance: 10,000.00
-  - Operaciones abiertas:
-    - EURUSD BUY: floating +$15.00
-    - GBPUSD SELL: floating -$8.00
-    - USDJPY BUY: floating +$3.00
-
-CÁLCULO:
-  floating_total = 15 + (-8) + 3 = $10.00
-  equity = 10,000 + 10 = $10,010.00
-
-VALIDACIONES:
-  ✓ account.balance == 10000.00
-  ✓ account.floating_pnl == 10.00
-  ✓ account.equity == 10010.00
-```
-
-### MM07: Cálculo de Margen
-
-```
-ENTRADA:
-  - Par: EURUSD
-  - Lot: 0.10
-  - Leverage: 1:100
-  - Contract size: 100,000
-
-CÁLCULO:
-  notional = 0.10 × 100,000 = 10,000 unidades
-  margin = 10,000 / 100 = $100.00
-
-VALIDACIONES:
-  ✓ operation.margin_required == 100.00
-  ✓ account.margin_used incluye este valor
-  ✓ account.free_margin = equity - margin_used
-```
-
-### MM09: Lot Sizing por % de Riesgo
-
-```
-ENTRADA:
-  - Balance: 10,000
-  - Riesgo por trade: 1%
-  - SL: 50 pips
-  - Pip value (EURUSD): $10 por lote
-
-CÁLCULO:
-  risk_amount = 10,000 × 0.01 = $100
-  lot = 100 / (50 × 10) = 0.20 lotes
-
-VALIDACIONES:
-  ✓ Si SL se activa, pérdida = 50 × 0.20 × 10 = $100 (= 1% del balance)
-  ✓ risk_manager.calculate_lot_size() retorna 0.20
-```
-
-### MM10: P&L Acumulado en Recovery Multinivel
-
-```
-SECUENCIA:
-  1. Main SL: -50 pips → blocked = 50
-  2. Recovery N1 SL: -50 pips → blocked = 100
-  3. Recovery N2 TP: +80 pips → recovered
-
-CÁLCULO:
-  total_loss = 50 + 50 = 100 pips bloqueados
-  recovery_gain = 80 pips
-  net_after_r2 = -100 + 80 = -20 pips (aún en déficit)
-
-VALIDACIONES:
-  ✓ cycle.accounting.total_blocked == 100
-  ✓ cycle.accounting.total_recovered == 80
-  ✓ cycle.accounting.is_fully_recovered == False
-```
-
-
----
-
-## Detalle de Escenarios: Qué Debe Pasar Exactamente
-
-### C01: TP Hit (Precio sube 10 pips)
+### c01_tp_simple_buy: TP Hit (Precio sube 10 pips)
 
 ```
 INICIO:
   - Ciclo: ACTIVE
-  - Operaciones abiertas: 1 (MAIN_BUY @ 1.10000, TP=1.10100)
+  - Operaciones: 1 MAIN_BUY (@ 1.10000, TP=1.10100) + 1 MAIN_SELL pendiente
 
 TICK: 1.10100 (alcanza TP)
 
 RESULTADO ESPERADO:
-  ✓ Op #1 cierra con status=CLOSED_TP
-  ✓ Op #1 pnl = +10 pips
+  ✓ MAIN_BUY cierra con status=TP_HIT
+  ✓ MAIN_BUY pnl = +10 pips
+  ✓ MAIN_SELL (pendiente) se CANCELA
   ✓ Ciclo permanece ACTIVE
-  ✓ Op #2 se abre (MAIN_BUY @ 1.10100, TP=1.10200)
-  ✓ Operaciones abiertas: 1
+  ✓ Nuevas MAIN_BUY + MAIN_SELL se abren (FIX-001)
 ```
 
-### C02: SL Hit (Precio baja 50 pips)
-
-```
-INICIO:
-  - Ciclo: ACTIVE
-  - Operaciones abiertas: 1 (MAIN_BUY @ 1.10000, SL=1.09500)
-
-TICK: 1.09500 (alcanza SL)
-
-RESULTADO ESPERADO:
-  ✓ Op #1 cierra con status=CLOSED_SL
-  ✓ Op #1 pnl = -50 pips
-  ✓ Ciclo cambia a RECOVERY_1
-  ✓ blocked_pips = 50
-  ✓ Op RECOVERY_1_BUY se abre (entry offset +20 pips)
-  ✓ Operaciones abiertas: 1 (Recovery)
-```
-
-### CY03: SL en Ciclo Activo → Recovery
+### h01_both_active_hedged: Ambas Mains Activas → HEDGED
 
 ```
 INICIO:
   - Ciclo: ACTIVE
-  - Total TPs previos: 3
-  - Operaciones abiertas: 1 (MAIN_BUY #4)
+  - MAIN_BUY: entry=1.10020 (PENDING)
+  - MAIN_SELL: entry=1.09980 (PENDING)
 
-TICK: SL alcanzado
+SECUENCIA:
+  1. TICK: 1.10020 → MAIN_BUY se ACTIVA
+  2. TICK: 1.09980 → MAIN_SELL se ACTIVA
 
 RESULTADO ESPERADO:
-  ✓ Op MAIN_BUY #4 cierra
-  ✓ Ciclo.state = RECOVERY_1
-  ✓ Ciclo.recovery_state.level = 1
-  ✓ Ciclo.recovery_state.blocked_pips = 50
-  ✓ Ciclo.recovery_state.recovered_pips = 0
-  ✓ Op RECOVERY_1 se abre
-  ✓ Las 3 TPs previas NO se afectan (P&L histórico intacto)
+  ✓ Ciclo cambia a HEDGED
+  ✓ pips_locked = 20 (separación 4 + TP 10 + margen 6)
+  ✓ HEDGE_BUY + HEDGE_SELL se crean (pendientes)
+  ✓ MAIN_BUY y MAIN_SELL → NEUTRALIZED
 ```
 
-### R02: Recovery N1 Exitosa
+### r03_recovery_n1_tp: Recovery N1 Exitosa
 
 ```
 INICIO:
-  - Ciclo: RECOVERY_1
-  - blocked_pips: 50
-  - Operaciones abiertas: 1 (RECOVERY_1_BUY @ 1.09520, TP=1.10320)
+  - Ciclo: IN_RECOVERY
+  - pips_locked: 20
+  - Recovery N1 BUY @ entry + 20 pips, TP = +80 pips
 
-TICK: 1.10320 (TP Recovery)
+TICK: Recovery alcanza TP
 
 RESULTADO ESPERADO:
-  ✓ Op RECOVERY_1 cierra con status=CLOSED_TP
-  ✓ Op RECOVERY_1 pnl = +80 pips
-  ✓ Deuda cubierta: 50 pips bloqueados + 30 pips beneficio
+  ✓ Recovery cierra con status=TP_HIT
+  ✓ Recovery pnl = +80 pips
+  ✓ FIFO procesa:
+    - 20 pips para cerrar Main+Hedge (primer recovery cuesta 20)
+    - 60 pips de beneficio neto
   ✓ Ciclo vuelve a ACTIVE
-  ✓ Ciclo.recovery_state = None (limpio)
-  ✓ Nueva op MAIN_BUY se abre
+  ✓ Nuevas MAIN_BUY + MAIN_SELL se abren
 ```
 
-### R03: Recovery N1 Falla → N2
-
-```
-INICIO:
-  - Ciclo: RECOVERY_1
-  - blocked_pips: 50
-  - Operaciones abiertas: 1 (RECOVERY_1_BUY, SL a 50 pips)
-
-TICK: SL alcanzado
-
-RESULTADO ESPERADO:
-  ✓ Op RECOVERY_1 cierra con status=CLOSED_SL
-  ✓ Ciclo cambia a RECOVERY_2
-  ✓ blocked_pips = 50 + 50 = 100
-  ✓ Ciclo.recovery_state.level = 2
-  ✓ Op RECOVERY_2_BUY se abre (lote mayor)
-  ✓ Operaciones cerradas totales: 2 (Main + R1)
-```
-
-### R06: Recovery N6 Falla → BLOCKED
+### f03_fifo_atomic_close: Cierre Atómico (FIX-003)
 
 ```
 INICIO:
-  - Ciclo: RECOVERY_6
-  - blocked_pips: 300 (acumulado)
-  - Operaciones abiertas: 1 (RECOVERY_6, lote grande)
-
-TICK: SL alcanzado
+  - MAIN_SELL: NEUTRALIZED @ 1.09980
+  - HEDGE_BUY: ACTIVE @ 1.10020 (cubre main)
+  - Recovery TP disponible: 80 pips
 
 RESULTADO ESPERADO:
-  ✓ Op RECOVERY_6 cierra con status=CLOSED_SL
-  ✓ Ciclo cambia a BLOCKED
-  ✓ NO se abre Recovery N7
-  ✓ Operaciones abiertas: 0
-  ✓ Ciclo marcado como pérdida total
-  ✓ blocked_pips registrados como pérdida definitiva
-```
-
-### RM01: Límite de Exposición
-
-```
-INICIO:
-  - Exposición actual: 4.9 lotes
-  - Límite: 5.0 lotes
-  - Ciclo EURUSD intenta abrir op de 0.2 lotes
-
-RESULTADO ESPERADO:
-  ✓ Operación RECHAZADA
-  ✓ Ciclo permanece en estado actual (no cambia)
-  ✓ Log: "Exposición excedería límite"
-  ✓ Evento: OPERATION_REJECTED con reason=EXPOSURE_LIMIT
-```
-
-### RM02: Límite de Drawdown
-
-```
-INICIO:
-  - Balance inicial: 10,000
-  - Equity actual: 8,900 (11% DD)
-  - Límite DD: 10%
-
-RESULTADO ESPERADO:
-  ✓ Sistema entra en PAUSED
-  ✓ Todas las operaciones permanecen (no se cierran)
-  ✓ No se abren nuevas operaciones
-  ✓ Log: "Drawdown excede límite, sistema pausado"
-  ✓ Dashboard muestra alerta
+  ✓ Main + Hedge cierran en mismo timestamp (±1ms)
+  ✓ debt_unit_id compartido
+  ✓ close_method: "atomic_with_hedge" / "atomic_with_main"
+  ✓ Ambas operaciones: status=CLOSED
 ```
 
 ---
 
 ## Mapeo de Escenarios a Código
 
-Cada escenario está vinculado al archivo y función específica donde ocurre la lógica:
+### Flujo Principal
 
-### Entrada de Datos (Tick Processing)
-
-| Punto          | Archivo                                                                                                                  | Función                  | Línea |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------ | ----- |
-| Obtener tick   | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L97)  | `_process_tick_for_pair` | 97    |
-| Procesar señal | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L104) | `strategy.process_tick`  | 104   |
-
-### Detección de Cierre (TP/SL Hit)
-
-| Punto                  | Archivo                                                                                                                  | Función                    | Línea |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------- | ----- |
-| Sincronizar posiciones | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L128) | `_check_operations_status` | 128   |
-| Detectar TP            | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L148) | `op.status == TP_HIT`      | 148   |
-| Notificar estrategia   | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L151) | `strategy.process_tp_hit`  | 151   |
-
-### Gestión de Ciclos
-
-| Escenario           | Archivo                                                                                                                  | Función                   | Línea |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------- | ----- |
-| CY01: Abrir ciclo   | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L175) | `_open_new_cycle`         | 175   |
-| CY02: Renovar ciclo | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L281) | `_renew_cycle`            | 281   |
-| CY03: Cerrar ciclo  | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L255) | `_close_cycle_operations` | 255   |
+| Punto          | Archivo | Función | Línea |
+| -------------- | ------- | ------- | ----- |
+| Procesar tick | cycle_orchestrator.py | `process_tick` | 98 |
+| Detectar TP | cycle_orchestrator.py | `_check_operations_status` | 218 |
+| Renovar mains (FIX-001) | cycle_orchestrator.py | `_renew_main_operations` | 296 |
+| Cancelar hedge (FIX-002) | cycle_orchestrator.py | `_cancel_pending_hedge_counterpart` | 387 |
+| FIFO atómico (FIX-003) | cycle_orchestrator.py | `_close_debt_unit_atomic` | 625 |
 
 ### Recovery
 
-| Escenario                | Archivo                                                                                                                  | Función                 | Línea |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ----------------------- | ----- |
-| R01: Abrir Recovery      | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L298) | `_open_recovery_cycle`  | 298   |
-| R02: TP Recovery         | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L400) | `_handle_recovery_tp`   | 400   |
-| R03: FIFO neutralización | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L419) | `close_oldest_recovery` | 419   |
-
-### Risk Management
-
-| Escenario               | Archivo                                                                                          | Función                | Línea |
-| ----------------------- | ------------------------------------------------------------------------------------------------ | ---------------------- | ----- |
-| RM01: Límite exposición | [risk_manager.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/core/risk/risk_manager.py#L53)  | `can_open_position`    | 53-56 |
-| RM02: Límite recovery   | [risk_manager.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/core/risk/risk_manager.py#L60)  | `can_open_position`    | 60-63 |
-| RM03: Emergency stop    | [risk_manager.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/core/risk/risk_manager.py#L102) | `check_emergency_stop` | 102   |
-
-### Validación antes de Abrir
-
-| Punto              | Archivo                                                                                                                  | Línea   | Descripción                       |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------- | --------------------------------- |
-| Validar exposición | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L185) | 185-192 | `risk_manager.can_open_position`  |
-| Calcular lote      | [cycle_orchestrator.py](file:///c:/Users/Artur/wsplumber/src/wsplumber/application/use_cases/cycle_orchestrator.py#L195) | 195     | `risk_manager.calculate_lot_size` |
-
----
-
-## Archivos CSV por Escenario
-
-```
-tests/scenarios/
-├── core/
-│   ├── c01_tp_hit.csv
-│   ├── c02_sl_hit.csv
-│   └── c03_oscillation.csv
-├── cycles/
-│   ├── cy01_new_cycle.csv
-│   ├── cy02_tp_in_cycle.csv
-│   └── cy03_sl_triggers_recovery.csv
-├── recovery/
-│   ├── r01_recovery_n1_start.csv
-│   ├── r02_recovery_n1_success.csv
-│   ├── r03_recovery_n1_fail_n2_start.csv
-│   └── r05_recovery_max_level.csv
-├── risk/
-│   ├── rm01_exposure_limit.csv
-│   └── rm02_drawdown_limit.csv
-└── edge/
-    ├── e01_lateral_market.csv
-    └── e02_strong_trend.csv
-```
+| Punto | Archivo | Función | Línea |
+| ----- | ------- | ------- | ----- |
+| Recovery TP | cycle_orchestrator.py | `_handle_recovery_tp` | 495 |
+| FIFO costo | cycle.py | `get_recovery_cost` | 71 |
+| Marcar cerrado | cycle.py | `mark_recovery_closed` | 96 |
 
 ---
 
@@ -440,48 +190,16 @@ tests/scenarios/
 timestamp,pair,bid,ask,expected_event,expected_state
 2024-01-01 10:00:00.000,EURUSD,1.10000,1.10020,CYCLE_OPEN,ACTIVE
 2024-01-01 10:00:01.000,EURUSD,1.10005,1.10025,,
-2024-01-01 10:00:02.000,EURUSD,1.10010,1.10030,TP_HIT,ACTIVE
-2024-01-01 10:00:03.000,EURUSD,1.10015,1.10035,OP_OPEN,ACTIVE
+2024-01-01 10:00:02.000,EURUSD,1.10100,1.10120,TP_HIT,ACTIVE
+2024-01-01 10:00:03.000,EURUSD,1.10105,1.10125,OP_RENEWED,ACTIVE
 ```
 
 Columnas:
 - `timestamp`: Momento del tick (milisegundos)
 - `pair`: Par de divisas
 - `bid`, `ask`: Precios
-- `expected_event`: Evento que DEBE ocurrir (validación)
+- `expected_event`: Evento que DEBE ocurrir
 - `expected_state`: Estado del ciclo después del tick
-
----
-
-## Justificación
-
-### ¿Por qué CSV sintéticos?
-
-1. **Reproducibilidad**: Mismo CSV = mismo resultado siempre
-2. **Documentación viva**: Los CSVs documentan casos de uso válidos
-3. **Sin dependencias**: No necesita MT5 ni conexión a internet
-4. **CI/CD friendly**: Ejecutable en GitHub Actions / pipelines
-5. **Debugging**: Fácil inspeccionar qué tick causó un fallo
-
-### ¿Por qué esta jerarquía?
-
-- **Core primero**: Si falla el cálculo de TP/SL, todo falla
-- **Ciclos después**: Dependen de que las operaciones funcionen
-- **Recovery después**: Depende de que los ciclos funcionen
-- **Risk al final**: Se superpone a todo lo anterior
-
----
-
-## Cobertura Mínima para Release
-
-| Nivel     | Tests Requeridos | % Cobertura |
-| --------- | ---------------- | ----------- |
-| Core      | C01-C03          | 100%        |
-| Ciclos    | CY01-CY03        | 100%        |
-| Recovery  | R01-R03          | 100%        |
-| Risk      | RM01-RM02        | 100%        |
-| Edge      | Opcional         | 50%         |
-| Multi-Par | MP03             | 100% (JPY)  |
 
 ---
 
@@ -491,107 +209,58 @@ Columnas:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> IDLE: Sistema inicia
+    [*] --> PENDING: Ciclo creado
     
-    IDLE --> ACTIVE: Señal de entrada [CY01]
+    PENDING --> ACTIVE: Primera op activa
     
-    ACTIVE --> ACTIVE: TP Hit [C01, CY02]
-    ACTIVE --> RECOVERY_1: SL Hit [C02, CY03, R01]
-    ACTIVE --> COMPLETED: 10 TPs [CY04]
-    ACTIVE --> PAUSED: Límite [RM01/RM02]
+    ACTIVE --> ACTIVE: TP Hit → Renovar [cy02, cy03]
+    ACTIVE --> HEDGED: Ambas mains activas [h01]
+    ACTIVE --> PAUSED: Límite [rm01/rm02]
     
-    RECOVERY_1 --> ACTIVE: Recovery TP [R02]
-    RECOVERY_1 --> RECOVERY_2: Recovery SL [R03]
+    HEDGED --> IN_RECOVERY: Main TP → Neutraliza otra [h07]
+    HEDGED --> ACTIVE: (si solo una main estaba activa)
     
-    RECOVERY_2 --> ACTIVE: Recovery TP [R04]
-    RECOVERY_2 --> RECOVERY_3: Recovery SL
-    
-    RECOVERY_3 --> ACTIVE: Recovery TP
-    RECOVERY_3 --> RECOVERY_4: Recovery SL
-    
-    RECOVERY_4 --> ACTIVE: Recovery TP
-    RECOVERY_4 --> RECOVERY_5: Recovery SL
-    
-    RECOVERY_5 --> ACTIVE: Recovery TP
-    RECOVERY_5 --> RECOVERY_6: Recovery SL [R05]
-    
-    RECOVERY_6 --> ACTIVE: Recovery TP
-    RECOVERY_6 --> BLOCKED: Recovery SL máximo [R06]
+    IN_RECOVERY --> ACTIVE: Recovery TP → Fully recovered [r03]
+    IN_RECOVERY --> IN_RECOVERY: Recovery falla → Nivel N+1 [r05]
     
     PAUSED --> ACTIVE: Normalizado
-    PAUSED --> BLOCKED: Crítico
     
-    COMPLETED --> [*]: Éxito
-    BLOCKED --> [*]: Pérdida máxima
+    ACTIVE --> CLOSED: Objetivo alcanzado
 ```
 
-### Estado de Operación Individual
-
-```mermaid
-stateDiagram-v2
-    [*] --> PENDING: Nueva orden
-    
-    PENDING --> OPEN: Ejecutada
-    PENDING --> REJECTED: Sin margen [RM04]
-    
-    OPEN --> CLOSED_TP: TP alcanzado [C01]
-    OPEN --> CLOSED_SL: SL alcanzado [C02]
-    OPEN --> OPEN: Oscila [C03]
-    
-    CLOSED_TP --> [*]: +Pips
-    CLOSED_SL --> [*]: -Pips → Recovery
-    REJECTED --> [*]
-```
-
-### Flujo de Validación Risk Management
+### Flujo FIFO (FIX-003)
 
 ```mermaid
 flowchart TD
-    A[Nueva Op] --> B{Exposición OK?}
-    B -->|Sí| C{Margen OK?}
-    B -->|No| D[BLOQUEAR RM01]
-    
-    C -->|Sí| E{Drawdown OK?}
-    C -->|No| F[RECHAZAR RM04]
-    
-    E -->|Sí| G{Pérdida diaria OK?}
-    E -->|No| H[PAUSAR RM02]
-    
-    G -->|Sí| I[EJECUTAR]
-    G -->|No| J[PAUSAR RM03]
+    A[Recovery TP: 80 pips] --> B{¿Hay deuda en cola?}
+    B -->|Sí| C[Obtener costo: get_recovery_cost]
+    C --> D{¿Pips >= costo?}
+    D -->|Sí| E[Cerrar debt_unit ATÓMICO]
+    E --> F[mark_recovery_closed]
+    F --> G[pips -= costo]
+    G --> B
+    D -->|No| H[Guardar pips restantes]
+    B -->|No| I[Ciclo → ACTIVE si fully_recovered]
 ```
 
 ---
 
-## Verificación de Grafo Cerrado
+## Cobertura Mínima para Release
 
-✅ **Todos los estados tienen entrada:**
-- IDLE: Estado inicial
-- ACTIVE: Desde IDLE, RECOVERY_N, PAUSED
-- RECOVERY_1-6: Desde ACTIVE o RECOVERY_{N-1}
-- PAUSED: Desde ACTIVE, RECOVERY_N
-- COMPLETED/BLOCKED: Estados finales
-
-✅ **Todos los estados tienen salida:**
-- Cada estado conecta a al menos otro estado
-- COMPLETED y BLOCKED son estados terminales válidos
-
-✅ **No hay estados huérfanos.**
+| Nivel     | Tests Requeridos | Estado |
+| --------- | ---------------- | ------ |
+| Core      | c01, c03-c05 | ✅ |
+| Ciclos    | cy01-cy04 | ✅ |
+| Hedged    | h01-h04, h07 | ✅ |
+| Recovery  | r01-r03, r05 | ✅ |
+| FIFO      | f01-f03 | ✅ |
+| Risk      | rm01-rm02 | ✅ |
+| Money     | mm01-mm05 | ✅ |
 
 ---
 
-## Prioridad de Implementación
+## Referencias
 
-```
-Fase 1: CORE ──────────▶ C01, C02, C03
-         │
-         ▼
-Fase 2: CICLOS ────────▶ CY01, CY02, CY03
-         │
-         ▼
-Fase 3: RECOVERY ──────▶ R01, R02, R03
-         │
-         ▼
-Fase 4: RISK ──────────▶ RM01, RM02
-```
-
+- **Especificación completa:** [expted_behavior_specification_fixed.md](expted_behavior_specification_fixed.md)
+- **Índice de escenarios:** [scenarios.md](scenarios.md)
+- **Fixes aplicados:** docs/archive/FIXES_APPLIED_SUMMARY.md

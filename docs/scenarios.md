@@ -1,9 +1,6 @@
 # Índice Completo de Escenarios de Auditoría WSPlumber
 
-**Total: 62 escenarios** (arquitectura sin SL - usa hedges/recoveries)
-
-> [!IMPORTANT]
-> Este sistema NO usa Stop Loss (SL). Cuando ambas operaciones main se activan, entran en estado HEDGED y luego IN_RECOVERY.
+**Total: 62 escenarios** (corregido para sistema sin SL)
 
 ## Resumen por Categoría
 
@@ -23,7 +20,7 @@
 
 ---
 
-## CORE (5 escenarios)
+## CORE (5 escenarios) ✅ Corregido
 
 | ID | Nombre | Prioridad | Descripción |
 |----|--------|-----------|-------------|
@@ -35,7 +32,7 @@
 
 ---
 
-## CYCLES (6 escenarios)
+## CYCLES (6 escenarios) ✅ Corregido
 
 | ID | Nombre | Prioridad | Descripción |
 |----|--------|-----------|-------------|
@@ -48,7 +45,7 @@
 
 ---
 
-## HEDGED (8 escenarios)
+## HEDGED (8 escenarios) ✅ Nuevo - Refleja arquitectura real
 
 | ID | Nombre | Prioridad | Descripción |
 |----|--------|-----------|-------------|
@@ -58,16 +55,16 @@
 | h04_lock_20_pips | Bloquear 20 pips | 🔴 CRÍTICA | pips_locked = 20 |
 | h05_sequential_activation | Activación secuencial | 🟡 ALTA | Una después de otra |
 | h06_simultaneous_gap | Gap simultáneo | 🟡 ALTA | Gap activa ambas |
-| h07_buy_tp_hedge_sell | BUY TP en HEDGED | 🔴 CRÍTICA | FIX-002: Cancela HEDGE_SELL |
-| h08_sell_tp_hedge_buy | SELL TP en HEDGED | 🟡 ALTA | FIX-002: Cancela HEDGE_BUY |
+| h07_buy_tp_hedge_sell | BUY TP en HEDGED | 🔴 CRÍTICA | FIX-002: Cancela HEDGE_SELL pendiente |
+| h08_sell_tp_hedge_buy | SELL TP en HEDGED | 🟡 ALTA | FIX-002: Cancela HEDGE_BUY pendiente |
 
 ---
 
-## RECOVERY (10 escenarios)
+## RECOVERY (10 escenarios) ✅ Expandido
 
 | ID | Nombre | Prioridad | Descripción |
 |----|--------|-----------|-------------|
-| r01_open_from_tp | Recovery desde TP | 🔴 CRÍTICA | Abre recovery desde precio TP |
+| r01_open_from_tp | Recovery desde TP | 🔴 CRÍTICA | Abre recovery desde precio TP del main |
 | r02_recovery_distance_20 | Distancia 20 pips | 🔴 CRÍTICA | Entry a ±20 pips del TP |
 | r03_recovery_n1_tp_buy | Recovery N1 TP (BUY) | 🔴 CRÍTICA | N1 recupera +80 pips |
 | r04_recovery_n1_tp_sell | Recovery N1 TP (SELL) | 🟡 ALTA | N1 SELL recupera |
@@ -80,7 +77,7 @@
 
 ---
 
-## FIFO (4 escenarios)
+## FIFO (4 escenarios) ✅ Expandido - Crucial
 
 | ID | Nombre | Prioridad | Descripción |
 |----|--------|-----------|-------------|
@@ -91,7 +88,7 @@
 
 ---
 
-## RISK MANAGEMENT (5 escenarios)
+## RISK MANAGEMENT (5 escenarios) ✅ Sin cambios
 
 | ID | Nombre | Prioridad | Descripción |
 |----|--------|-----------|-------------|
@@ -103,7 +100,7 @@
 
 ---
 
-## MONEY MANAGEMENT (8 escenarios)
+## MONEY MANAGEMENT (8 escenarios) ✅ Corregido (sin SL)
 
 | ID | Nombre | Prioridad | Descripción |
 |----|--------|-----------|-------------|
@@ -118,7 +115,7 @@
 
 ---
 
-## EDGE CASES (8 escenarios)
+## EDGE CASES (8 escenarios) ✅ Sin cambios
 
 | ID | Nombre | Prioridad | Descripción |
 |----|--------|-----------|-------------|
@@ -133,7 +130,7 @@
 
 ---
 
-## MULTI-PAIR (4 escenarios)
+## MULTI-PAIR (4 escenarios) ✅ Sin cambios
 
 | ID | Nombre | Prioridad | Descripción |
 |----|--------|-----------|-------------|
@@ -144,7 +141,7 @@
 
 ---
 
-## JPY PAIRS (4 escenarios)
+## JPY PAIRS (4 escenarios) ✅ Expandido
 
 | ID | Nombre | Prioridad | Descripción |
 |----|--------|-----------|-------------|
@@ -155,34 +152,48 @@
 
 ---
 
-## Estructura de Archivos CSV
+## Cobertura vs Especificación
 
-```
-test_scenarios/
-├── scenario_1_1_tp_buy.csv           # c01 BUY
-├── scenario_1_2_tp_sell.csv          # c01 SELL  
-├── scenario_1_3_buy_no_tp.csv        # c03
-├── scenario_1_4_sell_no_tp.csv       # c04
-├── scenario_2_1_both_active_hedged.csv    # h01
-├── scenario_3_1_buy_tp_hedge_sell.csv     # h07
-├── scenario_5_1_recovery_n1_tp.csv        # r03
-├── scenario_6_1_recovery_n1_fails.csv     # r05
-├── scenario_8_1_fifo_multiple_close.csv   # f04
-├── scenario_10_1_high_spread.csv          # e02
-├── scenario_10_2_weekend_gap.csv          # e03
-├── scenario_11_1_usdjpy_tp.csv            # j01
-└── COMPLETE_INDEX.md
-```
+| Categoría | Doc Madre | Implementado | Estado |
+|-----------|-----------|--------------|--------|
+| Arquitectura sin SL | ✅ | ✅ | ✅ |
+| Coberturas (Hedge) | ✅ | ✅ 8 escenarios | ✅ |
+| Recoveries | ✅ | ✅ 10 escenarios | ✅ |
+| FIFO (FIX-003) | ✅ | ✅ 4 escenarios | ✅ |
+| Renovación Main (FIX-001) | ✅ | ✅ en cy03 | ✅ |
+| Cancelación Counter (FIX-002) | ✅ | ✅ en cy04, h07, h08 | ✅ |
+| **TOTAL** | - | **62 escenarios** | ✅ |
 
 ---
 
-## Referencias
+## Archivos CSV Corregidos
+```bash
+# ❌ ELIMINAR (usan SL inexistente)
+test_scenarios/core/c02_sl_hit.csv
+test_scenarios/core/c05_gap_sl.csv
+test_scenarios/cycles/cy03_sl_triggers_recovery.csv
+test_scenarios/money_management/mm05_balance_update_sl.csv
 
-- **Especificación:** [docs/expted_behavior_specification_fixed.md](../../docs/expted_behavior_specification_fixed.md)
-- **Testing guide:** [docs/testing.md](../../docs/testing.md)
-- **Scenarios index:** [docs/scenarios.md](../../docs/scenarios.md)
+# ✅ CREAR NUEVOS (reflejan arquitectura real)
+test_scenarios/hedged/h02_create_hedge_operations.csv
+test_scenarios/hedged/h03_neutralize_mains.csv
+test_scenarios/hedged/h04_lock_20_pips.csv
+test_scenarios/hedged/h07_buy_tp_hedge_sell.csv
+test_scenarios/hedged/h08_sell_tp_hedge_buy.csv
 
----
+test_scenarios/recovery/r01_open_from_tp.csv
+test_scenarios/recovery/r02_recovery_distance_20.csv
+test_scenarios/recovery/r09_cancel_recovery_counter.csv
 
-*Actualizado: 2026-01-08*
-*Versión: 3.0 (62 escenarios, sin SL)*
+test_scenarios/fifo/f01_fifo_first_costs_20.csv
+test_scenarios/fifo/f02_fifo_subsequent_40.csv
+test_scenarios/fifo/f03_fifo_atomic_close.csv
+
+test_scenarios/cycles/cy03_tp_renews_operations.csv
+test_scenarios/cycles/cy04_cancel_counter_main.csv
+
+test_scenarios/jpy/j02_usdjpy_hedged.csv
+test_scenarios/jpy/j04_usdjpy_pips_calculation.csv
+
+test_scenarios/money_management/mm03_pnl_hedged.csv (renombrado desde mm03_pnl_loss)
+```
