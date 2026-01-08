@@ -157,7 +157,15 @@ class Operation:
         return self.status == OperationStatus.NEUTRALIZED
 
     @property
+    def current_pips(self) -> float:
+        """Pips actuales (flotantes si está activa, realizados si está cerrada)."""
+        if self.is_closed:
+            return float(self.profit_pips)
+        return float(self.metadata.get("current_pips", 0.0))
+
+    @property
     def total_cost(self) -> Money:
+
         """Costo total de la operación (comisiones + swap)."""
         return Money(self.commission_open + self.commission_close + self.swap_total)
 

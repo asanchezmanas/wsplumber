@@ -61,9 +61,14 @@ class BacktestEngine:
     async def run(self, csv_path: str, pair: str = "EURUSD", audit_file: str = "docs/audit_backtest_output.md", max_bars: int = None):
         """Ejecuta el backtest completo para un par."""
         self.setup_logging(audit_file)
+        
+        # Conectar al broker simulado
+        await self.broker.connect()
+        
         start_time = time.time()
         
         # 1. Cargar datos
+
         logger.info(f"Cargando datos M1 para {pair} desde {csv_path} (max_bars={max_bars})...")
         self.broker.load_m1_csv(csv_path, CurrencyPair(pair), max_bars=max_bars)
         total_ticks = len(self.broker.ticks)
