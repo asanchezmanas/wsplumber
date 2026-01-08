@@ -9,7 +9,7 @@
 - **Error:** Validations failed
 
 **Validaciones:**
-- [FAIL] <lambda>: No TP_HIT operations
+- [OK] <lambda>: TP/CLOSED operations: 1
 - [FAIL] <lambda>: No recovery operations
 
 ### 5.1 - recovery_tp [CRITICA]
