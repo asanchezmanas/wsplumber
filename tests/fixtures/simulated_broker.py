@@ -99,7 +99,7 @@ class SimulatedBroker(IBroker):
                     timestamp=Timestamp(dt),
                     spread_pips=Pips(float(spread))
                 ))
-        self.current_tick_index = 0
+        self.current_tick_index = -1
         logger.info(f"Loaded {len(self.ticks)} ticks from {csv_path}")
 
     def load_m1_csv(self, csv_path: str, pair: Optional[CurrencyPair] = None, max_bars: int = None):
@@ -114,7 +114,8 @@ class SimulatedBroker(IBroker):
                 tick.spread_pips = Pips(1.0)
                 tick.ask = Price(tick.bid + Decimal("0.00010"))
                 
-        self.current_tick_index = 0
+        self.current_tick_index = -1
+
         if self.ticks:
             logger.info("Loaded synthetic ticks from M1 CSV", 
                         max_bars=max_bars, 

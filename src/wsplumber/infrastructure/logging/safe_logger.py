@@ -245,7 +245,7 @@ class SafeLogger:
 
     def _build_log_entry(
         self,
-        level: str,
+        log_level: str,
         message: str,
         exception: Optional[Exception] = None,
         **kwargs: Any,
@@ -259,7 +259,7 @@ class SafeLogger:
 
         entry = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
-            "level": level,
+            "level": log_level,
             "logger": self.name,
             "message": public_message,
         }
@@ -289,22 +289,22 @@ class SafeLogger:
 
     def _log(
         self,
-        level: LogLevel,
+        log_level: LogLevel,
         message: str,
         exception: Optional[Exception] = None,
         **kwargs: Any,
     ) -> None:
         """Método interno de logging."""
-        entry = self._build_log_entry(level.value, message, exception, **kwargs)
+        entry = self._build_log_entry(log_level.value, message, exception, **kwargs)
 
         if self.output_json:
             log_str = json.dumps(entry, default=str, ensure_ascii=False)
         else:
-            log_str = f"[{entry['timestamp']}] {level.value} - {entry['message']}"
+            log_str = f"[{entry['timestamp']}] {log_level.value} - {entry['message']}"
             if entry.get("data"):
                 log_str += f" | {entry['data']}"
 
-        getattr(self._logger, level.value.lower())(log_str)
+        getattr(self._logger, log_level.value.lower())(log_str)
 
     # ============================================
     # MÉTODOS PÚBLICOS DE LOGGING
@@ -312,27 +312,28 @@ class SafeLogger:
 
     def debug(self, message: str, **kwargs: Any) -> None:
         """Log nivel DEBUG."""
-        self._log(LogLevel.DEBUG, message, **kwargs)
+        self._log(log_level=LogLevel.DEBUG, message=message, **kwargs)
 
     def info(self, message: str, **kwargs: Any) -> None:
         """Log nivel INFO."""
-        self._log(LogLevel.INFO, message, **kwargs)
+        self._log(log_level=LogLevel.INFO, message=message, **kwargs)
 
     def warning(self, message: str, **kwargs: Any) -> None:
         """Log nivel WARNING."""
-        self._log(LogLevel.WARNING, message, **kwargs)
+        self._log(log_level=LogLevel.WARNING, message=message, **kwargs)
 
     def error(
         self, message: str, exception: Optional[Exception] = None, **kwargs: Any
     ) -> None:
         """Log nivel ERROR."""
-        self._log(LogLevel.ERROR, message, exception, **kwargs)
+        self._log(log_level=LogLevel.ERROR, message=message, exception=exception, **kwargs)
 
     def critical(
         self, message: str, exception: Optional[Exception] = None, **kwargs: Any
     ) -> None:
         """Log nivel CRITICAL."""
-        self._log(LogLevel.CRITICAL, message, exception, **kwargs)
+        self._log(log_level=LogLevel.CRITICAL, message=message, exception=exception, **kwargs)
+
 
     # ============================================
     # MÉTODOS ESPECÍFICOS DE TRADING (PRE-SANITIZADOS)

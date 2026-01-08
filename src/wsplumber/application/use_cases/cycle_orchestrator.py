@@ -179,7 +179,8 @@ class CycleOrchestrator:
                     cycle.activate_hedge()
                     
                     # Crear operaciones de hedge y neutralizar mains
-                    for main_op in main_ops:
+                    for main_op in active_main_ops:
+
                         hedge_type = (OperationType.HEDGE_SELL 
                                      if main_op.op_type == OperationType.MAIN_BUY 
                                      else OperationType.HEDGE_BUY)
@@ -956,7 +957,7 @@ class CycleOrchestrator:
         if any(r.success for r in results):
             logger.info("Recovery cycle opened", 
                        recovery_id=recovery_id, 
-                       level=recovery_level,
+                       tier=recovery_level,
                        lot=float(lot))
         else:
             logger.error("Failed to open recovery cycle", recovery_id=recovery_id)
