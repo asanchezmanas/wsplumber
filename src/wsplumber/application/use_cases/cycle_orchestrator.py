@@ -335,11 +335,12 @@ class CycleOrchestrator:
                 active_ids=[op.id for op in active_mains][:3]
             )
             
-            if pending_mains:
-                logger.warning(
-                    "⚠️ RENEWAL BLOCKED: Cycle already has pending mains",
+            if pending_mains or active_mains:
+                logger.info(
+                    "⏹️ RENEWAL SKIPPED: Cycle already has main operations",
                     cycle_id=cycle.id,
-                    pending_count=len(pending_mains)
+                    pending_count=len(pending_mains),
+                    active_count=len(active_mains)
                 )
                 return
         else:
@@ -654,32 +655,25 @@ class CycleOrchestrator:
             is_fully_recovered=parent_cycle.accounting.is_fully_recovered
         )
         
-        # 5. Si fully_recovered, volver a ACTIVE y renovar mains
+        # 5. Si fully_recovered, volver a ACTIVE (pero NO renovar mains)
+        # NOTA: Los Mains ya fueron renovados cuando el Main original tocó TP.
+        # El Recovery solo resuelve la deuda, no debe crear nuevos Mains.
         if parent_cycle.accounting.is_fully_recovered:
             logger.info("🎉 Cycle FULLY RECOVERED!", cycle_id=parent_cycle.id)
             
             parent_cycle.status = CycleStatus.ACTIVE
             await self.repository.save_cycle(parent_cycle)
             
+            # FIX: NO llamar a _renew_main_operations aquí.
+            # Los Mains ya están corriendo desde que el Main original tocó TP.
+            # Llamar aquí causaba warnings de "RENEWAL BLOCKED" porque
+            # ya existían Mains pendientes/activos.
             logger.info(
-                "📢 About to call _renew_main_operations after FULLY RECOVERED",
-                cycle_id=parent_cycle.id,
-                cycle_status=parent_cycle.status.value,
-                tick_bid=str(tick.bid)
+                "✅ Cycle marked as ACTIVE after full recovery (no renewal needed)",
+                cycle_id=parent_cycle.id
             )
-            
-            # Renovar operaciones main para continuar operando
-            try:
-                await self._renew_main_operations(parent_cycle, tick)
-                logger.info("✅ _renew_main_operations completed successfully")
-            except Exception as e:
-                logger.error(
-                    "❌ EXCEPTION in _renew_main_operations after FULLY RECOVERED",
-                    error=str(e),
-                    cycle_id=parent_cycle.id
-                )
-                import traceback
-                logger.error(f"Traceback: {traceback.format_exc()}")
+
+
 
 
     # ═══════════════════════════════════════════════════════════════════════

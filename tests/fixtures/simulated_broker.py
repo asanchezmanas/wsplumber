@@ -159,6 +159,20 @@ class SimulatedBroker(IBroker):
             
         return Result.ok(tick)
 
+    def should_process_tick(self, tick: TickData) -> bool:
+        """
+        OPTIMIZATION: Check if this tick can trigger any event.
+        
+        NOTE: This optimization is currently DISABLED because the broker
+        needs to process every tick to detect order activations and TP hits.
+        The skip logic was causing orders to never activate.
+        
+        Future optimization should be done at the orchestrator level, not here.
+        """
+        # DISABLED: Always process every tick for now
+        # The broker's _process_executions() needs to run on every tick
+        return True
+
     async def place_order(self, request: OrderRequest) -> Result[OrderResult]:
         ticket = BrokerTicket(str(self.ticket_counter))
         self.ticket_counter += 1

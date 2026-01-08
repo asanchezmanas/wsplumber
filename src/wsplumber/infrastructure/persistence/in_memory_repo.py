@@ -55,7 +55,8 @@ class InMemoryRepository(IRepository):
         return Result.ok(found)
 
     async def get_active_operations(self, pair=None) -> Result[List[Operation]]:
-        found = [o for o in self.operations.values() if o.status == OperationStatus.ACTIVE]
+        active_statuses = (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED)
+        found = [o for o in self.operations.values() if o.status in active_statuses]
         if pair:
             found = [o for o in found if o.pair == pair]
         return Result.ok(found)

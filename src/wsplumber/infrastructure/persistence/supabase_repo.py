@@ -321,7 +321,7 @@ class SupabaseRepository(IRepository):
         """Obtiene operaciones activas."""
         try:
             query = (
-                self.client.table("operations").select("*").eq("status", "active")
+                self.client.table("operations").select("*").in_("status", ["active", "neutralized"])
             )
 
             if pair:

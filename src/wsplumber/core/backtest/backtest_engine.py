@@ -87,8 +87,9 @@ class BacktestEngine:
 
         logger.info(f"Iniciando simulación de {total_ticks} ticks...")
         
-        # 2. Loop de simulación
+        # 2. Loop de simulación con optimización de skip de ticks vacíos
         tick_count = 0
+        skipped_count = 0
         last_report_pct = 0
         
         while True:
@@ -96,16 +97,32 @@ class BacktestEngine:
             if not tick:
                 break
             
+            tick_count += 1
+            
+            # OPTIMIZATION: Skip ticks that can't trigger any event
+            if not self.broker.should_process_tick(tick):
+                skipped_count += 1
+                # Still need to report progress even for skipped ticks
+                pct = int((tick_count / total_ticks) * 100)
+                if pct >= last_report_pct + 10:
+                    acc = await self.broker.get_account_info()
+                    balance = acc.value["balance"] if acc.success else 0
+                    equity = acc.value["equity"] if acc.success else 0
+                    skip_pct = (skipped_count / tick_count) * 100 if tick_count > 0 else 0
+                    logger.info(f"Progreso: {pct}% | Balance: {balance:,.2f} | Equity: {equity:,.2f} ({tick_count}/{total_ticks} ticks, {skip_pct:.1f}% skipped)")
+                    last_report_pct = pct
+                continue  # Skip to next tick
+            
             await self.orchestrator.process_tick(tick)
             
-            tick_count += 1
             # Reportar progreso cada 10%
             pct = int((tick_count / total_ticks) * 100)
             if pct >= last_report_pct + 10:
                 acc = await self.broker.get_account_info()
                 balance = acc.value["balance"] if acc.success else 0
                 equity = acc.value["equity"] if acc.success else 0
-                logger.info(f"Progreso: {pct}% | Balance: {balance:.2f} | Equity: {equity:.2f} ({tick_count}/{total_ticks} ticks)")
+                skip_pct = (skipped_count / tick_count) * 100 if tick_count > 0 else 0
+                logger.info(f"Progreso: {pct}% | Balance: {balance:,.2f} | Equity: {equity:,.2f} ({tick_count}/{total_ticks} ticks, {skip_pct:.1f}% skipped)")
                 last_report_pct = pct
 
         end_time = time.time()
