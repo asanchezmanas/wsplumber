@@ -311,13 +311,39 @@ class CycleOrchestrator:
         """
         pair = cycle.pair
         
+        logger.info(
+            "🔄 _renew_main_operations CALLED",
+            cycle_id=cycle.id,
+            cycle_status=cycle.status.value if cycle.status else "None",
+            tick_price=str(tick.bid)
+        )
+        
         # GUARD: Evitar renovaciones duplicadas si ya hay pendientes
         ops_res = await self.repository.get_operations_by_cycle(cycle.id)
         if ops_res.success:
-            pending_mains = [op for op in ops_res.value if op.is_main and op.status == OperationStatus.PENDING]
+            all_ops = ops_res.value
+            pending_mains = [op for op in all_ops if op.is_main and op.status == OperationStatus.PENDING]
+            active_mains = [op for op in all_ops if op.is_main and op.status == OperationStatus.ACTIVE]
+            
+            logger.info(
+                "🔍 GUARD CHECK: Existing operations",
+                cycle_id=cycle.id,
+                total_ops=len(all_ops),
+                pending_mains=len(pending_mains),
+                active_mains=len(active_mains),
+                pending_ids=[op.id for op in pending_mains][:3],
+                active_ids=[op.id for op in active_mains][:3]
+            )
+            
             if pending_mains:
-                logger.debug("Skipping renewal: Cycle already has pending mains", cycle_id=cycle.id)
+                logger.warning(
+                    "⚠️ RENEWAL BLOCKED: Cycle already has pending mains",
+                    cycle_id=cycle.id,
+                    pending_count=len(pending_mains)
+                )
                 return
+        else:
+            logger.warning("Failed to get operations for guard check", cycle_id=cycle.id)
         
 
         
@@ -635,8 +661,26 @@ class CycleOrchestrator:
             parent_cycle.status = CycleStatus.ACTIVE
             await self.repository.save_cycle(parent_cycle)
             
+            logger.info(
+                "📢 About to call _renew_main_operations after FULLY RECOVERED",
+                cycle_id=parent_cycle.id,
+                cycle_status=parent_cycle.status.value,
+                tick_bid=str(tick.bid)
+            )
+            
             # Renovar operaciones main para continuar operando
-            await self._renew_main_operations(parent_cycle, tick)
+            try:
+                await self._renew_main_operations(parent_cycle, tick)
+                logger.info("✅ _renew_main_operations completed successfully")
+            except Exception as e:
+                logger.error(
+                    "❌ EXCEPTION in _renew_main_operations after FULLY RECOVERED",
+                    error=str(e),
+                    cycle_id=parent_cycle.id
+                )
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+
 
     # ═══════════════════════════════════════════════════════════════════════
     # FIX-003: NUEVO MÉTODO - Cierre atómico de debt unit (Main + Hedge)
