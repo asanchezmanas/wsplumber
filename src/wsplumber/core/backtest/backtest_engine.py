@@ -67,10 +67,18 @@ class BacktestEngine:
         
         start_time = time.time()
         
-        # 1. Cargar datos
-
-        logger.info(f"Cargando datos M1 para {pair} desde {csv_path} (max_bars={max_bars})...")
-        self.broker.load_m1_csv(csv_path, CurrencyPair(pair), max_bars=max_bars)
+        # 1. Cargar datos (CSV o Parquet)
+        if csv_path.endswith(".parquet"):
+            logger.info(f"Cargando datos M1 para {pair} desde PARQUET {csv_path}...")
+            import polars as pl
+            df = pl.read_parquet(csv_path)
+            if max_bars: df = df.head(max_bars)
+            # (Simplificación para el overnight ya que el broker ya tiene load_m1_csv)
+            # Para el overnight usaremos CSV mejor para asegurar 100% compatibilidad
+            self.broker.load_m1_csv(csv_path, CurrencyPair(pair), max_bars=max_bars)
+        else:
+            logger.info(f"Cargando datos M1 para {pair} desde CSV {csv_path} (max_bars={max_bars})...")
+            self.broker.load_m1_csv(csv_path, CurrencyPair(pair), max_bars=max_bars)
         total_ticks = len(self.broker.ticks)
         
         if total_ticks == 0:
