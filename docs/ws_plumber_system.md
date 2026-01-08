@@ -5,6 +5,8 @@
 
 > *"Mientras los grandes mueven millones de un lado a otro, siempre caen gotas. No competimos por el recipiente, solo ponemos el cazo debajo."*
 
+> *"Son las goteras del capitalismo. No estamos asaltando el barco, estamos recogiendo lo que se escurre entre las manos de los gigantes."*
+
 ---
 
 ## Filosofía Central
@@ -19,6 +21,7 @@ En el sistema financiero global, billones se mueven constantemente de un recipie
 - No luchamos por controlar el grifo
 - Simplemente colocamos el cazo donde las gotas caen
 - Pequeñas gotas constantes llenan el cubo
+
 
 Esta estrategia representa un cambio paradigmático en el trading, basándose en principios que invierten la lógica tradicional de gestión de pérdidas y generación de ingresos. Su filosofía se fundamenta en tres pilares que trabajan en sinergia.
 
@@ -216,7 +219,38 @@ TOTAL: -160 pips flotantes
 
 > *"Incluso arrastrando 10 Recovery, sigues recaudando con los Mains"*
 
+### Gestión de Saturación (Sistema Inmune)
+
+Cuando el sistema acumula demasiadas operaciones abiertas, activa mecanismos de protección para evitar el bloqueo del margen.
+
+**Modos de Operación según Margen Libre:**
+
+| Modo | Margen Libre | Comportamiento |
+|------|--------------|----------------|
+| **Normal** | > 60% | Mains + Recoveries operan normalmente |
+| **Alerta** | 40-60% | Recoveries nuevos en cola de espera, impuesto de emergencia activo |
+| **Supervivencia** | < 40% | Solo Mains, hedge de bloqueo para fallos nuevos |
+
+**Hedge de Bloqueo:**
+
+Cuando el sistema está saturado (>15 operaciones) y ocurre un nuevo fallo de Main:
+1. Se **neutraliza a 20 pips** (como siempre)
+2. Pero **NO se abre el ciclo Recovery de 80 pips**
+3. La deuda queda "congelada" en la cola FIFO
+4. Los Mains siguen operando para generar flujo de caja
+5. Cuando se libera margen (por poda o Recovery exitoso), se inyectan los Recoveries pendientes
+
+**Justificación del Drawdown Lineal:**
+
+> *"20 operaciones comprometidas son 40€, incluso en una cuenta de 1k es un bajo drawdown. En cualquier otro sistema te habrían fundido la cuenta."*
+
+- 20 fallos de Main × $2 = **$40 de flotante negativo**
+- En una cuenta de $1000 = **4% de drawdown**
+- Los Mains exitosos siguen generando $1/TP
+- El riesgo es lineal y predecible, no exponencial como en martingala
+
 ---
+
 
 ## Los Tres Pilares del Sistema
 
@@ -276,12 +310,29 @@ TOTAL: -160 pips flotantes
 3. **Gestión:** Se mantiene hasta que el mercado la ejecute favorablemente
 4. **Neutralización:** Al ejecutarse con éxito, cancela dos niveles de pérdidas
 
+### Protección de Recoveries (Trailing Stop a Breakeven)
+
+> *"Si ya tienes la mitad del camino recorrido, no arriesgues volver al principio"*
+
+**Regla de protección al 50%:**
+- Cuando un Recovery alcanza **+40 pips** (mitad del objetivo de 80), el sistema mueve automáticamente el Stop Loss al precio de entrada (Breakeven)
+- **Resultado:** Si el mercado se gira, la operación cierra sin beneficio pero **sin generar nueva deuda de 40 pips**
+- Evita la acumulación infinita de niveles en mercados de "látigo"
+
+### Auditoría de Cierre Real (Slippage)
+
+**El ratio 2:1 debe ser NETO, no bruto:**
+- Si un Recovery cierra con menos de 80 pips por slippage (ej: 75 pips), la diferencia (5 pips) se anota como **deuda residual**
+- Esta deuda residual la cubre el Fondo de Reserva en la siguiente auditoría
+- Garantiza que la matemática del sistema se mantenga intacta independientemente de la ejecución del broker
+
 ### Filosofía
 > *"El tiempo cura las heridas del trading"*
 
 - Los mercados no permanecen en una dirección indefinidamente
 - La paciencia convierte pérdidas temporales en oportunidades de recuperación
 - 80 pips de movimiento ocurren naturalmente en todos los marcos temporales
+
 
 ---
 
@@ -307,7 +358,27 @@ TOTAL: -160 pips flotantes
 - **Reactivación:** Al cerrarse Recovery exitosas, se libera capacidad
 - **Recalibración:** Nuevos niveles se calculan desde precios actuales (±20 pips)
 
+### Límite de Exposición Global (Multi-Par)
+
+Cuando se operan múltiples pares simultáneamente, el riesgo de correlación puede activar Recoveries en todos a la vez.
+
+**Regla de exposición global:**
+- Si la suma de deudas en **todos los pares** supera un umbral (ej: 600 pips totales), el sistema activa protecciones
+- **Priorización:** Se enfoca el flujo de caja del par más sano para ayudar a podar el par más atascado
+- El par con más congestión recibe menos nuevos ciclos hasta que se descongestione
+
+### Pausa Selectiva por Par
+
+> *"Si una tubería está atascada, no cierres toda la fontanería"*
+
+En situaciones de congestión de un par específico:
+- Se **pausan los nuevos ciclos Main solo en el par** que está sufriendo saturación
+- Los **otros pares continúan operando normalmente**, generando flujo de caja
+- Esto permite que los pares sanos "subsidien" la limpieza del par atascado
+- Cuando el par problemático baja de 10 operaciones, se reactiva automáticamente
+
 ---
+
 
 ## Comportamiento Según Condiciones de Mercado
 
@@ -380,20 +451,38 @@ TOTAL: -160 pips flotantes
 - Número de Recovery simultáneas por par
 - Flujo de ingresos de ciclos principales
 - Tiempo promedio de resolución de Recovery
+- **Margen libre disponible** (determina el modo de operación)
 
 ### Decisiones Operativas Automáticas
 
-**Pausa de nuevos ciclos:**
-- Trigger: compromiso de cuenta supera umbral definido
-- Acción: suspender apertura de nuevos ciclos
-- Mantenimiento: continuar gestionando Recovery activas
+**Pausa de nuevos ciclos (Modo Alerta/Supervivencia):**
+- Trigger: margen libre < 60% o número de operaciones > 15
+- Acción: suspender apertura de nuevos ciclos Recovery
+- Mantenimiento: los Mains continúan operando normalmente
+- Activación del impuesto de emergencia (10% de TPs de Mains → hucha)
 
-**Reactivación:**
-- Trigger: cierre exitoso de Recovery que libera margen
+**Reactivación (Vuelta a Modo Normal):**
+- Trigger: cierre exitoso de Recovery o poda de deuda que libera margen
+- Condición: margen libre > 60% y operaciones < 15
 - Recalibración desde precio actual ±20 pips
-- Reanudación de ciclos principales
+- Reanudación de ciclos Recovery pendientes en cola FIFO
+
+### Filtro de Volatilidad (ATR)
+
+> *"No se coloca el cazo cuando no caen gotas"*
+
+**Regla de pausa por baja volatilidad:**
+- Si el rango del mercado es **< 20 pips en 4 horas**, el sistema pausa la apertura de nuevos ciclos Main
+- Evita entrar en mercados "muertos" que solo generan swaps sin movimiento
+- Los Recoveries existentes siguen activos esperando resolución
+
+**Implementación:**
+- Usar Average True Range (ATR) de 4H
+- Umbral mínimo: 20 pips para operar
+- Revisar cada hora
 
 ---
+
 
 
 ### Métricas a Capturar en Testing
@@ -413,9 +502,11 @@ Para determinar capital óptimo por lote/par:
 **Preocupación:** El capital queda comprometido, se acumulan swaps, el margen no se libera.
 
 **Respuesta:**
-- Los swaps y comisiones están incluidos en el cálculo de los 80 pips de TP del recovery
+- Los swaps y comisiones **se contabilizan como deuda del ciclo**, no se modifican los TPs
+- El beneficio neto de cada Recovery refleja el coste real de haberla mantenido abierta
 - El flujo continuo de ciclos principales (5-15 operaciones diarias = 5-15€) compensa el tiempo de espera
 - La neutralización permite que una pérdida flotante no crezca mientras se espera la resolución
+- La **Hucha de Poda** permite cerrar deudas antiguas usando beneficios acumulados, liberando margen sin esperar al precio
 
 **Estado:** ✅ Resuelto
 
@@ -525,19 +616,69 @@ Para determinar capital óptimo por lote/par:
 ### Principio
 No todo el beneficio es ganancia inmediata. Una parte se destina a fortalecer el sistema contra eventos imprevistos.
 
-### Regla del 20%
-**El 20% de los beneficios de recovery se destina a un fondo de reserva.**
+### Regla de Capital por Par
 
-### Destino del Fondo
+> **El sistema NO usa Stop Loss tradicional. Por tanto, no hay cálculo de lotaje basado en % de riesgo.**
+
+**Regla base (pendiente de backtesting):**
+- **10,000€** por cada **0.01 lotes** por par
+- El lotaje es **FIJO** dentro de cada par
+- No hay cálculo dinámico porque no hay Stop Loss
+
+**Hipótesis a validar con testing:**
+- ¿Puede reducirse a 5,000€ o 2,000€ por cada 0.01?
+- Depende del máximo histórico de acumulación de operaciones
+
+**Justificación:**
+El capital no cubre "pérdidas consumadas" (porque se neutralizan), sino el **margen bloqueado** por operaciones esperando resolución. El testing determinará el escenario de máxima acumulación histórica.
+
+### Regla del 20%
+**El 20% de los beneficios NETOS de recovery se destina a un fondo de reserva.**
+
+### Contabilidad de Costes por Ciclo
+
+Los costes operativos (swaps, comisiones) **se suman a la deuda del ciclo**, no al TP:
+
+```
+Deuda total del ciclo = Deuda base (20/40 pips) + Swaps acumulados + Comisiones
+```
+
+Cuando un Recovery cierra a 80 pips:
+- Beneficio bruto: $8
+- Beneficio neto: $8 - costes acumulados
+- El 20% para reserva se calcula sobre el **neto**
+
+**Ventaja:** El TP permanece fijo en 80 pips (sin modificar órdenes). La contabilidad refleja el coste real de mantener cada ciclo abierto.
+
+### Destino del Fondo (Pasivo)
 - Cubrir **gaps de fin de semana**
 - Absorber **drawdowns temporales**
-- Proteger contra **eventos inesperados** (declaraciones políticas, cisnes negros, etc.)
-- Mantener la cuenta con **drawdown controlado**
+- Proteger contra **eventos inesperados** (cisnes negros)
+
+### Hucha de Poda (Activo) - Sistema Inmune
+
+**El fondo también tiene una función ACTIVA: cerrar deudas antiguas para liberar margen.**
+
+**Origen del capital de poda:**
+1. Excedentes de Recoveries exitosos (~$6 netos)
+2. **Impuesto de emergencia** (cuando margen < 40%): 10% de cada TP de Mains
+
+**Ejecución de la poda:**
+- Cuando la hucha acumula el valor de la deuda más antigua ($2), el sistema la cierra
+- Libera margen sin esperar movimiento del precio
+- Prioridad FIFO: siempre se cierra la deuda más antigua primero
+
+**Matemática de poda (lote 0.01):**
+| Concepto | Valor |
+|----------|-------|
+| Deuda de un Main fallido | $2 (20 pips) |
+| Un Recovery exitoso genera | ~$6 netos |
+| **1 Recovery puede podar** | **3 deudas de Main** |
 
 ### Acumulación
 - **Semanal o mensual**, según preferencia
 - El fondo crece mientras el sistema opera normalmente
-- No se toca salvo eventos extraordinarios
+- Se usa activamente para poda cuando el margen está presionado
 
 ### Matemática del Fondo
 
@@ -560,8 +701,10 @@ No todo el beneficio es ganancia inmediata. Una parte se destina a fortalecer el
 - Operas sabiendo que hay un colchón
 - Los gaps no generan pánico
 - Permite mantener la estrategia sin decisiones emocionales
+- El sistema se "autolimpia" sin intervención manual
 
 ---
+
 
 ## Gestión de Correlación del Portfolio
 

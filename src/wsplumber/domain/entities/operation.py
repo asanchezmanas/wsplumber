@@ -232,7 +232,9 @@ class Operation:
 
         Detecta TP comparando precios directamente con tolerancia relativa.
         """
-        if self.status not in (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED, OperationStatus.PENDING):
+        # FIX: Allow closing TP_HIT operations (broker already marked them)
+        if self.status not in (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED, 
+                               OperationStatus.PENDING, OperationStatus.TP_HIT):
             raise ValueError(f"Cannot close operation in status {self.status}")
 
         self.actual_close_price = price
