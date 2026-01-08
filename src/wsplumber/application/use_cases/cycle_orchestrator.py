@@ -306,9 +306,20 @@ class CycleOrchestrator:
         """
         Crea nuevas operaciones main (BUY + SELL) después de un TP.
         
-        FIX-001: Este método ya implementaba correctamente la renovación dual.
+        FIX-001: Este método ahora incluye una guarda para evitar renovaciones duplicadas
+        en el mismo tick si ya hay operaciones pendientes.
         """
         pair = cycle.pair
+        
+        # GUARD: Evitar renovaciones duplicadas si ya hay pendientes
+        ops_res = await self.repository.get_operations_by_cycle(cycle.id)
+        if ops_res.success:
+            pending_mains = [op for op in ops_res.value if op.is_main and op.status == OperationStatus.PENDING]
+            if pending_mains:
+                logger.debug("Skipping renewal: Cycle already has pending mains", cycle_id=cycle.id)
+                return
+        
+
         
         # Calcular distancia TP usando parámetros centralizados
         multiplier = Decimal("0.01") if "JPY" in str(pair) else Decimal("0.0001")

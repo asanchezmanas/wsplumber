@@ -236,9 +236,9 @@ class SafeLogger:
 
         return sanitized
 
-    def _sanitize_error_message(self, message: str) -> str:
+    def _sanitize_error_message(self, _message: str) -> str:
         """Sanitiza mensajes de error para no revelar lógica interna."""
-        result = message
+        result = _message
         for pattern, replacement in self.config.error_sanitize_patterns:
             result = re.sub(pattern, replacement, result)
         return result
@@ -246,8 +246,8 @@ class SafeLogger:
     def _build_log_entry(
         self,
         log_level: str,
-        message: str,
-        exception: Optional[Exception] = None,
+        _message: str,
+        _exception: Optional[Exception] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
         """Construye entrada de log estructurada y sanitizada."""
@@ -255,7 +255,7 @@ class SafeLogger:
         sanitized_data = self._sanitize_dict(kwargs) if kwargs else {}
 
         # Sanitizar mensaje
-        public_message = sanitize_message(message, self.config.use_public_terms)
+        public_message = sanitize_message(_message, self.config.use_public_terms)
 
         entry = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
@@ -279,10 +279,10 @@ class SafeLogger:
             entry["data"] = sanitized_data
 
         # Añadir excepción sanitizada
-        if exception:
+        if _exception:
             entry["error"] = {
-                "type": type(exception).__name__,
-                "message": self._sanitize_error_message(str(exception)),
+                "type": type(_exception).__name__,
+                "message": self._sanitize_error_message(str(_exception)),
             }
 
         return entry
