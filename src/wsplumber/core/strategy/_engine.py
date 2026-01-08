@@ -225,14 +225,20 @@ class WallStreetPlumberStrategy(IStrategy):
         if not cycle.needs_recovery and not cycle.is_hedged:
             return None
         
-        # FIX-EN-02: Verificar que el ciclo esté en estado válido para recovery
         if cycle.status not in (CycleStatus.HEDGED, CycleStatus.IN_RECOVERY, CycleStatus.ACTIVE):
             logger.debug("Cycle not in valid state for recovery", 
                         cycle_id=cycle.id, 
                         status=cycle.status.value)
             return None
             
+        # GUARD-FIX-001: No generar más señales si ya hay un recovery pendiente
+        # Esto previene la "cascada de señales" durante el tiempo de apertura
+        if any(op.status == OperationStatus.PENDING for op in cycle.recovery_operations):
+            logger.debug("Recovery already pending, skipping signal generation", cycle_id=cycle.id)
+            return None
+
         current_recovery_level = len(cycle.accounting.recovery_queue)
+
 
         reference_price = self._get_reference_price(cycle)
         if reference_price is None:

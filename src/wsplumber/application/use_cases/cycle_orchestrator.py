@@ -138,157 +138,165 @@ class CycleOrchestrator:
         if not sync_res.success:
             return
 
-        cycle = self._active_cycles.get(pair)
-        if not cycle:
+        # FIX: Monitoreamos TODOS los ciclos activos para este par (Principal + Recoveries)
+        cycles_res = await self.repository.get_active_cycles(pair)
+        if not cycles_res.success or not cycles_res.value:
             return
 
-        ops_res = await self.repository.get_operations_by_cycle(cycle.id)
-        if not ops_res.success:
-            return
+        for cycle in cycles_res.value:
+            # Sincronizar el cache interno si es el ciclo principal
+            if cycle.cycle_type == CycleType.MAIN:
+                self._active_cycles[pair] = cycle
 
-        for op in ops_res.value:
-            # ═══════════════════════════════════════════════════════════
-            # 1. MANEJO DE ACTIVACIÓN DE ÓRDENES
-            # ═══════════════════════════════════════════════════════════
-            if op.status == OperationStatus.ACTIVE:
-                # Log explícito de activación
-                if not op.metadata.get("activation_logged"):
-                    logger.info(
-                        "Operation activated",
-                        op_id=op.id,
-                        op_type=op.op_type.value,
-                        fill_price=str(op.actual_entry_price or op.entry_price)
-                    )
-                    op.metadata["activation_logged"] = True
+            ops_res = await self.repository.get_operations_by_cycle(cycle.id)
+            if not ops_res.success:
+                continue
+
+
+            for op in ops_res.value:
+                # ═══════════════════════════════════════════════════════════
+                # 1. MANEJO DE ACTIVACIÓN DE ÓRDENES
+                # ═══════════════════════════════════════════════════════════
+                if op.status == OperationStatus.ACTIVE:
+                    # Log explícito de activación
+                    if not op.metadata.get("activation_logged"):
+                        logger.info(
+                            "Operation activated",
+                            op_id=op.id,
+                            op_type=op.op_type.value,
+                            fill_price=str(op.actual_entry_price or op.entry_price)
+                        )
+                        op.metadata["activation_logged"] = True
+                        await self.repository.save_operation(op)
+
+                    # Si es primera activación del ciclo
+                    if cycle.status == CycleStatus.PENDING:
+                        logger.info("First operation activated, transitioning cycle to ACTIVE", 
+                                cycle_id=cycle.id)
+                        cycle.status = CycleStatus.ACTIVE
+                        await self.repository.save_cycle(cycle)
+
+                    # Verificar si ambas principales se activaron (HEDGE)
+                    main_ops = [o for o in ops_res.value if o.is_main]
+                    active_main_ops = [o for o in main_ops if o.status == OperationStatus.ACTIVE]
+                    
+                    if len(active_main_ops) >= 2 and cycle.status == CycleStatus.ACTIVE:
+                        logger.info("Both main operations active, transitioning to HEDGED", 
+                                cycle_id=cycle.id)
+                        cycle.activate_hedge()
+                        
+                        # Crear operaciones de hedge y neutralizar mains
+                        for main_op in active_main_ops:
+
+                            hedge_type = (OperationType.HEDGE_SELL 
+                                        if main_op.op_type == OperationType.MAIN_BUY 
+                                        else OperationType.HEDGE_BUY)
+                            hedge_id = f"{cycle.id}_H_{main_op.op_type.value}"
+                            
+                            hedge_op = Operation(
+                                id=OperationId(hedge_id),
+                                cycle_id=cycle.id,
+                                pair=pair,
+                                op_type=hedge_type,
+                                status=OperationStatus.PENDING,
+                                entry_price=main_op.entry_price,
+                                lot_size=main_op.lot_size
+                            )
+                            cycle.add_operation(hedge_op)
+                            
+                            main_op.neutralize(OperationId(hedge_id))
+                            await self.repository.save_operation(main_op)
+                            
+                            request = OrderRequest(
+                                operation_id=hedge_op.id,
+                                pair=pair,
+                                order_type=hedge_type,
+                                entry_price=hedge_op.entry_price,
+                                tp_price=hedge_op.tp_price,
+                                lot_size=hedge_op.lot_size
+                            )
+                            await self.trading_service.open_operation(request, hedge_op)
+                        
+                        await self.repository.save_cycle(cycle)
+                
+                # ═══════════════════════════════════════════════════════════
+                # 2. MANEJO DE CIERRE DE ÓRDENES (TP HIT)
+                # FIX-001 + FIX-002 APLICADOS
+                # ═══════════════════════════════════════════════════════════
+                if op.status in (OperationStatus.TP_HIT, OperationStatus.CLOSED):
+                    # Evitar procesar el mismo TP múltiples veces
+                    if op.metadata.get("tp_processed"):
+                        continue
+
+                    op.metadata["tp_processed"] = True
                     await self.repository.save_operation(op)
 
-                # Si es primera activación del ciclo
-                if cycle.status == CycleStatus.PENDING:
-                    logger.info("First operation activated, transitioning cycle to ACTIVE", 
-                               cycle_id=cycle.id)
-                    cycle.status = CycleStatus.ACTIVE
-                    await self.repository.save_cycle(cycle)
+                    # Cerrar la posición en el broker (solo marca TP, no cierra)
+                    if op.broker_ticket and op.status == OperationStatus.TP_HIT:
+                        logger.info("Closing TP_HIT position in broker",
+                                op_id=str(op.id),
+                                ticket=str(op.broker_ticket))
+                        close_result = await self.trading_service.close_operation(op)
+                        if not close_result.success:
+                            logger.error("Failed to close TP_HIT position",
+                                        op_id=str(op.id),
+                                        error=str(close_result.error))
 
-                # Verificar si ambas principales se activaron (HEDGE)
-                main_ops = [o for o in ops_res.value if o.is_main]
-                active_main_ops = [o for o in main_ops if o.status == OperationStatus.ACTIVE]
-                
-                if len(active_main_ops) >= 2 and cycle.status == CycleStatus.ACTIVE:
-                    logger.info("Both main operations active, transitioning to HEDGED", 
-                               cycle_id=cycle.id)
-                    cycle.activate_hedge()
-                    
-                    # Crear operaciones de hedge y neutralizar mains
-                    for main_op in active_main_ops:
+                    if cycle.status == CycleStatus.PENDING:
+                        cycle.status = CycleStatus.ACTIVE
+                        await self.repository.save_cycle(cycle)
 
-                        hedge_type = (OperationType.HEDGE_SELL 
-                                     if main_op.op_type == OperationType.MAIN_BUY 
-                                     else OperationType.HEDGE_BUY)
-                        hedge_id = f"{cycle.id}_H_{main_op.op_type.value}"
-                        
-                        hedge_op = Operation(
-                            id=OperationId(hedge_id),
-                            cycle_id=cycle.id,
-                            pair=pair,
-                            op_type=hedge_type,
-                            status=OperationStatus.PENDING,
-                            entry_price=main_op.entry_price,
-                            lot_size=main_op.lot_size
-                        )
-                        cycle.add_operation(hedge_op)
-                        
-                        main_op.neutralize(OperationId(hedge_id))
-                        await self.repository.save_operation(main_op)
-                        
-                        request = OrderRequest(
-                            operation_id=hedge_op.id,
-                            pair=pair,
-                            order_type=hedge_type,
-                            entry_price=hedge_op.entry_price,
-                            tp_price=hedge_op.tp_price,
-                            lot_size=hedge_op.lot_size
-                        )
-                        await self.trading_service.open_operation(request, hedge_op)
-                    
-                    await self.repository.save_cycle(cycle)
-            
-            # ═══════════════════════════════════════════════════════════
-            # 2. MANEJO DE CIERRE DE ÓRDENES (TP HIT)
-            # FIX-001 + FIX-002 APLICADOS
-            # ═══════════════════════════════════════════════════════════
-            if op.status in (OperationStatus.TP_HIT, OperationStatus.CLOSED):
-                # Evitar procesar el mismo TP múltiples veces
-                if op.metadata.get("tp_processed"):
-                    continue
-
-                op.metadata["tp_processed"] = True
-                await self.repository.save_operation(op)
-
-                # Cerrar la posición en el broker (solo marca TP, no cierra)
-                if op.broker_ticket and op.status == OperationStatus.TP_HIT:
-                    logger.info("Closing TP_HIT position in broker",
-                               op_id=str(op.id),
-                               ticket=str(op.broker_ticket))
-                    close_result = await self.trading_service.close_operation(op)
-                    if not close_result.success:
-                        logger.error("Failed to close TP_HIT position",
-                                    op_id=str(op.id),
-                                    error=str(close_result.error))
-
-                if cycle.status == CycleStatus.PENDING:
-                    cycle.status = CycleStatus.ACTIVE
-                    await self.repository.save_cycle(cycle)
-
-                # Notificar a la estrategia
-                signal = self.strategy.process_tp_hit(
-                    operation_id=op.id,
-                    profit_pips=float(op.profit_pips or MAIN_TP_PIPS),
-                    timestamp=datetime.now()
-                )
-                
-                # ═══════════════════════════════════════════════════════
-                # MAIN TP: FIX-001 + FIX-002 APLICADOS
-                # ═══════════════════════════════════════════════════════
-                if op.is_main:
-                    logger.info(
-                        "Main TP detected, processing renewal + hedge cleanup",
-                        op_id=op.id,
-                        profit_pips=float(op.profit_pips or MAIN_TP_PIPS)
+                    # Notificar a la estrategia
+                    signal = self.strategy.process_tp_hit(
+                        operation_id=op.id,
+                        profit_pips=float(op.profit_pips or MAIN_TP_PIPS),
+                        timestamp=datetime.now()
                     )
                     
-                    # 1. Cancelar operación pendiente contraria
-                    for other_op in ops_res.value:
-                        if (other_op.is_main and 
-                            other_op.id != op.id and 
-                            other_op.status == OperationStatus.PENDING):
-                            logger.info("Cancelling counter-order", op_id=other_op.id)
-                            if other_op.broker_ticket:
-                                await self.trading_service.broker.cancel_order(other_op.broker_ticket)
-                            other_op.status = OperationStatus.CANCELLED
-                            other_op.metadata["cancel_reason"] = "counterpart_tp_hit"
-                            await self.repository.save_operation(other_op)
-                    
-                    # FIX-002: Cancelar hedges pendientes contrarios
-                    await self._cancel_pending_hedge_counterpart(cycle, op)
-                    
-                    # FIX-001: RENOVAR OPERACIONES MAIN (BUY + SELL)
-                    await self._renew_main_operations(cycle, tick)
-                    
-                    # Registrar TP en contabilidad
-                    cycle.record_main_tp(Pips(float(op.profit_pips or MAIN_TP_PIPS)))
-                    await self.repository.save_cycle(cycle)
+                    # ═══════════════════════════════════════════════════════
+                    # MAIN TP: FIX-001 + FIX-002 APLICADOS
+                    # ═══════════════════════════════════════════════════════
+                    if op.is_main:
+                        logger.info(
+                            "Main TP detected, processing renewal + hedge cleanup",
+                            op_id=op.id,
+                            profit_pips=float(op.profit_pips or MAIN_TP_PIPS)
+                        )
+                        
+                        # 1. Cancelar operación pendiente contraria
+                        for other_op in ops_res.value:
+                            if (other_op.is_main and 
+                                other_op.id != op.id and 
+                                other_op.status == OperationStatus.PENDING):
+                                logger.info("Cancelling counter-order", op_id=other_op.id)
+                                if other_op.broker_ticket:
+                                    await self.trading_service.broker.cancel_order(other_op.broker_ticket)
+                                other_op.status = OperationStatus.CANCELLED
+                                other_op.metadata["cancel_reason"] = "counterpart_tp_hit"
+                                await self.repository.save_operation(other_op)
+                        
+                        # FIX-002: Cancelar hedges pendientes contrarios
+                        await self._cancel_pending_hedge_counterpart(cycle, op)
+                        
+                        # FIX-001: RENOVAR OPERACIONES MAIN (BUY + SELL)
+                        await self._renew_main_operations(cycle, tick)
+                        
+                        # Registrar TP en contabilidad
+                        cycle.record_main_tp(Pips(float(op.profit_pips or MAIN_TP_PIPS)))
+                        await self.repository.save_cycle(cycle)
 
-                # RECOVERY TP: FIX-003 aplicado en _handle_recovery_tp
-                if op.is_recovery:
-                    recovery_cycle_res = await self.repository.get_cycle(op.cycle_id)
-                    if recovery_cycle_res.success and recovery_cycle_res.value:
-                        await self._handle_recovery_tp(recovery_cycle_res.value, tick)
+                    # RECOVERY TP: FIX-003 aplicado en _handle_recovery_tp
+                    if op.is_recovery:
+                        recovery_cycle_res = await self.repository.get_cycle(op.cycle_id)
+                        if recovery_cycle_res.success and recovery_cycle_res.value:
+                            await self._handle_recovery_tp(recovery_cycle_res.value, tick)
 
-                # Procesar señal adicional si la hay
-                if signal.signal_type != SignalType.NO_ACTION:
-                    if not signal.pair:
-                        signal.pair = pair
-                    await self._handle_signal(signal, tick)
+                    # Procesar señal adicional si la hay
+                    if signal.signal_type != SignalType.NO_ACTION:
+                        if not signal.pair:
+                            signal.pair = pair
+                        await self._handle_signal(signal, tick)
+
 
     # ═══════════════════════════════════════════════════════════════════════
     # FIX-001: RENOVACIÓN DE OPERACIONES MAIN (YA EXISTÍA, SIN CAMBIOS)
@@ -934,10 +942,15 @@ class CycleOrchestrator:
         # 6. Registrar en cola FIFO del ciclo padre
         parent_cycle.recovery_level = recovery_level
         
+        # Sincronizar operaciones con el padre para que la estrategia las vea
+        parent_cycle.add_recovery_operation(op_rec_buy)
+        parent_cycle.add_recovery_operation(op_rec_sell)
+        
         # FIX-003: Crear debt unit ID
         debt_unit_id = f"{recovery_id}_debt_unit"
         parent_cycle.add_recovery_to_queue(RecoveryId(debt_unit_id))
         await self.repository.save_cycle(parent_cycle)
+
 
         # 7. Ejecutar aperturas
         tasks = []

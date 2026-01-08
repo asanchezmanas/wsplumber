@@ -311,15 +311,21 @@ class Cycle:
 
         Args:
             operation: Operación a añadir
-
-        Raises:
-            ValueError: Si la operación no pertenece a este ciclo
         """
-        if operation.cycle_id != self.id:
+        # FIX: Permitir añadir operaciones de recovery que pertenecen a sub-ciclos
+        # para que el ciclo padre pueda trackear el progreso real.
+        if operation.cycle_id != self.id and not operation.is_recovery:
             raise ValueError(
                 f"Operation {operation.id} belongs to cycle {operation.cycle_id}, not {self.id}"
             )
         self.operations.append(operation)
+
+    def add_recovery_operation(self, operation: Operation) -> None:
+        """Añade una operación de recovery al ciclo (aunque tenga su propio cycle_id)."""
+        if not operation.is_recovery:
+            raise ValueError(f"Operation {operation.id} is not a recovery operation")
+        self.operations.append(operation)
+
 
     def get_operation(self, operation_id: OperationId) -> Optional[Operation]:
         """
