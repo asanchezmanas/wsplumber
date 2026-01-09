@@ -757,8 +757,8 @@ Esta matriz complementa los 4 escenarios detallados anteriores (E1-E4), proporci
 | **Prioridad** | 🔴 CRÍTICA |
 | **Descripción** | Al entrar en HEDGED, se crean operaciones HEDGE_BUY y HEDGE_SELL |
 | **Input** | • Ambas mains activadas (BUY @ 1.10020, SELL @ 1.09980)<br>• Estado cambia a HEDGED |
-| **Output** | • 2 operaciones hedge creadas:<br>  - HEDGE_BUY (covering MAIN_SELL)<br>  - HEDGE_SELL (covering MAIN_BUY)<br>• Ambas con status PENDING |
-| **Checks** | ✓ `len([op for op in cycle.operations if op.is_hedge]) == 2`<br>✓ `hedge_buy.op_type == HEDGE_BUY`<br>✓ `hedge_sell.op_type == HEDGE_SELL`<br>✓ `hedge_buy.linked_operation_id == main_sell.id` |
+| **Output** | • 2 operaciones hedge creadas:<br>  - HEDGE_BUY (continuación de MAIN_BUY, entry al TP del BUY)<br>  - HEDGE_SELL (continuación de MAIN_SELL, entry al TP del SELL)<br>• Ambas con status PENDING |
+| **Checks** | ✓ `len([op for op in cycle.operations if op.is_hedge]) == 2`<br>✓ `hedge_buy.entry_price == main_buy.tp_price`<br>✓ `hedge_sell.entry_price == main_sell.tp_price` |
 | **CSV** | Precio cruza ambas entries → HEDGED |
 
 ### h03_neutralize_mains

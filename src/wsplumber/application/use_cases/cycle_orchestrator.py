@@ -190,11 +190,22 @@ class CycleOrchestrator:
                         cycle.activate_hedge()
                         
                         # Crear operaciones de hedge y neutralizar mains
+                        # CONCEPTO: Hedges de CONTINUACIÓN (del mismo lado)
+                        # - HEDGE_BUY se crea al TP del MAIN_BUY → cuando BUY toca TP, HEDGE_BUY continúa
+                        # - HEDGE_SELL se crea al TP del MAIN_SELL → cuando SELL toca TP, HEDGE_SELL continúa
+                        # Esto "bloquea" la pérdida del main opuesto que queda abierto
                         for main_op in active_main_ops:
 
-                            hedge_type = (OperationType.HEDGE_SELL 
-                                        if main_op.op_type == OperationType.MAIN_BUY 
-                                        else OperationType.HEDGE_BUY)
+                            # Hedge del MISMO lado que el main (continuación)
+                            if main_op.op_type == OperationType.MAIN_BUY:
+                                # Para MAIN_BUY: crear HEDGE_BUY al TP del BUY
+                                hedge_type = OperationType.HEDGE_BUY
+                                hedge_entry = main_op.tp_price  # TP del MAIN_BUY
+                            else:
+                                # Para MAIN_SELL: crear HEDGE_SELL al TP del SELL
+                                hedge_type = OperationType.HEDGE_SELL
+                                hedge_entry = main_op.tp_price  # TP del MAIN_SELL
+                            
                             hedge_id = f"{cycle.id}_H_{main_op.op_type.value}"
                             
                             hedge_op = Operation(
@@ -203,7 +214,7 @@ class CycleOrchestrator:
                                 pair=pair,
                                 op_type=hedge_type,
                                 status=OperationStatus.PENDING,
-                                entry_price=main_op.entry_price,
+                                entry_price=hedge_entry,  # TP del main del mismo lado
                                 lot_size=main_op.lot_size
                             )
                             cycle.add_operation(hedge_op)

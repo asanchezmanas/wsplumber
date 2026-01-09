@@ -1,0 +1,241 @@
+# WSPlumber - Flow Verification Tree Schema
+
+# Esta es la estructura para verificar el flujo completo de ciclos
+# con condiciones anidadas (árbol de decisiones).
+
+---
+scenario: complete_cycle_flow
+description: "Verificación completa del flujo de un ciclo según documento madre"
+
+# Árbol de verificación con condiciones anidadas
+tree:
+  # Raíz: Ciclo creado
+  - name: "Ciclo creado"
+    type: condition
+    check:
+      type: cycle_exists
+      cycle_type: main
+    expect: true
+    on_true:
+      # Verificar mains creados
+      - name: "2 Mains creados"
+        type: check
+        check:
+          type: operation_count
+          filter: {is_main: true, cycle: current}
+        expect: 2
+      
+      # Rama: Al menos una main se activa
+      - name: "Main activada"
+        type: condition
+        check:
+          type: operation_status
+          filter: {is_main: true, status: active}
+          count: ">= 1"
+        on_true:
+          # Sub-rama: Solo una main activa -> Happy path
+          - name: "Solo una main activa"
+            type: condition
+            check:
+              type: operation_count
+              filter: {is_main: true, status: active}
+            expect: 1
+            on_true:
+              - name: "Main toca TP (Happy Path)"
+                type: condition
+                check:
+                  type: operation_status
+                  filter: {is_main: true, status: tp_hit}
+                  count: ">= 1"
+                on_true:
+                  - name: "Main contraria cancelada"
+                    type: check
+                    check:
+                      type: operation_status
+                      filter: {is_main: true, status: cancelled}
+                    expect:
+                      count: ">= 1"
+                      metadata:
+                        cancel_reason: counterpart_tp_hit
+                  
+                  - name: "Nuevo ciclo creado"
+                    type: check
+                    check:
+                      type: cycle_count
+                      filter: {cycle_type: main}
+                    expect: ">= 2"
+          
+          # Sub-rama: Ambas mains activas -> HEDGED
+          - name: "Ambas mains activas"
+            type: condition
+            check:
+              type: operation_count
+              filter: {is_main: true, status: [active, neutralized]}
+            expect: 2
+            on_true:
+              - name: "Estado HEDGED"
+                type: check
+                check:
+                  type: cycle_status
+                expect: hedged
+              
+              - name: "Hedges creados"
+                type: check
+                check:
+                  type: operation_count
+                  filter: {is_hedge: true}
+                expect: 2
+              
+              - name: "HEDGE_BUY al TP del MAIN_BUY"
+                type: check
+                check:
+                  type: operation_entry_price
+                  filter: {op_type: hedge_buy}
+                expect:
+                  reference: "main_buy.tp_price"
+              
+              - name: "HEDGE_SELL al TP del MAIN_SELL"
+                type: check
+                check:
+                  type: operation_entry_price
+                  filter: {op_type: hedge_sell}
+                expect:
+                  reference: "main_sell.tp_price"
+              
+              - name: "Mains neutralizadas"
+                type: check
+                check:
+                  type: operation_status
+                  filter: {is_main: true}
+                expect:
+                  status: neutralized
+                  count: 2
+              
+              # Rama: Main toca TP estando HEDGED
+              - name: "Main toca TP (desde HEDGED)"
+                type: condition
+                check:
+                  type: operation_status
+                  filter: {is_main: true, status: tp_hit}
+                  count: ">= 1"
+                on_true:
+                  - name: "Hedge opuesto cancelado"
+                    type: check
+                    check:
+                      type: operation_status
+                      filter: {is_hedge: true, status: cancelled}
+                    expect:
+                      count: ">= 1"
+                  
+                  - name: "pips_locked = 20"
+                    type: check
+                    check:
+                      type: cycle_pips_locked
+                    expect: 20
+                  
+                  - name: "Recovery creado"
+                    type: check
+                    check:
+                      type: cycle_count
+                      filter: {cycle_type: recovery}
+                    expect: ">= 1"
+                  
+                  - name: "Recovery a ±20 pips del TP"
+                    type: check
+                    check:
+                      type: operation_entry_distance
+                      filter: {is_recovery: true}
+                      reference: "main_tp_price"
+                    expect: 20  # pips
+                  
+                  - name: "Nuevo ciclo Main creado"
+                    type: check
+                    check:
+                      type: cycle_count
+                      filter: {cycle_type: main}
+                    expect: ">= 2"
+                  
+                  # Rama: Recovery
+                  - name: "Recovery activado"
+                    type: condition
+                    check:
+                      type: operation_status
+                      filter: {is_recovery: true, status: active}
+                      count: ">= 1"
+                    on_true:
+                      # Sub-rama: Recovery toca TP (éxito)
+                      - name: "Recovery toca TP"
+                        type: condition
+                        check:
+                          type: operation_status
+                          filter: {is_recovery: true, status: tp_hit}
+                          count: ">= 1"
+                        on_true:
+                          - name: "Main+Hedge cerrados (FIFO)"
+                            type: check
+                            check:
+                              type: operation_status
+                              filter: 
+                                or:
+                                  - {is_main: true, status: closed}
+                                  - {is_hedge: true, status: closed}
+                            expect:
+                              count: ">= 2"
+                          
+                          - name: "pips_locked reducido"
+                            type: check
+                            check:
+                              type: cycle_pips_locked
+                            expect: 0
+                          
+                          - name: "Ciclo cerrado si deuda compensada"
+                            type: condition
+                            check:
+                              type: cycle_pips_locked
+                            expect: 0
+                            on_true:
+                              - name: "Ciclo CLOSED"
+                                type: check
+                                check:
+                                  type: cycle_status
+                                expect: closed
+                        
+                        # Sub-rama: Recovery falla (opuesto se activa)
+                        on_false:
+                          - name: "Recovery contrario activado"
+                            type: condition
+                            check:
+                              type: operation_status
+                              filter: {is_recovery: true, status: active}
+                              # Verificar que es el opuesto
+                            on_true:
+                              - name: "Actualizar pips_locked (+40)"
+                                type: check
+                                check:
+                                  type: cycle_pips_locked
+                                expect: ">= 60"  # 20 original + 40
+                              
+                              - name: "Nuevo recovery creado"
+                                type: check
+                                check:
+                                  type: operation_count
+                                  filter: {is_recovery: true, status: pending}
+                                expect: ">= 2"
+                              
+                              - name: "Nuevo recovery a +20 pips"
+                                type: check
+                                check:
+                                  type: operation_entry_distance
+                                  filter: {is_recovery: true, status: pending}
+                                  reference: "last_recovery_entry"
+                                expect: 20
+
+# Leyenda de tipos de check:
+# - cycle_exists: Verifica que existe un ciclo
+# - cycle_status: Estado del ciclo (pending, active, hedged, in_recovery, closed)
+# - cycle_count: Cuenta de ciclos
+# - cycle_pips_locked: Pips bloqueados en el ciclo
+# - operation_count: Cuenta de operaciones
+# - operation_status: Estado de operaciones
+# - operation_entry_price: Precio de entrada de operación
+# - operation_entry_distance: Distancia en pips desde referencia

@@ -54,6 +54,7 @@ class SimulatedOrder:
     entry_price: Price
     tp_price: Price
     lot_size: LotSize
+    reference_price: Optional[Price] = None  # Price when order was created (to determine stop direction)
     status: OperationStatus = OperationStatus.PENDING
 
 
@@ -177,6 +178,12 @@ class SimulatedBroker(IBroker):
         ticket = BrokerTicket(str(self.ticket_counter))
         self.ticket_counter += 1
         
+        # Obtener precio de referencia actual para determinar dirección del stop
+        current_ref_price = None
+        if self.ticks and self.current_tick_index >= 0:
+            current_tick = self.ticks[self.current_tick_index]
+            current_ref_price = current_tick.mid  # Precio medio actual
+        
         order = SimulatedOrder(
             ticket=ticket,
             operation_id=request.operation_id,
@@ -184,7 +191,8 @@ class SimulatedBroker(IBroker):
             order_type=request.order_type,
             entry_price=request.entry_price,
             tp_price=request.tp_price,
-            lot_size=request.lot_size
+            lot_size=request.lot_size,
+            reference_price=current_ref_price  # Para saber si entry está arriba o abajo
         )
         self.pending_orders[ticket] = order
         
@@ -364,14 +372,48 @@ class SimulatedBroker(IBroker):
         El orquestador debe detectarlos y llamar a close_position().
         """
         # 1. Procesar Órdenes Pendientes (activación)
+        # NOTA: En WSPlumber todas las órdenes son STOP orders:
+        # - BUY_STOP: El entry está POR ENCIMA del precio actual → activa cuando ask >= entry
+        # - SELL_STOP: El entry está POR DEBAJO del precio actual → activa cuando bid <= entry
+        # 
+        # IMPORTANTE para hedges:
+        # - HEDGE_SELL entry está al TP del MAIN_BUY (arriba) → activa cuando bid >= entry
+        # - HEDGE_BUY entry está al TP del MAIN_SELL (abajo) → activa cuando ask <= entry
+        #
+        # La lógica correcta es verificar si el precio CRUZÓ el nivel de entry:
+        # - Para BUY: ask cruza entry desde abajo (ask >= entry Y entry estaba arriba)
+        # - Para SELL: bid cruza entry desde arriba (bid <= entry Y entry estaba abajo)
+        
         tickets_to_activate = []
         for ticket, order in self.pending_orders.items():
-            # Buy: precio Ask toca o supera Entry
-            if order.order_type.is_buy and tick.ask >= order.entry_price:
-                tickets_to_activate.append(ticket)
-            # Sell: precio Bid toca o cae por debajo de Entry
-            elif order.order_type.is_sell and tick.bid <= order.entry_price:
-                tickets_to_activate.append(ticket)
+            ref_price = order.reference_price
+            
+            # Determinar si es un STOP arriba o abajo del precio de referencia
+            if ref_price:
+                entry_above = order.entry_price > ref_price
+                entry_below = order.entry_price < ref_price
+            else:
+                # Sin referencia, asumir comportamiento por tipo
+                entry_above = order.order_type.is_buy  # BUY_STOP normalmente arriba
+                entry_below = order.order_type.is_sell  # SELL_STOP normalmente abajo
+            
+            if entry_above:
+                # Entry está ARRIBA → activa cuando precio SUBE hasta entry
+                # Usa ask para BUY, bid para SELL
+                if order.order_type.is_buy:
+                    if tick.ask >= order.entry_price:
+                        tickets_to_activate.append(ticket)
+                else:  # SELL con entry arriba (como HEDGE_SELL)
+                    if tick.bid >= order.entry_price:
+                        tickets_to_activate.append(ticket)
+            else:
+                # Entry está ABAJO → activa cuando precio BAJA hasta entry
+                if order.order_type.is_sell:
+                    if tick.bid <= order.entry_price:
+                        tickets_to_activate.append(ticket)
+                else:  # BUY con entry abajo (como HEDGE_BUY)
+                    if tick.ask <= order.entry_price:
+                        tickets_to_activate.append(ticket)
         
         for t in tickets_to_activate:
             order = self.pending_orders.pop(t)
