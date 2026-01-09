@@ -133,36 +133,12 @@ Recientemente se han identificado y corregido los siguientes gaps en la implemen
 8. **Identificadores Únicos y Colisiones**: Los IDs de ciclos ahora cuentan con un sufijo aleatorio para evitar colisiones cuando ocurren renovaciones múltiples dentro del mismo segundo (escenarios de alta volatilidad o backtesting acelerado).
 
 
-### Contador de Equity (Lógica de Control)
-
-Debe existir un **contador global** que trackee:
-- Equity del ciclo main
-- Ciclos activos
-- Operaciones por neutralizar
-- Comisiones acumuladas
-
-**Regla:** El sistema abre nuevos ciclos principales **SOLO** cuando el contador sea **≥ 20 pips**.
-- Si contador < 20 pips: pausar nuevos ciclos
-- Si contador ≥ 20 pips: operar normalmente
-
-**¿Por qué 20 pips?**
-
-El umbral de 20 pips permite compensar situaciones complejas:
-
-```
-Escenario de máxima compensación:
-├── 2 Mains abiertas flotando: -10 pips c/u = -20 pips
-│   (10 pips = avance mercado hasta TP + distancia entre tp y entrada de la operacion opuesta)
-├── 1 Recovery activo: -40 pips
-├── TOTAL flotante: -60 pips
-└── Si Recovery toca TP (+80 pips): sobra +20 pips ✓
-```
-
 **Activación de Recoverys:**
 
 - **Primer Recovery (del Main):** Se activa en el TP de uno de los mains
   - Se abre otra operación para compensar
   - Queda a 20 pips de separación
+  - Es decir, cuando un main toca TP, se abre su hedge correspondiente, y ademas se coloca un ciclo recovery a veinte pips del precio. 
   
 - **Recovery posteriores (Cascada):**
   1. Recovery BUY activado
@@ -172,6 +148,7 @@ Escenario de máxima compensación:
      - BUY STOP a +20 pips
      - SELL STOP a -20 pips
   5. El proceso se repite hasta que uno toque TP (+80 pips)
+  6. Si el recovery toca TP, esos 80 pips se descuentan de la deuda del ciclo. Si despues de sumar esos 80 pips todavia queden pips pendientes, se abre un nuevo ciclo recovery. si quedan un resultado positivo de la suma de los pips, se cierran las operaciones principales y se cierran los recoverys antiguos.
 
 **Filosofía de Adaptación:**
 
@@ -202,7 +179,7 @@ TOTAL: -160 pips flotantes
 2. Recovery 6 toca TP (+80 pips) → Cierra Recovery 3 y 4 (-80 pips)
    Quedan: 0 pips pendientes
 
-3. Cierre final: Main + Cobertura
+3. Cierre final: Una vez que ya no quedan main y recoverys por compensar porque esos 80 pips se usaron para cerrarlos, se cierra el ciclo y no se abren mas recoverys.
    Resultado: +20 pips de beneficio ✓
 ```
 
