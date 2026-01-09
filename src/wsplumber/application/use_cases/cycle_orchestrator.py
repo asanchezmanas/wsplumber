@@ -41,7 +41,7 @@ from wsplumber.domain.entities.cycle import Cycle, CycleStatus
 from wsplumber.domain.entities.operation import Operation
 from wsplumber.application.services.trading_service import TradingService
 from wsplumber.core.strategy._params import (
-    MAIN_TP_PIPS, RECOVERY_TP_PIPS, RECOVERY_DISTANCE_PIPS, RECOVERY_LEVEL_STEP
+    MAIN_TP_PIPS, MAIN_DISTANCE_PIPS, RECOVERY_TP_PIPS, RECOVERY_DISTANCE_PIPS, RECOVERY_LEVEL_STEP
 )
 from wsplumber.infrastructure.logging.safe_logger import get_logger
 
@@ -348,9 +348,10 @@ class CycleOrchestrator:
         
 
         
-        # Calcular distancia TP usando parámetros centralizados
+        # Calcular distancias usando parámetros centralizados
         multiplier = Decimal("0.01") if "JPY" in str(pair) else Decimal("0.0001")
-        tp_distance = Decimal(str(MAIN_TP_PIPS)) * multiplier
+        entry_distance = Decimal(str(MAIN_DISTANCE_PIPS)) * multiplier  # 5 pips
+        tp_distance = Decimal(str(MAIN_TP_PIPS)) * multiplier  # 10 pips
         
         # Generar IDs únicos con timestamp
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")[:17]
@@ -359,35 +360,40 @@ class CycleOrchestrator:
         existing_ops = [op for op in cycle.operations if op.lot_size]
         lot = existing_ops[0].lot_size if existing_ops else LotSize(0.01)
         
-        # Operación BUY
+        # Calcular precios de entrada a 5 pips de distancia (BUY_STOP / SELL_STOP)
+        buy_entry_price = Price(tick.ask + entry_distance)
+        sell_entry_price = Price(tick.bid - entry_distance)
+        
+        # Operación BUY_STOP: entry a ask+5pips, TP a entry+10pips
         op_buy = Operation(
             id=OperationId(f"{cycle.id}_B_{timestamp}"),
             cycle_id=cycle.id,
             pair=pair,
             op_type=OperationType.MAIN_BUY,
             status=OperationStatus.PENDING,
-            entry_price=tick.ask,
-            tp_price=Price(tick.ask + tp_distance),
+            entry_price=buy_entry_price,
+            tp_price=Price(buy_entry_price + tp_distance),
             lot_size=lot
         )
         
-        # Operación SELL
+        # Operación SELL_STOP: entry a bid-5pips, TP a entry-10pips
         op_sell = Operation(
             id=OperationId(f"{cycle.id}_S_{timestamp}"),
             cycle_id=cycle.id,
             pair=pair,
             op_type=OperationType.MAIN_SELL,
             status=OperationStatus.PENDING,
-            entry_price=tick.bid,
-            tp_price=Price(tick.bid - tp_distance),
+            entry_price=sell_entry_price,
+            tp_price=Price(sell_entry_price - tp_distance),
             lot_size=lot
         )
         
         logger.info(
             "*** RENOVANDO OPERACIONES MAIN (BUY + SELL) ***",
             cycle_id=cycle.id,
-            buy_entry=str(tick.ask),
-            sell_entry=str(tick.bid),
+            buy_entry=str(buy_entry_price),
+            sell_entry=str(sell_entry_price),
+            entry_distance_pips=MAIN_DISTANCE_PIPS,
             tp_pips=MAIN_TP_PIPS
         )
         
@@ -841,29 +847,34 @@ class CycleOrchestrator:
         cycle = Cycle(id=cycle_id, pair=pair, status=CycleStatus.PENDING)
         self._active_cycles[pair] = cycle
         
-        # 5. Crear Operaciones Duales (Buy y Sell)
+        # 5. Crear Operaciones Duales (Buy y Sell) como órdenes pendientes
         multiplier = Decimal("0.01") if "JPY" in str(pair) else Decimal("0.0001")
-        tp_distance = Decimal(str(MAIN_TP_PIPS)) * multiplier
+        entry_distance = Decimal(str(MAIN_DISTANCE_PIPS)) * multiplier  # 5 pips
+        tp_distance = Decimal(str(MAIN_TP_PIPS)) * multiplier  # 10 pips
         
+        # BUY_STOP: entry a ask+5pips, TP a entry+10pips
+        buy_entry_price = Price(tick.ask + entry_distance)
         op_buy = Operation(
             id=OperationId(f"{cycle_id}_B"),
             cycle_id=cycle.id,
             pair=pair,
             op_type=OperationType.MAIN_BUY,
             status=OperationStatus.PENDING,
-            entry_price=tick.ask,
-            tp_price=Price(tick.ask + tp_distance),
+            entry_price=buy_entry_price,
+            tp_price=Price(buy_entry_price + tp_distance),
             lot_size=lot
         )
         
+        # SELL_STOP: entry a bid-5pips, TP a entry-10pips
+        sell_entry_price = Price(tick.bid - entry_distance)
         op_sell = Operation(
             id=OperationId(f"{cycle_id}_S"),
             cycle_id=cycle.id,
             pair=pair,
             op_type=OperationType.MAIN_SELL,
             status=OperationStatus.PENDING,
-            entry_price=tick.bid,
-            tp_price=Price(tick.bid - tp_distance),
+            entry_price=sell_entry_price,
+            tp_price=Price(sell_entry_price - tp_distance),
             lot_size=lot
         )
 

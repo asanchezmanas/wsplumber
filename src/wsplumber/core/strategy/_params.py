@@ -9,7 +9,8 @@ de la estrategia. Estos valores son críticos para el balance matemático.
 from typing import Dict, Any
 
 # Configuración del Ciclo Principal (Income Motor)
-MAIN_TP_PIPS = 10.0      # Objetivo de beneficio constante
+MAIN_TP_PIPS = 10.0       # Objetivo de beneficio constante (TP)
+MAIN_DISTANCE_PIPS = 5.0  # Distancia de entrada desde precio actual (BUY_STOP/SELL_STOP)
 MAIN_HEDGE_DISTANCE = 0.0 # La cobertura suele ser inmediata o por señal opuesta
 
 # Configuración del Sistema Recovery (Debt Management)

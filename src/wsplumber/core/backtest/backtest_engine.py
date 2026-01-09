@@ -161,8 +161,9 @@ class BacktestEngine:
         # Cálculo de pips totales (solo cerrados)
         total_pips_won = sum(op.profit_pips or 0.0 for op in ops if op.status.name in ["TP_HIT", "CLOSED"])
         
-        # Cálculo de flotante
-        floating_pips = sum(op.current_pips or 0.0 for op in active_ops)
+        # Cálculo de flotante desde broker (más preciso que metadata)
+        floating_eur = acc_info['equity'] - acc_info['balance']
+        floating_pips = floating_eur * 10  # Aproximación: 0.1 EUR por pip a 0.01 lot
         
         print("\n" + "="*60)
         print("📊 REPORTE DETALLADO DE BACKTEST")
@@ -176,7 +177,8 @@ class BacktestEngine:
         print(f"📉 Equity Final:        {acc_info['equity']:.2f} EUR")
         print(f"📊 Profit/Loss Realizado:{acc_info['balance'] - 10000.0:.2f} EUR")
         print(f"🏆 Pips Cerrados:       {total_pips_won:+.2f} pips")
-        print(f"🌊 Flotante (Pips):     {floating_pips:+.2f} pips")
+        print(f"🌊 Flotante (EUR):      {floating_eur:+.2f} EUR")
+        print(f"🌊 Flotante (Pips):     {floating_pips:+.1f} pips (aprox)")
         print("-" * 60)
         print(f"🔄 Ciclos Totales:      {len(cycles)}")
         print(f"   └─ ✅ Cerrados:      {len(closed_cycles)}")

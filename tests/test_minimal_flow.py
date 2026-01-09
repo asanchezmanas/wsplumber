@@ -109,8 +109,11 @@ async def test_minimal_buy_tp():
         # ============================================
         # TICK 2: Precio sube a TP
         # ============================================
-        # bid=1.1015 debería disparar TP del BUY (TP=1.1012)
-        tick2 = create_tick("EURUSD", 1.1015, 1.1017, "2024-01-01T10:00:01")
+        # Con distancia de 5 pips:
+        #   BUY entry = 1.1002 + 0.0005 = 1.10070
+        #   BUY TP = 1.10070 + 0.0010 = 1.10170
+        # Necesitamos bid >= 1.10170 para TP
+        tick2 = create_tick("EURUSD", 1.1020, 1.1022, "2024-01-01T10:00:01")
         broker.ticks.append(tick2)
         
         await broker.advance_tick() # Activa órdenes y detecta TP_HIT

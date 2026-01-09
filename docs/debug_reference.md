@@ -9,10 +9,10 @@
 
 | Parámetro | Valor | Uso |
 |-----------|-------|-----|
+| `MAIN_DISTANCE_PIPS` | **5** | Distancia de entrada de mains (BUY_STOP/SELL_STOP) |
 | `MAIN_TP_PIPS` | **10** | Take Profit de operaciones principales |
-| `MAIN_DISTANCE_PIPS` | **5** | Distancia de entrada desde precio actual |
-| `RECOVERY_TP_PIPS` | **80** | Take Profit de operaciones recovery |
 | `RECOVERY_DISTANCE_PIPS` | **20** | Distancia de entrada del recovery |
+| `RECOVERY_TP_PIPS` | **80** | Take Profit de operaciones recovery |
 | `RECOVERY_LEVEL_STEP` | **40** | Separación entre niveles de recovery |
 | `HEDGE_LOCK_PIPS` | **20** | Deuda bloqueada al activar cobertura (10 sep + 10 TP) |
 
@@ -297,6 +297,114 @@ FROM error_log
 WHERE resolved = FALSE
 ORDER BY created_at DESC
 LIMIT 10;
+```
+
+---
+
+---
+
+## 🧪 Catálogo de Escenarios de Test
+
+Los escenarios están organizados por categoría en `tests/scenarios/`:
+
+### Core (C01-C05) - Operaciones Individuales
+| Archivo | Propósito | Qué Valida |
+|---------|-----------|------------|
+| `c01_tp_simple_buy.csv` | BUY alcanza TP | Entry → TP → CLOSED |
+| `c01_tp_simple_sell.csv` | SELL alcanza TP | Entry → TP → CLOSED |
+| `c03_activation_no_tp.csv` | Activación sin TP | PENDING → ACTIVE |
+| `c04_no_activation.csv` | Precio no alcanza entry | Queda PENDING |
+| `c05_gap_tp.csv` | Gap salta el TP | Cierre a mejor precio |
+
+### Cycles (CY01-CY06) - Gestión de Ciclos
+| Archivo | Propósito | Qué Valida |
+|---------|-----------|------------|
+| `cy01_new_cycle.csv` | Crear ciclo | 2 ops creadas |
+| `cy02_tp_in_cycle.csv` | TP dentro de ciclo | Una op cierra |
+| `cy03_tp_renews_operations.csv` | Renovación tras TP | Nuevo ciclo se abre |
+| `cy04_cancel_counter_main.csv` | Cancelar op contraria | SELL cancelada al TP del BUY |
+| `cy05_complete_10_tps.csv` | 10 TPs consecutivos | Balance acumulado |
+
+### Hedge (H01-H08) - Cobertura
+| Archivo | Propósito | Qué Valida |
+|---------|-----------|------------|
+| `h01_both_active_hedged.csv` | Ambas activadas | Estado → HEDGED |
+| `h02_create_hedge_operations.csv` | Crear hedges | HEDGE_BUY/SELL creados |
+| `h03_neutralize_mains.csv` | Neutralización | pips_locked = 20 |
+| `h05_sequential_activation.csv` | Activación secuencial | BUY activa, luego SELL |
+| `h07_buy_tp_hedge_sell.csv` | TP BUY activa hedge | Recovery se abre |
+
+### Recovery (R01-R10) - Recuperación
+| Archivo | Propósito | Qué Valida |
+|---------|-----------|------------|
+| `r01_open_from_tp.csv` | Recovery tras TP | Recovery creado |
+| `r02_recovery_distance_20.csv` | Distancia 20 pips | Entry correcto |
+| `r03_recovery_n1_tp_buy.csv` | Recovery N1 TP | +80 pips |
+| `r05_recovery_n1_fails_n2.csv` | Cascada N1→N2 | Level incrementa |
+| `r07_cascade_n1_n2_n3.csv` | Triple cascada | 3 niveles |
+
+### FIFO (F01-F04) - Contabilidad
+| Archivo | Propósito | Qué Valida |
+|---------|-----------|------------|
+| `f01_fifo_first_costs_20.csv` | Primer costo 20 | Cálculo correcto |
+| `f02_fifo_subsequent_40.csv` | Siguientes 40 | Acumulación |
+| `f03_fifo_atomic_close.csv` | Cierre atómico | Transacción completa |
+
+### Risk Management (RM01-RM05)
+| Archivo | Propósito | Qué Valida |
+|---------|-----------|------------|
+| `rm01_exposure_limit.csv` | Límite exposición | Pausa nuevos ciclos |
+| `rm02_drawdown_limit.csv` | Límite drawdown | Alerta activada |
+| `rm03_daily_loss_limit.csv` | Pérdida diaria | Pausa automática |
+
+### JPY Pairs (J01-J04)
+| Archivo | Propósito | Qué Valida |
+|---------|-----------|------------|
+| `j01_usdjpy_tp.csv` | TP en par JPY | Cálculo pips (÷100) |
+| `j04_usdjpy_pips_calculation.csv` | Fórmula JPY | pip_value = 0.01 |
+
+---
+
+## 🔬 Ejecutar Tests
+
+```powershell
+# Test mínimo
+python tests/test_minimal_flow.py
+
+# Todos los escenarios
+python -m pytest tests/test_all_scenarios.py -v
+
+# Escenario específico
+python -m pytest tests/test_all_scenarios.py -k "c01_tp_simple_buy" -v
+
+# Con logs detallados
+python -m pytest tests/test_minimal_flow.py -v --tb=long -s
+```
+
+---
+
+## 🔎 Interpretar Resultados de Test
+
+### Output Exitoso
+```
+=== DESPUÉS DE TICK 1 ===
+Cycles: 1              ✓ Ciclo creado
+Operations: 2          ✓ BUY + SELL
+Pending orders: 2      ✓ En broker
+
+=== DESPUÉS DE TICK 2 ===
+Balance: 1001.3        ✓ +10 pips (0.01 lot × $10 = $1)
+History: 1             ✓ 1 op cerrada
+BUY: status=TP_HIT     ✓ Target alcanzado
+SELL: status=CANCELLED ✓ Contraria cancelada
+```
+
+### Señales de Problema
+```
+Cycles: 0              ✗ No se creó ciclo → revisar strategy
+Operations: 0          ✗ No hay ops → revisar broker.place_order
+Balance: 1000          ✗ Sin cambio → TP no procesado
+History: 0             ✗ Nada cerrado → close_position no llamado
 ```
 
 ---
