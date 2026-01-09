@@ -3,9 +3,13 @@
 Orquestador de Ciclos - VERSIÓN CORREGIDA CON TODOS LOS FIXES.
 
 Fixes aplicados:
-- FIX-001: Renovación dual de mains después de TP ✅
+- FIX-001: Renovación dual de mains después de TP ✅ [DEPRECATED - Ver FIX-CRITICAL]
 - FIX-002: Cancelación de hedges pendientes contrarios ✅
 - FIX-003: Cierre atómico FIFO de Main+Hedge ✅
+- FIX-CRITICAL: Main TP abre NUEVO CICLO (C2) en vez de renovar dentro de C1 ✅
+  * C1 queda en IN_RECOVERY esperando que Recovery compense deuda
+  * C2 (nuevo ciclo) permite seguir generando flujo de mains
+  * Cada ciclo tiene exactamente 2 mains (no más)
 """
 
 from __future__ import annotations
@@ -277,13 +281,26 @@ class CycleOrchestrator:
                         
                         # FIX-002: Cancelar hedges pendientes contrarios
                         await self._cancel_pending_hedge_counterpart(cycle, op)
-                        
-                        # FIX-001: RENOVAR OPERACIONES MAIN (BUY + SELL)
-                        await self._renew_main_operations(cycle, tick)
-                        
+
                         # Registrar TP en contabilidad
                         cycle.record_main_tp(Pips(float(op.profit_pips or MAIN_TP_PIPS)))
                         await self.repository.save_cycle(cycle)
+
+                        # FIX-CRITICAL: Abrir NUEVO CICLO (C2) en lugar de renovar dentro de C1
+                        # El ciclo actual (C1) queda en estado IN_RECOVERY esperando que Recovery compense la deuda
+                        # El nuevo ciclo (C2) permite seguir generando flujo de mains mientras se resuelve C1
+                        signal_open_cycle = StrategySignal(
+                            signal_type=SignalType.OPEN_CYCLE,
+                            pair=cycle.pair,
+                            metadata={"reason": "renewal_after_main_tp", "parent_cycle": cycle.id}
+                        )
+                        await self._open_new_cycle(signal_open_cycle, tick)
+
+                        logger.info(
+                            "✅ New cycle opened after main TP (C1 stays IN_RECOVERY)",
+                            old_cycle=cycle.id,
+                            old_cycle_status=cycle.status.value
+                        )
 
                     # RECOVERY TP: FIX-003 aplicado en _handle_recovery_tp
                     if op.is_recovery:
@@ -299,10 +316,11 @@ class CycleOrchestrator:
 
 
     # ═══════════════════════════════════════════════════════════════════════
-    # FIX-001: RENOVACIÓN DE OPERACIONES MAIN (YA EXISTÍA, SIN CAMBIOS)
+    # DEPRECATED: Método obsoleto - Ya NO se usa
+    # FIX-CRITICAL aplicado: Ahora se usa _open_new_cycle en lugar de renovar dentro del mismo ciclo
     # ═══════════════════════════════════════════════════════════════════════
-    
-    async def _renew_main_operations(self, cycle: Cycle, tick: TickData) -> None:
+
+    async def _renew_main_operations_DEPRECATED(self, cycle: Cycle, tick: TickData) -> None:
         """
         Crea nuevas operaciones main (BUY + SELL) después de un TP.
         
@@ -829,11 +847,25 @@ class CycleOrchestrator:
             return
 
         # 2. Validar que no haya ya un ciclo activo para este par
+        # NOTA: Si el ciclo está IN_RECOVERY, significa que ya cerró su main con TP
+        # y debe permitir abrir nuevos ciclos mientras los recoveries se resuelven
+        # NOTA 2: Si es una renovación (renewal_after_main_tp), permitir aunque esté HEDGED
+        # porque el main acaba de tocar TP (el cambio a IN_RECOVERY ocurre después)
         if pair in self._active_cycles:
             active_cycle = self._active_cycles[pair]
-            if active_cycle.status.name not in ["CLOSED", "PAUSED"]:
-                logger.debug("Signal ignored: Cycle already active", 
-                            pair=pair, existing_cycle_id=active_cycle.id)
+            is_renewal = signal.metadata and signal.metadata.get("reason") == "renewal_after_main_tp"
+
+            # Permitir si está IN_RECOVERY o CLOSED/PAUSED
+            allowed_states = ["CLOSED", "PAUSED", "IN_RECOVERY"]
+            # Si es renovación, también permitir HEDGED (main acaba de tocar TP)
+            if is_renewal:
+                allowed_states.append("HEDGED")
+
+            if active_cycle.status.name not in allowed_states:
+                logger.debug("Signal ignored: Cycle already active",
+                            pair=pair, existing_cycle_id=active_cycle.id,
+                            cycle_status=active_cycle.status.name,
+                            is_renewal=is_renewal)
                 return
 
         # 3. Calcular lote

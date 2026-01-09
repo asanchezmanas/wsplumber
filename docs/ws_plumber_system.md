@@ -54,11 +54,15 @@ Esta estrategia representa un cambio paradigmático en el trading, basándose en
 
 ## Flujo Operativo Detallado
 
-### Escenario 1: Resolución Simple
-1. Se abren dos operaciones principales (buy stop y sell stop)
+### Escenario 1: Resolución Simple (FIX-CRITICAL 2026-01-09)
+1. Se abren dos operaciones principales (buy stop y sell stop) en Ciclo C1
 2. Una se activa y llega a TP (+10 pips)
 3. Se cierra la otra pendiente
-4. Se reinicia otro ciclo principal
+4. **Se crea un NUEVO CICLO independiente (C2)** con sus propias 2 mains
+5. C1 mantiene exactamente 2 mains (no se acumulan renovaciones dentro de C1)
+6. C2 opera independientemente mientras C1 espera recovery (si aplica)
+
+**Nota:** El comportamiento correcto es crear ciclos independientes (C1, C2, C3...), NO acumular operaciones en el mismo ciclo.
 
 ### Escenario 2: Ambas Operaciones se Activan
 1. Cuando ambas principales se activan, aparecen las operaciones de cobertura

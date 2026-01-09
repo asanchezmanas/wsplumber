@@ -222,99 +222,139 @@ WHERE id = 'OP_001';
 
 ---
 
-### PASO 7: Actualizar Contabilidad y Renovar Operaciones Main (FIX-001) ✅
-**Trigger:** TP alcanzado, ciclo continúa
+### PASO 7: Actualizar Contabilidad y Crear Nuevo Ciclo C2 (FIX-CRITICAL 2026-01-09) ✅
+**Trigger:** TP alcanzado → Crear NUEVO ciclo independiente
 
-**⚠️ CAMBIO CRÍTICO:** Se crean **DOS nuevas operaciones** (BUY + SELL), no solo una.
+**⚠️ CAMBIO CRÍTICO:** Se crea un **NUEVO CICLO (C2)** con sus propias 2 mains, NO se renuevan operaciones dentro de C1.
 
 ```
 [10:00:30.060] [INFO] [AccountingService] Balance actualizado: 10000 → 10002
 [10:00:30.061] [DEBUG] [CycleOrchestrator] Ciclo CYC_001: TPs=1, pips_ganados=10
-[10:00:30.062] [INFO] [CycleOrchestrator] *** RENOVANDO OPERACIONES MAIN (BUY + SELL) ***
-[10:00:30.063] [DEBUG] [CycleOrchestrator] Precio actual: bid=1.10120, ask=1.10140
-[10:00:30.064] [DEBUG] [LotCalculator] Manteniendo lote: 0.02
-[10:00:30.065] [INFO] [BrokerAdapter] Enviando BUY_STOP: entry=1.10140, tp=1.10240, sl=1.09640
-[10:00:30.066] [INFO] [BrokerAdapter] Enviando SELL_STOP: entry=1.10120, tp=1.10020, sl=1.10620
+[10:00:30.062] [INFO] [CycleOrchestrator] Main tocó TP → CREANDO NUEVO CICLO
+[10:00:30.063] [INFO] [CycleOrchestrator] *** ABRIENDO CICLO C2 (independiente de C1) ***
+[10:00:30.064] [DEBUG] [CycleOrchestrator] C1 mantiene exactamente 2 mains (no se renuevan)
+[10:00:30.065] [DEBUG] [CycleOrchestrator] C1 status: ACTIVE (no cambio en este tick)
+[10:00:30.066] [INFO] [CycleOrchestrator] Creando señal OPEN_CYCLE con metadata: renewal_after_main_tp
+[10:00:30.067] [INFO] [CycleOrchestrator] Nuevo ciclo CYC_002 creado en estado PENDING
+[10:00:30.068] [DEBUG] [CycleOrchestrator] Precio actual: bid=1.10120, ask=1.10140
+[10:00:30.069] [DEBUG] [LotCalculator] Calculando lote para C2: 0.02
+[10:00:30.070] [INFO] [BrokerAdapter] Enviando BUY_STOP para C2: entry=1.10140, tp=1.10240
+[10:00:30.071] [INFO] [BrokerAdapter] Enviando SELL_STOP para C2: entry=1.10120, tp=1.10020
 [10:00:30.150] [INFO] [BrokerAdapter] BUY_STOP confirmado: ticket=12347
 [10:00:30.151] [INFO] [BrokerAdapter] SELL_STOP confirmado: ticket=12348
-[10:00:30.152] [INFO] [CycleOrchestrator] Operaciones main renovadas exitosamente
-[10:00:30.153] [DEBUG] [CycleOrchestrator] Nueva BUY: OP_003, Nueva SELL: OP_004
+[10:00:30.152] [INFO] [CycleOrchestrator] Ciclo C2 creado exitosamente con 2 mains
+[10:00:30.153] [DEBUG] [CycleOrchestrator] C2 MAIN_BUY: OP_003, C2 MAIN_SELL: OP_004
+[10:00:30.154] [INFO] [CycleOrchestrator] Sistema ahora tiene 2 ciclos activos (C1 + C2)
 ```
 
 **Checks:**
 - [ ] `account.balance == 10002.00`
-- [ ] `cycle.accounting.total_tp_count == 1`
-- [ ] `cycle.accounting.total_pips_won == 10.0`
-- [ ] `len([op for op in cycle.operations if op.is_main and op.status == PENDING]) == 2`
-- [ ] Nueva operación BUY: `id=OP_003, entry=1.10140, tp=1.10240, status=PENDING`
-- [ ] Nueva operación SELL: `id=OP_004, entry=1.10120, tp=1.10020, status=PENDING`
-- [ ] `cycle.status == CycleStatus.ACTIVE` (sin cambio)
+- [ ] `len(repo.cycles.values()) == 2` (C1 + C2)
+- [ ] C1 mantiene exactamente 2 mains: `len([op for op in repo.operations.values() if op.cycle_id == 'CYC_001' and op.is_main]) == 2`
+- [ ] C2 existe como ciclo independiente: `'CYC_002' in [c.id for c in repo.cycles.values()]`
+- [ ] C2 tiene sus propias 2 mains: `len([op for op in repo.operations.values() if op.cycle_id == 'CYC_002' and op.is_main]) == 2`
+- [ ] Nueva operación BUY pertenece a C2: `OP_003.cycle_id == 'CYC_002'`
+- [ ] Nueva operación SELL pertenece a C2: `OP_004.cycle_id == 'CYC_002'`
+- [ ] C1 status: `CycleStatus.ACTIVE` (no cambio inmediato)
+- [ ] C2 status: `CycleStatus.PENDING` (recién creado)
 
 **DB Inserts:**
 ```sql
+-- Nuevo ciclo C2
+INSERT INTO cycles (id, pair, status, created_at, metadata)
+VALUES ('CYC_002', 'EURUSD', 'PENDING', '2025-01-05 10:00:30.067',
+        '{"reason": "renewal_after_main_tp", "parent_cycle": "CYC_001"}');
+
+-- Operaciones de C2 (NO de C1)
 INSERT INTO operations (id, cycle_id, type, direction, status, entry_price, tp_price, broker_ticket)
-VALUES 
-  ('OP_003', 'CYC_001', 'MAIN', 'BUY', 'PENDING', 1.10140, 1.10240, '12347'),
-  ('OP_004', 'CYC_001', 'MAIN', 'SELL', 'PENDING', 1.10120, 1.10020, '12348');
+VALUES
+  ('OP_003', 'CYC_002', 'MAIN', 'BUY', 'PENDING', 1.10140, 1.10240, '12347'),
+  ('OP_004', 'CYC_002', 'MAIN', 'SELL', 'PENDING', 1.10120, 1.10020, '12348');
 ```
 
 **Justificación:**
-El documento madre establece que el ciclo opera indefinidamente con cobertura 
-bidireccional. Al cerrar un main con TP, se renuevan AMBAS operaciones (BUY+SELL)
-para mantener la estrategia activa.
+El sistema DEBE crear ciclos independientes para permitir:
+1. **Cierre correcto de ciclos vía FIFO**: C1 se cierra cuando recovery compensa deuda
+2. **Contabilidad clara**: Cada ciclo tiene exactamente 2 mains (nunca más)
+3. **Múltiples ciclos simultáneos**: C1 en IN_RECOVERY mientras C2 opera
+4. **Sin acumulación infinita**: NO añadir mains a C1 indefinidamente
 
 ---
 
-### ESTADO FINAL ESPERADO (CORREGIDO)
+### ESTADO FINAL ESPERADO (CORREGIDO - FIX 2026-01-09)
 
 ```yaml
-cycle:
-  id: CYC_001
-  status: ACTIVE  # Continúa operando
-  total_tps: 1
-  pips_won: 10
-  operations_count: 4  # 2 cerradas/canceladas + 2 nuevas pendientes
-  
-operations:
-  # === ITERACIÓN 1 (Cerrada) ===
-  - id: OP_001
-    type: MAIN
-    direction: SELL
-    status: CANCELLED
-    profit_pips: 0
-    cancel_reason: "counterpart_tp_hit"
-    
-  - id: OP_002
-    type: MAIN
-    direction: BUY
-    status: TP_HIT
-    profit_pips: 10
-    profit_money: 2.00
-    
-  # === ITERACIÓN 2 (Activa) ===
-  - id: OP_003  # ✅ Nueva BUY
-    type: MAIN
-    direction: BUY
-    status: PENDING
-    entry_price: 1.10140
-    tp_price: 1.10240
-    
-  - id: OP_004  # ✅ Nueva SELL
-    type: MAIN
-    direction: SELL  
-    status: PENDING
-    entry_price: 1.10120
-    tp_price: 1.10020
-    
-account:
-  balance: 10002.00  # +2 EUR del TP
-  equity: 10002.00
-  
+# === SISTEMA ===
 system:
   pips_locked: 0
   recovery_active: 0
-  cycles_active: 1
+  cycles_active: 2  # C1 + C2
+
+account:
+  balance: 10002.00  # +2 EUR del TP
+  equity: 10002.00
+
+# === CICLO C1 (Original) ===
+cycle_c1:
+  id: CYC_001
+  status: ACTIVE  # No cambio inmediato (cambiaría después si hedged)
+  total_tps: 1
+  pips_won: 10
+  operations_count: 2  # ✅ Exactamente 2 mains (NO 4)
+
+  operations:
+    - id: OP_001
+      type: MAIN
+      direction: SELL
+      status: CANCELLED
+      profit_pips: 0
+      cancel_reason: "counterpart_tp_hit"
+      cycle_id: CYC_001  # ✅ Pertenece a C1
+
+    - id: OP_002
+      type: MAIN
+      direction: BUY
+      status: TP_HIT
+      profit_pips: 10
+      profit_money: 2.00
+      cycle_id: CYC_001  # ✅ Pertenece a C1
+
+# === CICLO C2 (Nuevo - Independiente) ===
+cycle_c2:
+  id: CYC_002
+  status: PENDING  # Recién creado
+  total_tps: 0
+  pips_won: 0
+  operations_count: 2  # Sus propias 2 mains
+  metadata:
+    reason: "renewal_after_main_tp"
+    parent_cycle: "CYC_001"
+
+  operations:
+    - id: OP_003
+      type: MAIN
+      direction: BUY
+      status: PENDING
+      entry_price: 1.10140
+      tp_price: 1.10240
+      cycle_id: CYC_002  # ✅ Pertenece a C2 (NO a C1)
+
+    - id: OP_004
+      type: MAIN
+      direction: SELL
+      status: PENDING
+      entry_price: 1.10120
+      tp_price: 1.10020
+      cycle_id: CYC_002  # ✅ Pertenece a C2 (NO a C1)
 ```
+
+**Verificaciones críticas del estado final:**
+- ✅ Hay 2 ciclos distintos (C1 y C2)
+- ✅ C1 tiene EXACTAMENTE 2 mains (OP_001, OP_002)
+- ✅ C2 tiene sus propias 2 mains (OP_003, OP_004)
+- ✅ OP_003 y OP_004 pertenecen a C2, NO a C1
+- ✅ C1 y C2 son independientes
+- ❌ NO hay 4 operaciones en C1 (acumulación infinita evitada)
 ---
 
 # ESCENARIO 2: Ambas Mains Se Activan (Hedge)

@@ -383,35 +383,99 @@ async def validate_complete_hedge_flow():
         print(f"   ✅ V20: Balance={balance:.2f}")
         
         # ═══════════════════════════════════════════════════════════════
-        # FASE 5: VERIFICAR RENOVACIÓN DE MAINS
+        # FASE 5: VERIFICAR RENOVACIÓN DE MAINS (CRÍTICO: C1 vs C2)
         # ═══════════════════════════════════════════════════════════════
-        print("\n📍 FASE 5: VERIFICAR RENOVACIÓN")
-        
-        # V21: Nuevos mains PENDING
-        all_mains = [op for op in repo.operations.values() if op.is_main]
-        renewed_mains = [op for op in all_mains 
-                       if "_B_" in str(op.id) or "_S_" in str(op.id)]
-        pending_renewed = [op for op in renewed_mains 
-                         if op.status in (OperationStatus.PENDING, OperationStatus.ACTIVE)]
+        print("\n📍 FASE 5: VERIFICAR RENOVACIÓN (BUG FIX: C1 vs C2)")
+
+        # CRÍTICO V21: Debe haber 2 ciclos ahora (C1 + C2)
+        all_cycles = list(repo.cycles.values())
+        main_cycles = [c for c in all_cycles if c.cycle_type == CycleType.MAIN]
         report.add(
-            "V21: Nuevos mains creados (renovación)",
-            len(renewed_mains) >= 2,
-            ">=2", len(renewed_mains)
+            "V21-CRITICAL: Se creó NUEVO ciclo (C2)",
+            len(main_cycles) >= 2,
+            ">=2 (C1 + C2)", len(main_cycles),
+            f"Ciclos main: {[c.id for c in main_cycles]}"
         )
-        
-        if renewed_mains:
-            # V22: Renovación con entry a 5 pips del precio actual
-            rec_buy = [op for op in renewed_mains if op.op_type == OperationType.MAIN_BUY]
-            if rec_buy:
+
+        # CRÍTICO V22: C1 tiene exactamente 2 mains (no más)
+        if len(main_cycles) >= 1:
+            c1 = main_cycles[0]
+            c1_ops = [op for op in repo.operations.values() if op.cycle_id == c1.id]
+            c1_mains = [op for op in c1_ops if op.is_main]
+            report.add(
+                "V22-CRITICAL: C1 tiene exactamente 2 mains",
+                len(c1_mains) == 2,
+                2, len(c1_mains),
+                f"C1 mains: {[op.id for op in c1_mains]}"
+            )
+
+            # CRÍTICO V23: C1 está en IN_RECOVERY (esperando recovery)
+            report.add(
+                "V23-CRITICAL: C1 en estado IN_RECOVERY",
+                c1.status == CycleStatus.IN_RECOVERY,
+                CycleStatus.IN_RECOVERY.value, c1.status.value
+            )
+
+        # CRÍTICO V24: C2 existe y tiene sus propios 2 mains
+        if len(main_cycles) >= 2:
+            c2 = main_cycles[1]
+            c2_ops = [op for op in repo.operations.values() if op.cycle_id == c2.id]
+            c2_mains = [op for op in c2_ops if op.is_main]
+            report.add(
+                "V24-CRITICAL: C2 tiene 2 mains propios",
+                len(c2_mains) == 2,
+                2, len(c2_mains),
+                f"C2 ID: {c2.id}, mains: {[op.id for op in c2_mains]}"
+            )
+
+            # CRÍTICO V25: C2 está en PENDING o ACTIVE (operando normalmente)
+            report.add(
+                "V25-CRITICAL: C2 en estado PENDING/ACTIVE",
+                c2.status in [CycleStatus.PENDING, CycleStatus.ACTIVE],
+                "PENDING or ACTIVE", c2.status.value
+            )
+
+            # CRÍTICO V26: Mains de C2 tienen cycle_id diferente a C1
+            if c2_mains and len(main_cycles) >= 1:
+                c1_id = main_cycles[0].id
+                c2_main_cycle_ids = [op.cycle_id for op in c2_mains]
+                all_different = all(cid != c1_id for cid in c2_main_cycle_ids)
+                report.add(
+                    "V26-CRITICAL: Mains de C2 NO pertenecen a C1",
+                    all_different,
+                    f"!= {c1_id}", c2_main_cycle_ids
+                )
+
+        # V27: Verificar entry de nuevos mains (C2)
+        if len(main_cycles) >= 2:
+            c2 = main_cycles[1]
+            c2_mains = [op for op in repo.operations.values()
+                       if op.cycle_id == c2.id and op.is_main]
+            c2_buy = [op for op in c2_mains if op.op_type == OperationType.MAIN_BUY]
+            if c2_buy:
                 expected_entry = float(tick4.ask) + 0.0005  # +5 pips
-                actual_entry = float(rec_buy[0].entry_price)
+                actual_entry = float(c2_buy[0].entry_price)
                 distance = (actual_entry - float(tick4.ask)) * 10000
                 report.add(
-                    "V22: Renovación BUY a ask+5pips",
+                    "V27: C2 BUY entry a ask+5pips",
                     abs(distance - 5.0) < 1.0,
                     5.0, distance,
                     f"Entry: {actual_entry}"
                 )
+
+        # Mostrar verificaciones FASE 5
+        print(f"   ✅ V21: Ciclos main totales: {len(main_cycles)}")
+        if len(main_cycles) >= 1:
+            c1 = main_cycles[0]
+            c1_mains = [op for op in repo.operations.values() if op.cycle_id == c1.id and op.is_main]
+            print(f"   ✅ V22: C1 tiene {len(c1_mains)} mains (debe ser 2)")
+            print(f"   ✅ V23: C1 status={c1.status.value}")
+        if len(main_cycles) >= 2:
+            c2 = main_cycles[1]
+            c2_mains = [op for op in repo.operations.values() if op.cycle_id == c2.id and op.is_main]
+            print(f"   ✅ V24: C2 tiene {len(c2_mains)} mains (debe ser 2)")
+            print(f"   ✅ V25: C2 status={c2.status.value}")
+            print(f"   ✅ V26: C2 mains separados de C1: {c2.id != c1.id if len(main_cycles) >= 2 else False}")
         
         # ═══════════════════════════════════════════════════════════════
         # IMPRIMIR REPORTE
@@ -420,9 +484,9 @@ async def validate_complete_hedge_flow():
 
 
 async def main():
-    print("\n" + "█"*80)
-    print("WSPLUMBER - VALIDACIÓN DETALLADA DEL FLUJO")
-    print("█"*80)
+    print("\n" + "="*80)
+    print("WSPLUMBER - VALIDACION DETALLADA DEL FLUJO")
+    print("="*80)
     
     success = await validate_complete_hedge_flow()
     
