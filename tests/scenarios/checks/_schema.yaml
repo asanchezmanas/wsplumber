@@ -1,0 +1,152 @@
+# WSPlumber - Scenario Check DSL Schema
+
+# This file defines the DSL schema for scenario checks.
+# All check YAML files must follow this format.
+
+---
+# Scenario metadata
+scenario: cy04_cancel_counter_main
+description: "When main touches TP, counter main is cancelled"
+reference: "docs/expted_behavior_specification_fixed.md#cy04"
+
+# Expected cycles after scenario runs
+cycles:
+  - name: C1
+    type: main
+    status: [hedged, in_recovery, active]  # any of these is acceptable
+    mains_count: 2  # INVARIANT: always 2
+    
+  - name: C2
+    type: main
+    status: [pending, active]
+    mains_count: 2
+    created_after: C1  # C2 must be created after C1
+
+# Specific checks to validate
+checks:
+  # ── Operation Status Check ──
+  - name: "MAIN_BUY status TP_HIT"
+    type: operation_status
+    filter:
+      is_main: true
+      op_type: main_buy
+    expect:
+      status: tp_hit
+      count: ">= 1"
+  
+  # ── Operation Cancelled Check ──
+  - name: "Counter main cancelled"
+    type: operation_status
+    filter:
+      is_main: true
+      op_type: main_sell
+    expect:
+      status: cancelled
+      count: ">= 1"
+  
+  # ── Metadata Check ──
+  - name: "Cancel reason correct"
+    type: operation_metadata
+    filter:
+      status: cancelled
+      is_main: true
+    expect:
+      metadata:
+        cancel_reason: counterpart_tp_hit
+  
+  # ── Cycle Count Check ──
+  - name: "New cycle created"
+    type: cycle_count
+    filter:
+      cycle_type: main
+    expect:
+      count: ">= 2"
+  
+  # ── Balance Check ──
+  - name: "Balance increased"
+    type: balance
+    expect:
+      final: "> initial"
+  
+  # ── Invariant Check ──
+  - name: "Every cycle has 2 mains"
+    type: invariant
+    rule: mains_per_cycle
+    expect:
+      count: 2
+
+# Expected event timeline (optional, for detailed audit)
+timeline:
+  - tick_range: [1, 10]
+    events:
+      - CYCLE_CREATED
+      - MAIN_OPEN
+      - MAIN_OPEN
+  
+  - tick_range: [10, 50]
+    events:
+      - MAIN_ACTIVATED
+  
+  - tick_range: [50, 100]
+    events:
+      - TP_HIT
+      - CANCELLED
+      - CYCLE_CREATED
+
+# ============================================================
+# DSL REFERENCE
+# ============================================================
+
+# Check Types:
+# ── operation_status ── Query operations and check status
+#    filter:
+#      is_main: bool
+#      is_hedge: bool
+#      is_recovery: bool
+#      op_type: main_buy | main_sell | hedge_buy | hedge_sell | recovery_buy | recovery_sell
+#      status: pending | active | neutralized | tp_hit | cancelled | closed
+#    expect:
+#      status: <expected_status>
+#      count: <number> | ">= N" | "<= N" | "== N"
+
+# ── operation_metadata ── Check operation metadata fields
+#    filter: (same as operation_status)
+#    expect:
+#      metadata:
+#        <key>: <value>
+
+# ── cycle_count ── Count cycles matching filter
+#    filter:
+#      cycle_type: main | recovery
+#      status: pending | active | hedged | in_recovery | closed
+#    expect:
+#      count: <number> | ">= N"
+
+# ── cycle_status ── Check specific cycle status
+#    filter:
+#      name: C1 | C2 | R1 | etc
+#    expect:
+#      status: [list of acceptable statuses]
+
+# ── balance ── Check account balance
+#    expect:
+#      final: "> initial" | "== initial" | "< initial" | <number>
+#      change: ">= N" (pips or EUR)
+
+# ── invariant ── System invariants that must always hold
+#    rule: mains_per_cycle | no_orphans | valid_states
+#    expect:
+#      count: <expected for rule>
+
+# ── pips ── Check P&L in pips
+#    expect:
+#      total: ">= N"
+#      per_cycle: <N>
+
+# Operators supported in expect:
+#   ">= N"  - greater or equal
+#   "<= N"  - less or equal
+#   "== N"  - equal
+#   "> N"   - greater
+#   "< N"   - less
+#   "> initial" - compare to initial value (for balance)

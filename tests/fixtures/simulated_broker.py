@@ -216,6 +216,19 @@ class SimulatedBroker(IBroker):
             return Result.ok(True)
         return Result.fail("Order not found")
 
+    async def update_position_status(self, ticket: BrokerTicket, new_status: OperationStatus) -> Result[bool]:
+        """
+        Update the status of an open position.
+        
+        Used when operations are neutralized (HEDGED state) to prevent
+        them from hitting TP in the broker simulation.
+        """
+        if ticket in self.open_positions:
+            self.open_positions[ticket].status = new_status
+            logger.info(f"Broker: Position {ticket} status updated to {new_status.value}")
+            return Result.ok(True)
+        return Result.fail("Position not found")
+
     async def close_position(self, ticket: BrokerTicket) -> Result[OrderResult]:
         """
         Cierra una posición abierta.

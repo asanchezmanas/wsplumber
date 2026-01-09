@@ -1,17 +1,15 @@
 """
-WSPlumber - Auditoría por Ciclo
+WSPlumber - Cycle Audit Report
 
-Genera un reporte detallado POR CICLO que muestra:
-- Apertura de mains
-- Activaciones
-- Estado HEDGED → creación de hedges
-- TPs con pips ganados
-- Cancelaciones (contra-órdenes)
-- Apertura de Recovery
-- TPs de Recovery con compensación FIFO
-- Cierre del ciclo
+Generates detailed reports grouped by cycle showing:
+- Main operation creation and activation
+- Hedge creation with entry prices
+- TP hits with P&L
+- Cancellations with reasons
+- Recovery operations
+- FIFO debt compensation
 
-Cada evento incluye el tick # para trazabilidad.
+Each event includes tick number for traceability.
 """
 
 import asyncio
@@ -37,48 +35,64 @@ from tests.fixtures.simulated_broker import SimulatedBroker
 
 @dataclass
 class CycleEvent:
-    """Evento de un ciclo."""
+    """Single event in a cycle's lifecycle."""
     tick: int
     event_type: str
     description: str
     details: str = ""
     pips: float = 0.0
+    op_id: str = ""
+    ref_op_id: str = ""  # Referenced operation (e.g., linked hedge)
+
+
+@dataclass
+class OperationRef:
+    """Operation reference with key details."""
+    op_id: str
+    op_type: str
+    entry_price: float
+    tp_price: float
+    status: str
+    linked_op: str = ""
 
 
 @dataclass
 class CycleAudit:
-    """Auditoría de un ciclo."""
+    """Audit data for a single cycle."""
     id: str
     name: str
     cycle_type: str
     created_tick: int = 0
     status: str = "pending"
     events: List[CycleEvent] = field(default_factory=list)
-    mains: List[str] = field(default_factory=list)
-    hedges: List[str] = field(default_factory=list)
-    recoveries: List[str] = field(default_factory=list)
+    mains: Dict[str, OperationRef] = field(default_factory=dict)
+    hedges: Dict[str, OperationRef] = field(default_factory=dict)
+    recoveries: Dict[str, OperationRef] = field(default_factory=dict)
     total_pips: float = 0.0
+    pips_locked: float = 0.0
     
-    def add_event(self, tick: int, event_type: str, desc: str, details: str = "", pips: float = 0.0):
-        self.events.append(CycleEvent(tick, event_type, desc, details, pips))
+    def add_event(self, tick: int, event_type: str, desc: str, 
+                  details: str = "", pips: float = 0.0, 
+                  op_id: str = "", ref_op_id: str = ""):
+        self.events.append(CycleEvent(tick, event_type, desc, details, pips, op_id, ref_op_id))
         if pips > 0:
             self.total_pips += pips
 
 
 class CycleAuditor:
-    """Auditor que rastrea el ciclo de vida de cada ciclo."""
+    """Auditor that tracks each cycle's complete lifecycle."""
     
     def __init__(self):
         self.cycles: Dict[str, CycleAudit] = {}
         self.cycle_counter = 0
         self.recovery_counter = 0
         self.tick = 0
-        self.last_ops: Dict[str, dict] = {}  # op_id -> {status, cycle_id}
+        self.last_ops: Dict[str, dict] = {}
         self.last_cycles: Set[str] = set()
         self.last_balance = 10000.0
         
     def get_cycle_name(self, cycle_id: str, cycle_type: str) -> str:
-        """Genera nombre legible para ciclo."""
+        """Generate readable cycle name."""
         if cycle_id not in self.cycles:
             if cycle_type == "main":
                 self.cycle_counter += 1
@@ -89,11 +103,23 @@ class CycleAuditor:
             return name
         return self.cycles[cycle_id].name
     
+    def get_op_short_name(self, op_type: str, op_id: str) -> str:
+        """Generate short operation name."""
+        type_map = {
+            "main_buy": "M_B",
+            "main_sell": "M_S",
+            "hedge_buy": "H_B",
+            "hedge_sell": "H_S",
+            "recovery_buy": "R_B",
+            "recovery_sell": "R_S"
+        }
+        return type_map.get(op_type, op_type.upper())
+    
     def check(self, tick: int, repo, broker, balance: float):
-        """Analiza cambios y registra eventos por ciclo."""
+        """Analyze changes and record events per cycle."""
         self.tick = tick
         
-        # Detectar nuevos ciclos
+        # Detect new cycles
         for c in repo.cycles.values():
             if c.id not in self.cycles:
                 name = self.get_cycle_name(c.id, c.cycle_type.value)
@@ -105,11 +131,12 @@ class CycleAuditor:
                     status=c.status.value
                 )
                 self.cycles[c.id].add_event(
-                    tick, "CREATED", 
-                    f"Ciclo {name} creado ({c.cycle_type.value})"
+                    tick, "CYCLE_CREATED", 
+                    f"Cycle {name} created",
+                    details=f"type={c.cycle_type.value}"
                 )
         
-        # Detectar cambios de estado en ciclos
+        # Detect cycle status changes
         for c in repo.cycles.values():
             if c.id in self.cycles:
                 audit = self.cycles[c.id]
@@ -118,163 +145,251 @@ class CycleAuditor:
                     new_status = c.status.value
                     audit.add_event(
                         tick, "STATUS_CHANGE",
-                        f"{old_status.upper()} → {new_status.upper()}",
-                        details=f"Transición de estado del ciclo"
+                        f"{old_status.upper()} -> {new_status.upper()}"
                     )
                     audit.status = new_status
         
-        # Detectar operaciones nuevas y cambios
+        # Detect new operations and status changes
         for op in repo.operations.values():
-            op_id = op.id
+            op_id = str(op.id)
             status = op.status.value
             op_type = op.op_type.value
             cycle_id = op.cycle_id
             
-            # Asegurar que el ciclo existe
             if cycle_id not in self.cycles:
                 continue
             
             audit = self.cycles[cycle_id]
+            short_name = self.get_op_short_name(op_type, op_id)
+            entry = float(op.entry_price)
+            tp = float(op.tp_price) if op.tp_price else 0
             
             if op_id not in self.last_ops:
-                # Nueva operación
-                entry = float(op.entry_price)
-                tp = float(op.tp_price) if op.tp_price else 0
-                
+                # New operation
                 self.last_ops[op_id] = {"status": status, "cycle_id": cycle_id, "type": op_type}
                 
-                # Clasificar tipo
+                op_ref = OperationRef(
+                    op_id=op_id,
+                    op_type=op_type,
+                    entry_price=entry,
+                    tp_price=tp,
+                    status=status
+                )
+                
                 if "main" in op_type:
-                    audit.mains.append(op_id)
-                    audit.add_event(tick, "MAIN_OPEN", f"{op_type} abierto PENDING", 
-                                   f"entry={entry:.5f}, tp={tp:.5f}")
+                    audit.mains[op_id] = op_ref
+                    audit.add_event(
+                        tick, "MAIN_CREATED", 
+                        f"{short_name} created PENDING",
+                        details=f"entry={entry:.5f} tp={tp:.5f}",
+                        op_id=op_id
+                    )
                 elif "hedge" in op_type:
-                    audit.hedges.append(op_id)
-                    audit.add_event(tick, "HEDGE_OPEN", f"{op_type} abierto PENDING",
-                                   f"entry={entry:.5f}")
+                    # Find which main this hedge is linked to
+                    linked_main = ""
+                    if "buy" in op_type:
+                        # H_B is at MAIN_BUY TP
+                        for mid, mref in audit.mains.items():
+                            if "buy" in mref.op_type and abs(mref.tp_price - entry) < 0.00001:
+                                linked_main = mid
+                                break
+                    else:
+                        # H_S is at MAIN_SELL TP
+                        for mid, mref in audit.mains.items():
+                            if "sell" in mref.op_type and abs(mref.tp_price - entry) < 0.00001:
+                                linked_main = mid
+                                break
+                    
+                    op_ref.linked_op = linked_main
+                    audit.hedges[op_id] = op_ref
+                    audit.add_event(
+                        tick, "HEDGE_CREATED", 
+                        f"{short_name} created PENDING",
+                        details=f"entry={entry:.5f} linked_to={linked_main[:20] if linked_main else 'none'}",
+                        op_id=op_id,
+                        ref_op_id=linked_main
+                    )
                 elif "recovery" in op_type:
-                    audit.recoveries.append(op_id)
-                    audit.add_event(tick, "RECOVERY_OPEN", f"{op_type} abierto PENDING",
-                                   f"entry={entry:.5f}, tp={tp:.5f}")
+                    audit.recoveries[op_id] = op_ref
+                    audit.add_event(
+                        tick, "RECOVERY_CREATED", 
+                        f"{short_name} created PENDING",
+                        details=f"entry={entry:.5f} tp={tp:.5f}",
+                        op_id=op_id
+                    )
             else:
-                # Cambio de estado
+                # Status change
                 old_status = self.last_ops[op_id]["status"]
                 
                 if old_status != status:
                     if old_status == "pending" and status == "active":
-                        audit.add_event(tick, "ACTIVATED", f"{op_type} ACTIVADO")
+                        audit.add_event(tick, "ACTIVATED", f"{short_name} activated", op_id=op_id)
                         
                     elif old_status == "active" and status == "neutralized":
-                        audit.add_event(tick, "NEUTRALIZED", f"{op_type} NEUTRALIZADO (hedged)")
+                        audit.add_event(tick, "NEUTRALIZED", f"{short_name} neutralized (hedged)", op_id=op_id)
                         
                     elif status == "tp_hit":
                         pips = float(op.profit_pips) if op.profit_pips else 0
-                        audit.add_event(tick, "TP_HIT", f"{op_type} TP alcanzado", 
-                                       f"+{pips:.1f} pips", pips)
+                        audit.add_event(
+                            tick, "TP_HIT", 
+                            f"{short_name} TP hit",
+                            details=f"+{pips:.1f} pips",
+                            pips=pips,
+                            op_id=op_id
+                        )
                         
                     elif status == "cancelled":
-                        audit.add_event(tick, "CANCELLED", f"{op_type} CANCELADO",
-                                       "contra-orden cancelada")
+                        reason = op.metadata.get("cancel_reason", "counterpart")
+                        audit.add_event(
+                            tick, "CANCELLED", 
+                            f"{short_name} cancelled",
+                            details=f"reason={reason}",
+                            op_id=op_id
+                        )
+                    
+                    # Update status in operation ref
+                    if op_id in audit.mains:
+                        audit.mains[op_id].status = status
+                    elif op_id in audit.hedges:
+                        audit.hedges[op_id].status = status
+                    elif op_id in audit.recoveries:
+                        audit.recoveries[op_id].status = status
                     
                     self.last_ops[op_id]["status"] = status
         
-        # Detectar cambio de balance
+        # Detect balance change
         if balance > self.last_balance + 0.01:
             diff = balance - self.last_balance
-            # Encontrar el ciclo que causó este cambio (el último con TP)
             for cid, audit in self.cycles.items():
                 for event in reversed(audit.events):
                     if event.tick == tick and event.event_type == "TP_HIT":
-                        audit.add_event(tick, "PROFIT_REALIZED", 
-                                       f"+{diff:.2f} EUR realizados")
+                        audit.add_event(tick, "REALIZED", f"+{diff:.2f} EUR")
                         break
             self.last_balance = balance
     
     def print_report(self, final_balance: float, final_equity: float):
-        """Imprime reporte agrupado por ciclo."""
-        print("\n" + "="*80)
-        print("📋 AUDITORÍA POR CICLO - WSPlumber")
-        print("="*80)
+        """Print professional cycle-grouped report."""
+        print()
+        print("=" * 80)
+        print("WSPLUMBER CYCLE AUDIT REPORT")
+        print("=" * 80)
         
-        # Ordenar ciclos por tick de creación
         sorted_cycles = sorted(self.cycles.values(), key=lambda c: c.created_tick)
         
         for audit in sorted_cycles:
-            print(f"\n{'─'*80}")
-            print(f"📍 {audit.name}: {audit.cycle_type.upper()} (ID: {audit.id[:30]}...)")
-            print(f"{'─'*80}")
-            print(f"   Creado en tick #{audit.created_tick}")
-            print(f"   Estado final: {audit.status.upper()}")
-            print(f"   Mains: {len(audit.mains)} | Hedges: {len(audit.hedges)} | Recoveries: {len(audit.recoveries)}")
-            print(f"   P&L Total: +{audit.total_pips:.1f} pips")
+            print(f"\n{'-'*100}")
+            print(f"CYCLE: {audit.name} | Type: {audit.cycle_type.upper()} | ID: {audit.id[:40]}...")
+            print(f"{'-'*100}")
+            print(f"  Created at tick: #{audit.created_tick}")
+            print(f"  Final status:    {audit.status.upper()}")
+            print(f"  Total P&L:       +{audit.total_pips:.1f} pips")
             print()
-            print("   📜 EVENTOS:")
+            
+            # Operations summary with references
+            print("  OPERATIONS:")
+            print(f"  {'-'*60}")
+            print(f"  {'Type':<8} {'Entry':>10} {'TP':>10} {'Status':<12} {'Linked To':<15}")
+            print(f"  {'-'*60}")
+            
+            for op_id, op in audit.mains.items():
+                short = self.get_op_short_name(op.op_type, op_id)
+                linked = "-"
+                print(f"  {short:<8} {op.entry_price:>10.5f} {op.tp_price:>10.5f} {op.status:<12} {linked:<15}")
+            
+            for op_id, op in audit.hedges.items():
+                short = self.get_op_short_name(op.op_type, op_id)
+                # Show short name for linked main
+                linked = "-"
+                if op.linked_op and op.linked_op in audit.mains:
+                    linked_type = audit.mains[op.linked_op].op_type
+                    linked = self.get_op_short_name(linked_type, op.linked_op)
+                print(f"  {short:<8} {op.entry_price:>10.5f} {op.tp_price:>10.5f} {op.status:<12} {linked:<15}")
+            
+            for op_id, op in audit.recoveries.items():
+                short = self.get_op_short_name(op.op_type, op_id)
+                linked = "-"
+                print(f"  {short:<8} {op.entry_price:>10.5f} {op.tp_price:>10.5f} {op.status:<12} {linked:<15}")
+            print()
+            
+            # Event timeline
+            print("  EVENT TIMELINE:")
+            print(f"  {'-'*60}")
+            print(f"  {'Tick':<8} {'Event':<18} {'Description':<30} {'Details'}")
+            print(f"  {'-'*60}")
+            
             for event in audit.events:
-                pips_str = f" | +{event.pips:.1f} pips" if event.pips > 0 else ""
-                details_str = f" ({event.details})" if event.details else ""
-                print(f"      #{event.tick:5} | {event.event_type:18} | {event.description}{details_str}{pips_str}")
-            
-            # Verificaciones para este ciclo
+                tick_str = f"#{event.tick}"
+                # Truncate long fields
+                desc = event.description[:28] if len(event.description) > 28 else event.description
+                details = event.details[:25] if len(event.details) > 25 else event.details
+                print(f"  {tick_str:<6} {event.event_type:<14} {desc:<28} {details}")
             print()
-            print("   ✓ VERIFICACIONES:")
             
-            # V1: Exactamente 2 mains
+            # Verification checks
+            print("  VERIFICATION:")
+            
             if audit.cycle_type == "main":
-                if len(audit.mains) == 2:
-                    print(f"      ✅ Mains: {len(audit.mains)}/2 (correcto)")
-                else:
-                    print(f"      ❌ Mains: {len(audit.mains)}/2 (INCORRECTO!)")
+                mains_ok = len(audit.mains) == 2
+                status = "[OK]" if mains_ok else "[FAIL]"
+                print(f"    {status} Main operations: {len(audit.mains)}/2")
             
-            # V2: Hedges solo si hubo HEDGED
-            hedged_events = [e for e in audit.events if e.event_type == "STATUS_CHANGE" and "HEDGED" in e.description]
+            hedged_events = [e for e in audit.events if "HEDGED" in e.description]
             if hedged_events:
-                if len(audit.hedges) >= 2:
-                    print(f"      ✅ Hedges creados: {len(audit.hedges)} (estado fue HEDGED)")
-                else:
-                    print(f"      ⚠️  Hedges: {len(audit.hedges)} (esperados 2 si HEDGED)")
+                hedges_ok = len(audit.hedges) >= 2
+                status = "[OK]" if hedges_ok else "[WARN]"
+                print(f"    {status} Hedge operations: {len(audit.hedges)}/2 (cycle was HEDGED)")
+                
+                # Verify hedge entry prices
+                for hid, hedge in audit.hedges.items():
+                    if hedge.linked_op:
+                        linked_main = audit.mains.get(hedge.linked_op)
+                        if linked_main:
+                            price_ok = abs(hedge.entry_price - linked_main.tp_price) < 0.00001
+                            status = "[OK]" if price_ok else "[FAIL]"
+                            short_h = self.get_op_short_name(hedge.op_type, hid)
+                            short_m = self.get_op_short_name(linked_main.op_type, hedge.linked_op)
+                            print(f"    {status} {short_h} entry={hedge.entry_price:.5f} matches {short_m} TP={linked_main.tp_price:.5f}")
             
-            # V3: TPs con pips positivos
             tp_events = [e for e in audit.events if e.event_type == "TP_HIT"]
             if tp_events:
-                print(f"      ✅ TPs alcanzados: {len(tp_events)} (total +{sum(e.pips for e in tp_events):.1f} pips)")
-            
-            # V4: Cancelaciones apropiadas
-            cancel_events = [e for e in audit.events if e.event_type == "CANCELLED"]
-            if cancel_events:
-                print(f"      ✅ Cancelaciones: {len(cancel_events)} (contra-órdenes)")
+                total_pips = sum(e.pips for e in tp_events)
+                print(f"    [OK] TP hits: {len(tp_events)} (total +{total_pips:.1f} pips)")
         
-        # Resumen global
-        print("\n" + "="*80)
-        print("📊 RESUMEN GLOBAL")
-        print("="*80)
+        # Global summary
+        print("\n" + "="*100)
+        print("GLOBAL SUMMARY")
+        print("="*100)
+        
         main_cycles = [c for c in self.cycles.values() if c.cycle_type == "main"]
         recovery_cycles = [c for c in self.cycles.values() if c.cycle_type == "recovery"]
         
-        print(f"   Ciclos MAIN: {len(main_cycles)}")
-        print(f"   Ciclos RECOVERY: {len(recovery_cycles)}")
-        print(f"   Total P&L: +{sum(c.total_pips for c in self.cycles.values()):.1f} pips")
-        print(f"   Balance: {self.last_balance:.2f} EUR → {final_balance:.2f} EUR")
-        print(f"   Equity: {final_equity:.2f} EUR")
-        print(f"   Flotante: {final_equity - final_balance:+.2f} EUR")
+        print(f"  Main cycles:     {len(main_cycles)}")
+        print(f"  Recovery cycles: {len(recovery_cycles)}")
+        print(f"  Total P&L:       +{sum(c.total_pips for c in self.cycles.values()):.1f} pips")
+        print(f"  Balance:         {self.last_balance:.2f} EUR -> {final_balance:.2f} EUR")
+        print(f"  Equity:          {final_equity:.2f} EUR")
+        print(f"  Floating:        {final_equity - final_balance:+.2f} EUR")
         
-        # Verificación global de invariantes
-        print("\n   ✓ INVARIANTES GLOBALES:")
+        # Global invariants
+        print("\n  INVARIANT CHECKS:")
         all_main_have_2 = all(len(c.mains) == 2 for c in main_cycles)
         if all_main_have_2:
-            print("      ✅ Todos los ciclos MAIN tienen exactamente 2 mains")
+            print("    [OK] All MAIN cycles have exactly 2 main operations")
         else:
             problematic = [c.name for c in main_cycles if len(c.mains) != 2]
-            print(f"      ❌ Ciclos con mains != 2: {problematic}")
+            print(f"    [FAIL] Cycles with mains != 2: {problematic}")
         
-        print("="*80)
+        print("="*100)
 
 
 async def run_cycle_audit(max_bars: int = 500):
-    """Ejecuta backtest con auditoría por ciclo."""
+    """Execute backtest with cycle audit."""
     import logging
+    import sys
     logging.disable(logging.CRITICAL)
     
-    print(f"\n🚀 Auditoría por Ciclo ({max_bars} barras)...")
+    print(f"\nWSPlumber Cycle Audit ({max_bars} bars)", flush=True)
+    print("-" * 40, flush=True)
     
     broker = SimulatedBroker(initial_balance=10000.0)
     repo = InMemoryRepository()
@@ -297,7 +412,7 @@ async def run_cycle_audit(max_bars: int = 500):
     tick_count = 0
     total_ticks = len(broker.ticks)
     
-    print(f"   Total ticks: {total_ticks}")
+    print(f"Total ticks: {total_ticks}")
     
     while True:
         tick = await broker.advance_tick()

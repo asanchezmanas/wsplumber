@@ -1,0 +1,58 @@
+# cy04_cancel_counter_main - Cancelación de Main Contraria
+# Referencia: docs/expted_behavior_specification_fixed.md líneas 716-726
+
+scenario: cy04_cancel_counter_main
+description: "Cuando un main toca TP, la main contraria pendiente se cancela"
+priority: CRITICAL
+
+checks:
+  # Main BUY alcanza TP
+  - name: "MAIN_BUY status TP_HIT"
+    type: operation_status
+    filter:
+      is_main: true
+      op_type: main_buy
+    expect:
+      status: tp_hit
+      count: ">= 1"
+
+  # Main SELL contraria cancelada
+  - name: "MAIN_SELL status CANCELLED"
+    type: operation_status
+    filter:
+      is_main: true
+      op_type: main_sell
+    expect:
+      status: cancelled
+      count: ">= 1"
+
+  # Razón de cancelación correcta
+  - name: "Cancel reason is counterpart_tp_hit"
+    type: operation_metadata
+    filter:
+      is_main: true
+      status: cancelled
+    expect:
+      metadata:
+        cancel_reason: counterpart_tp_hit
+
+  # Nuevo ciclo C2 creado
+  - name: "New cycle C2 created"
+    type: cycle_count
+    filter:
+      cycle_type: main
+    expect:
+      count: ">= 2"
+
+  # Balance aumentó
+  - name: "Balance increased after TP"
+    type: balance
+    expect:
+      final: "> initial"
+
+  # Invariante: cada ciclo tiene 2 mains
+  - name: "Every main cycle has exactly 2 mains"
+    type: invariant
+    rule: mains_per_cycle
+    expect:
+      count: 2

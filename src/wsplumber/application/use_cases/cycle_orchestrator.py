@@ -219,8 +219,9 @@ class CycleOrchestrator:
                             )
                             cycle.add_operation(hedge_op)
                             
-                            main_op.neutralize(OperationId(hedge_id))
-                            await self.repository.save_operation(main_op)
+                            # NOTE: Do NOT neutralize mains here - they stay active
+                            # until one of them hits TP. At that point, the OTHER main
+                            # gets neutralized in the TP_HIT handling section below.
                             
                             request = OrderRequest(
                                 operation_id=hedge_op.id,
@@ -289,6 +290,37 @@ class CycleOrchestrator:
                                 other_op.status = OperationStatus.CANCELLED
                                 other_op.metadata["cancel_reason"] = "counterpart_tp_hit"
                                 await self.repository.save_operation(other_op)
+                        
+                        # FIX-CRITICAL: Neutralize ACTIVE opposite main to prevent TP hit
+                        # When in HEDGED state and one main hits TP, the other main
+                        # should be neutralized so it can never hit its own TP
+                        if cycle.status == CycleStatus.HEDGED:
+                            for other_op in ops_res.value:
+                                if (other_op.is_main and 
+                                    other_op.id != op.id and 
+                                    other_op.status == OperationStatus.ACTIVE):
+                                    logger.info("Neutralizing opposite main after TP hit", op_id=other_op.id)
+                                    other_op.neutralize(op.id)
+                                    await self.repository.save_operation(other_op)
+                                    # Update broker position to NEUTRALIZED to prevent TP
+                                    if other_op.broker_ticket:
+                                        await self.trading_service.broker.update_position_status(
+                                            other_op.broker_ticket,
+                                            OperationStatus.NEUTRALIZED
+                                        )
+                            
+                            # Transition to IN_RECOVERY and open recovery cycle
+                            cycle.start_recovery()
+                            await self.repository.save_cycle(cycle)
+                            logger.info("Cycle transitioned to IN_RECOVERY", cycle_id=cycle.id)
+                            
+                            # Open recovery cycle to compensate FIFO debt
+                            recovery_signal = StrategySignal(
+                                signal_type=SignalType.OPEN_CYCLE,
+                                pair=cycle.pair,
+                                metadata={"reason": "recovery_after_hedge_tp", "parent_cycle": cycle.id}
+                            )
+                            await self._open_recovery_cycle(recovery_signal, tick)
                         
                         # FIX-002: Cancelar hedges pendientes contrarios
                         await self._cancel_pending_hedge_counterpart(cycle, op)
@@ -868,9 +900,10 @@ class CycleOrchestrator:
 
             # Permitir si está IN_RECOVERY o CLOSED/PAUSED
             allowed_states = ["CLOSED", "PAUSED", "IN_RECOVERY"]
-            # Si es renovación, también permitir HEDGED (main acaba de tocar TP)
+            # Si es renovación, también permitir HEDGED y ACTIVE (main acaba de tocar TP)
             if is_renewal:
                 allowed_states.append("HEDGED")
+                allowed_states.append("ACTIVE")
 
             if active_cycle.status.name not in allowed_states:
                 logger.debug("Signal ignored: Cycle already active",

@@ -1,0 +1,59 @@
+# h01_both_active_hedged - Ambas Mains Activas → HEDGED
+# Referencia: docs/expted_behavior_specification_fixed.md Escenario 2
+
+scenario: h01_both_active_hedged
+description: "Cuando ambas mains se activan, el ciclo pasa a HEDGED y se crean hedges"
+priority: CRITICAL
+
+checks:
+  # Ciclo en estado HEDGED
+  - name: "Cycle status is HEDGED"
+    type: cycle_count
+    filter:
+      cycle_type: main
+      status: hedged
+    expect:
+      count: ">= 1"
+
+  # Ambas mains neutralizadas
+  - name: "MAIN_BUY is NEUTRALIZED"
+    type: operation_status
+    filter:
+      is_main: true
+      op_type: main_buy
+    expect:
+      status: neutralized
+      count: ">= 1"
+
+  - name: "MAIN_SELL is NEUTRALIZED"
+    type: operation_status
+    filter:
+      is_main: true
+      op_type: main_sell
+    expect:
+      status: neutralized
+      count: ">= 1"
+
+  # Hedges creados
+  - name: "HEDGE_BUY created"
+    type: operation_status
+    filter:
+      is_hedge: true
+      op_type: hedge_buy
+    expect:
+      count: ">= 1"
+
+  - name: "HEDGE_SELL created"
+    type: operation_status
+    filter:
+      is_hedge: true
+      op_type: hedge_sell
+    expect:
+      count: ">= 1"
+
+  # Invariante
+  - name: "Every main cycle has 2 mains"
+    type: invariant
+    rule: mains_per_cycle
+    expect:
+      count: 2
