@@ -1,0 +1,57 @@
+{"timestamp": "2026-01-09T22:56:31.082954Z", "level": "ERROR", "logger": "wsplumber.application.use_cases.cycle_orchestrator", "message": "Could not find Main + balance_position for debt unit", "data": {"debt_unit_id": "INITIAL_UNIT", "found_main": true, "found_hedge": false}}
+{"timestamp": "2026-01-09T22:56:31.082954Z", "level": "ERROR", "logger": "wsplumber.application.services.trading_service", "message": "Failed to close operation", "data": {"operation_id": "CY***_S"}}
+================================================================================
+BACKTEST 10K TICKS - DATA REAL EURUSD M1
+================================================================================
+Inicio: 2026-01-09 23:56:27
+
+Archivo: 2026.1.5EURUSD_M1_UTCPlus02(2)-M1-No Session_ohlc.csv
+Max bars: 2500 (aprox 10000 ticks)
+
+Ticks cargados: 10000
+
+Procesando ticks...
+  Procesados: 2000/10000 ticks (20%)
+  Procesados: 4000/10000 ticks (40%)
+  Procesados: 6000/10000 ticks (60%)
+  Procesados: 8000/10000 ticks (80%)
+  Procesados: 10000/10000 ticks (100%)
+
+  TOTAL PROCESADOS: 10000/10000 ticks (100%)
+
+================================================================================
+RESULTADOS DEL BACKTEST
+================================================================================
+
+Balance inicial:  10000.00 EUR
+Balance final:    10036.96 EUR
+P&L total:        +36.96 EUR
+
+CICLOS:
+  Total ciclos:     25
+  Ciclos MAIN:      19
+  Ciclos RECOVERY:  6
+
+Estados de ciclos:
+  active         :  12
+  closed         :   1
+  in_recovery    :  12
+
+OPERACIONES:
+  Total operaciones: 76
+  Operaciones MAIN:  38
+
+================================================================================
+VALIDACION DE INVARIANTES CRITICOS
+================================================================================
+
+[OK] INVARIANTE VERIFICADO: Todos los ciclos MAIN tienen exactamente 2 mains
+     Ciclos MAIN verificados: 19
+
+================================================================================
+[SUCCESS] BACKTEST COMPLETADO EXITOSAMENTE
+================================================================================
+Fin: 2026-01-09 23:56:31
+Duracion: 3.9 segundos (0.1 minutos)
+Velocidad: 2577 ticks/segundo
+================================================================================

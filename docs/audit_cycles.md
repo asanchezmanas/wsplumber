@@ -235,3 +235,127 @@ Ciclos MAIN totales: 3
 ============================================================
  INVARIANTE VERIFICADO: Todos los ciclos MAIN tienen exactamente 2 mains
 ============================================================
+
+# Advanced Scenario Auditing (Fixed V3.1)
+
+Starting from version 3.1 (Atomic Closure), a unified auditing system has been implemented to verify the complex FIFO debt and recovery cascade logic.
+
+## Tools
+
+### 1. Scenario Auditor (`scripts/audit_scenario.py`)
+Executes any scenario CSV through the orchestrator and generates a detailed timeline-based report.
+
+**Usage:**
+```bash
+python scripts/audit_scenario.py tests/test_scenarios/scenario_6_1_recovery_n1_fails.csv
+```
+
+## Report Structure (The "Clean" Format)
+
+The auditor groups information by Cycle ID to provide a clear view of the lifecycle.
+
+### A. Cycle Metadata & Debt Tracking
+Shows the current state of FIFO debt units for that specific cycle.
+- **Debt Units**: `[20, 40]` means the cycle started with 20 pips debt (standard) and added 40 pips due to a recovery failure.
+- **Debt Remaining**: Total pips needed to close the cycle.
+
+### B. Operation Summary
+Lists all operations (Mains, Hedges, Recoveries) associated with the cycle.
+- **Status `ACTIVE (Running)`**: Used to identify positions that were open at the end of the simulation (distinguishing them from force-closed results).
+- **Linked To**: Shows the parent/triggering operation (e.g., Hedge linked to its Main TP).
+
+### C. Event Timeline
+Chronological list of every state change within the cycle, indexed by tick number.
+- `CYCLE_CREATED`: Initialization.
+- `HEDGED`: Transition when both mains activate.
+- `IN_RECOVERY`: Transition when a TP hits in a hedged state.
+- `TP_HIT`: Realized profit and debt compensation.
+
+### D. Verification Checks
+Automated invariants checked at the end of the report:
+- `[OK] Main operations: 2/2`
+- `[OK] Hedge entries match Main TPs`
+- `[OK] Total pips accumulation`
+
+
+## Example: Recovery Success (FIFO Liquidation)
+
+In a successful recovery cascade, you will see `Debt Units` moving from `[20]` or `[20, 40]` back to `[]` as TPs are hit and debt is compensated.
+
+### Cierre Atómico (Atomic Closure)
+A crucial feature of V3.1 is that positions aren't just checked off in accounting; the **Main** and **Hedge** operations belonging to a liquidated debt unit are closed **atomically** in the broker/repository the moment their unit is cleared. This ensures the audit timeline is perfectly synchronized with the actual broker state.
+
+### Real-World Example: Multi-Stage Recovery (`audit_r05_long.txt`)
+
+Below is an excerpt of a clean audit showing a MAIN cycle that was resolved after multiple recovery stages and nested MAIN cycles.
+
+```text
+----------------------------------------------------------------------------------------------------
+CYCLE: C1 | Type: MAIN | ID: CYC_EURUSD_20260109225522_871...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #1
+  Final status:    CLOSED
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +15.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10050    1.10150 closed          -              
+  M_S         1.09950    1.09850 tp_hit          -              
+  H_B         1.10150    0.00000 cancelled       M_B            
+  H_S         1.09850    0.00000 closed          M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  #1     CYCLE_CREATED  Cycle C1 created             type=main
+  #1     MAIN_CREATED   M_B created PENDING          entry=1.10050 tp=1.10150
+  #1     MAIN_CREATED   M_S created PENDING          entry=1.09950 tp=1.09850
+  #2     STATUS_CHANGE  PENDING -> ACTIVE            
+  #2     ACTIVATED      M_B activated                
+  #3     STATUS_CHANGE  ACTIVE -> HEDGED             
+  #3     ACTIVATED      M_S activated                
+  #3     HEDGE_CREATED  H_B created PENDING          entry=1.10150 linked_to=C
+  #3     HEDGE_CREATED  H_S created PENDING          entry=1.09850 linked_to=C
+  #4     STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #4     NEUTRALIZED    M_B neutralized (hedged)     
+  #4     TP_HIT         M_S TP hit                   +15.0 pips
+  #4     CANCELLED      H_B cancelled                reason=counterpart_main_t
+  #4     ACTIVATED      H_S activated                
+  #8     STATUS_CHANGE  IN_RECOVERY -> CLOSED        
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+```
+
+---
+*Updated: 2026-01-09*
+*System: WSPlumber Engine 3.0*
+
+## FIX-CLOSE-04: P&L Realization Bug (2026-01-10)
+
+A critical bug was discovered during massive 500k tick stress testing:
+
+### Symptom
+- Auditor reported thousands of pips in profit
+- But balance remained unchanged (~10,000 EUR)
+
+### Root Cause
+In `TradingService.sync_all_active_positions()`, when the broker marked positions as `tp_hit`:
+1. The operation status was updated in the repository ✅
+2. But `broker.close_position()` was **never called** ❌
+3. P&L remained in "floating" state indefinitely
+
+### Fix
+Added explicit `broker.close_position()` calls in both sync paths:
+- `pending->TP_HIT` (lines 196-202)
+- `active->TP_HIT` (lines 275-283)
+
+Now when sync detects a `tp_hit`, it immediately closes the position in the broker, realizing the P&L and updating the balance.
+
+---
+*Updated: 2026-01-10*
+*System: WSPlumber Engine 3.1 (FIX-CLOSE-04)*
