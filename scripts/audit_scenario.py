@@ -16,11 +16,13 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 
-# Add src to path
+# Add src and root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from wsplumber.application.use_cases.cycle_orchestrator import CycleOrchestrator
 from wsplumber.application.services.trading_service import TradingService
+from wsplumber.application.services.robustness_service import RobustnessService
 from wsplumber.core.strategy._engine import WallStreetPlumberStrategy
 from wsplumber.core.risk.risk_manager import RiskManager
 from wsplumber.domain.types import CurrencyPair, CycleStatus
@@ -175,7 +177,14 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", sample_rate
 
     # Setup
     broker = SimulatedBroker(initial_balance=10000.0)
-    broker.load_csv(str(csv_path))
+    
+    # Try M1 loading first if file looks like M1 (Date,Time,Open...)
+    try:
+        broker.load_m1_csv(str(csv_path), pair=pair)
+    except Exception:
+        # Fallback to standard TickData format
+        broker.load_csv(str(csv_path))
+        
     await broker.connect()
 
     repo = InMemoryRepository()
@@ -207,11 +216,11 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", sample_rate
         metrics = AuditMetrics()
         tick_count = 0
         
-        print(f"\n{'═'*115}")
+        print(f"\n{'='*115}")
         print(f" WSPlumber Stress Test - {csv_path.name}")
-        print(f"{'═'*115}")
+        print(f"{'='*115}")
         print(f" {'TICK':>8} | {'BALANCE':>10} | {'EQUITY':>10} | {'PIPS':>9} | {'CYC(O/C)':>9} | {'REC(A/MX)':>9} | {'MAINS':>5} | {'DD%':>6}")
-        print(f"{'─'*115}")
+        print(f"{'-'*115}")
         
         while True:
             tick = await broker.advance_tick()
@@ -277,10 +286,10 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", sample_rate
         final_balance = float(acc.value["balance"])
         final_equity = float(acc.value["equity"])
         
-        print(f"{'─'*90}")
-        print(f"\n{'═'*90}")
+        print(f"{'-'*90}")
+        print(f"\n{'='*90}")
         print(f" FINAL RESULTS")
-        print(f"{'═'*90}")
+        print(f"{'='*90}")
         print(f" Total Ticks:            {tick_count:,}")
         print(f" Final Balance:          {final_balance:,.2f} EUR")
         print(f" Final Equity:           {final_equity:,.2f} EUR")
@@ -288,7 +297,32 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", sample_rate
         print(f" Max Concurrent Cycles:  {metrics.max_concurrent_cycles}")
         print(f" Max Concurrent Rec:     {metrics.max_concurrent_recoveries}")
         print(f" Max Drawdown:           {metrics.max_drawdown:,.2f} EUR ({metrics.max_drawdown_pct:.2f}%)")
-        print(f"{'═'*90}\n")
+        
+        # Robustness Metrics
+        all_cycles = list(repo.cycles.values())
+        cer = RobustnessService.calculate_cer(all_cycles)
+        red = RobustnessService.calculate_red_score(metrics.max_recoveries_per_cycle)
+        nsb = RobustnessService.calculate_nsb(all_cycles)
+        
+        print(f" RED Score:              {red:.3f}")
+        print(f" CER Ratio:              {cer:.3f}")
+        print(f" NSB Bias:               {nsb:.3f}")
+        print(f"{'='*90}\n")
+        
+        # Generate Certificate
+        cert_data = {
+            "timestamp": datetime.now().isoformat(),
+            "red_score": red,
+            "cer": cer,
+            "nsb": nsb,
+            "max_level": metrics.max_recoveries_per_cycle,
+            "resolved_percent": round((sum(1 for c in all_cycles if c.status == CycleStatus.CLOSED) / len(all_cycles) * 100), 1) if all_cycles else 0.0
+        }
+        cert_md = RobustnessService.generate_certificate(cert_data)
+        cert_path = f"robustness_cert_{csv_path.stem}.md"
+        with open(cert_path, "w", encoding="utf-8") as f:
+            f.write(cert_md)
+        print(f"[OK] Robustness Certificate saved to: {cert_path}")
         
         # Generate chart
         chart_path = f"audit_chart_{csv_path.stem}.png"
@@ -303,7 +337,7 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", sample_rate
             original_stdout = sys.stdout
             sys.stdout = f
             try:
-                auditor.print_report(repo, final_balance, final_equity, repo)
+                auditor.print_report(repo, final_balance, final_equity)
             finally:
                 sys.stdout = original_stdout
         

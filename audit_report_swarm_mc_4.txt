@@ -1,0 +1,2272 @@
+
+================================================================================
+WSPLUMBER CYCLE AUDIT REPORT
+================================================================================
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C1 | Type: MAIN | ID: CYC_EURUSD_20260110111727_369...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #1
+  Final status:    CLOSED
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.3 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10065    1.10165 closed          -              
+  M_S         1.09953    1.09853 tp_hit          -              
+  H_B         1.10165    0.00000 cancelled       M_B            
+  H_S         1.09853    0.00000 closed          M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #1     CYCLE_CREATED  Cycle C1 created             type=main
+  #1     MAIN_CREATED   M_B created PENDING          entry=1.10065 tp=1.10165
+  #1     MAIN_CREATED   M_S created PENDING          entry=1.09953 tp=1.09853
+  #83    STATUS_CHANGE  PENDING -> ACTIVE            
+  #83    ACTIVATED      M_B activated                
+  #718   STATUS_CHANGE  ACTIVE -> HEDGED             
+  #718   ACTIVATED      M_S activated                
+  #718   HEDGE_CREATED  H_B created PENDING          entry=1.10165 linked_to=C
+  #718   HEDGE_CREATED  H_S created PENDING          entry=1.09853 linked_to=C
+  #830   ACTIVATED      H_S activated                
+  #839   STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #839   NEUTRALIZED    M_B neutralized (hedged)     
+  #839   TP_HIT         M_S TP hit                   +10.3 pips
+  #839   CANCELLED      H_B cancelled                reason=counterpart_main_t
+  #839   REALIZED       +1.03 EUR                    
+  #4688  STATUS_CHANGE  IN_RECOVERY -> CLOSED        
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.10165 matches M_B TP=1.10165
+    [OK] H_S entry=1.09853 matches M_S TP=1.09853
+    [OK] TP hits: 1 (total +10.3 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R1 | Type: RECOVERY | ID: REC_EURUSD_1_111728...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #829
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +80.1 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.10065    1.10865 tp_hit       -              
+  R_S         1.09654    1.08854 cancelled    -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #829   CYCLE_CREATED  Cycle R1 created             type=recovery
+  #829   RECOVERY_CREATED R_B created PENDING          entry=1.10065 tp=1.10865
+  #829   RECOVERY_CREATED R_S created PENDING          entry=1.09654 tp=1.08854
+  #1215  ACTIVATED      R_B activated                
+  #3161  ACTIVATED      R_B activated                
+  #8658  TP_HIT         R_B TP hit                   +80.1 pips
+  #8658  CANCELLED      R_S cancelled                reason=counterpart_tp_hit
+
+  VERIFICATION:
+    [OK] TP hits: 1 (total +80.1 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R2 | Type: RECOVERY | ID: REC_EURUSD_2_111728...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #839
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +80.9 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.10050    1.10850 tp_hit       -              
+  R_S         1.09636    1.08836 cancelled    -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #839   CYCLE_CREATED  Cycle R2 created             type=recovery
+  #839   RECOVERY_CREATED R_B created PENDING          entry=1.10050 tp=1.10850
+  #839   RECOVERY_CREATED R_S created PENDING          entry=1.09636 tp=1.08836
+  #1200  ACTIVATED      R_B activated                
+  #4688  TP_HIT         R_B TP hit                   +80.9 pips
+  #4688  CANCELLED      R_S cancelled                reason=counterpart_tp_hit
+  #4688  REALIZED       +5.84 EUR                    
+
+  VERIFICATION:
+    [OK] TP hits: 1 (total +80.9 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C2 | Type: MAIN | ID: CYC_EURUSD_20260110111728_579...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #839
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.1 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.09900    1.10000 tp_hit          -              
+  M_S         1.09786    1.09686 cancelled       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #839   CYCLE_CREATED  Cycle C2 created             type=main
+  #839   MAIN_CREATED   M_B created PENDING          entry=1.09900 tp=1.10000
+  #839   MAIN_CREATED   M_S created PENDING          entry=1.09786 tp=1.09686
+  #912   STATUS_CHANGE  PENDING -> ACTIVE            
+  #912   ACTIVATED      M_B activated                
+  #1041  TP_HIT         M_B TP hit                   +10.1 pips
+  #1041  CANCELLED      M_S cancelled                reason=counterpart_tp_hit
+  #1041  REALIZED       +1.01 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.1 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C3 | Type: MAIN | ID: CYC_EURUSD_20260110111728_713...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #1041
+  Final status:    CLOSED
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.6 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10061    1.10161 tp_hit          -              
+  M_S         1.09951    1.09851 closed          -              
+  H_B         1.10161    0.00000 closed          M_B            
+  H_S         1.09851    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #1041  CYCLE_CREATED  Cycle C3 created             type=main
+  #1041  MAIN_CREATED   M_B created PENDING          entry=1.10061 tp=1.10161
+  #1041  MAIN_CREATED   M_S created PENDING          entry=1.09951 tp=1.09851
+  #1090  STATUS_CHANGE  PENDING -> ACTIVE            
+  #1090  ACTIVATED      M_S activated                
+  #1214  STATUS_CHANGE  ACTIVE -> HEDGED             
+  #1214  ACTIVATED      M_B activated                
+  #1214  HEDGE_CREATED  H_B created PENDING          entry=1.10161 linked_to=C
+  #1214  HEDGE_CREATED  H_S created PENDING          entry=1.09851 linked_to=C
+  #1319  STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #1319  TP_HIT         M_B TP hit                   +10.6 pips
+  #1319  NEUTRALIZED    M_S neutralized (hedged)     
+  #1319  CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #1319  REALIZED       +0.96 EUR                    
+  #8658  STATUS_CHANGE  IN_RECOVERY -> CLOSED        
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.10161 matches M_B TP=1.10161
+    [OK] H_S entry=1.09851 matches M_S TP=1.09851
+    [OK] TP hits: 1 (total +10.6 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C4 | Type: MAIN | ID: CYC_EURUSD_20260110111728_699...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #1319
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.6 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10232    1.10332 tp_hit          -              
+  M_S         1.10117    1.10017 neutralized     -              
+  H_B         1.10332    0.00000 closed          M_B            
+  H_S         1.10017    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #1319  CYCLE_CREATED  Cycle C4 created             type=main
+  #1319  MAIN_CREATED   M_B created PENDING          entry=1.10232 tp=1.10332
+  #1319  MAIN_CREATED   M_S created PENDING          entry=1.10117 tp=1.10017
+  #1333  STATUS_CHANGE  PENDING -> ACTIVE            
+  #1333  ACTIVATED      M_S activated                
+  #1908  STATUS_CHANGE  ACTIVE -> HEDGED             
+  #1908  ACTIVATED      M_B activated                
+  #1908  HEDGE_CREATED  H_B created PENDING          entry=1.10332 linked_to=C
+  #1908  HEDGE_CREATED  H_S created PENDING          entry=1.10017 linked_to=C
+  #2926  STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #2926  TP_HIT         M_B TP hit                   +10.6 pips
+  #2926  NEUTRALIZED    M_S neutralized (hedged)     
+  #2926  CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #2926  REALIZED       +0.98 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.10332 matches M_B TP=1.10332
+    [OK] H_S entry=1.10017 matches M_S TP=1.10017
+    [OK] TP hits: 1 (total +10.6 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R3 | Type: RECOVERY | ID: REC_EURUSD_1_111729...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #2926
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.10552    1.11352 active       -              
+  R_S         1.10138    1.09338 pending      -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #2926  CYCLE_CREATED  Cycle R3 created             type=recovery
+  #2926  RECOVERY_CREATED R_B created PENDING          entry=1.10552 tp=1.11352
+  #2926  RECOVERY_CREATED R_S created PENDING          entry=1.10138 tp=1.09338
+  #4375  ACTIVATED      R_B activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C5 | Type: MAIN | ID: CYC_EURUSD_20260110111729_800...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #2926
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.1 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10402    1.10502 tp_hit          -              
+  M_S         1.10288    1.10188 neutralized     -              
+  H_B         1.10502    0.00000 closed          M_B            
+  H_S         1.10188    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #2926  CYCLE_CREATED  Cycle C5 created             type=main
+  #2926  MAIN_CREATED   M_B created PENDING          entry=1.10402 tp=1.10502
+  #2926  MAIN_CREATED   M_S created PENDING          entry=1.10288 tp=1.10188
+  #2945  STATUS_CHANGE  PENDING -> ACTIVE            
+  #2945  ACTIVATED      M_S activated                
+  #3169  STATUS_CHANGE  ACTIVE -> HEDGED             
+  #3169  ACTIVATED      M_B activated                
+  #3169  HEDGE_CREATED  H_B created PENDING          entry=1.10502 linked_to=C
+  #3169  HEDGE_CREATED  H_S created PENDING          entry=1.10188 linked_to=C
+  #3320  STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #3320  TP_HIT         M_B TP hit                   +10.1 pips
+  #3320  NEUTRALIZED    M_S neutralized (hedged)     
+  #3320  CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #3320  REALIZED       +0.92 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.10502 matches M_B TP=1.10502
+    [OK] H_S entry=1.10188 matches M_S TP=1.10188
+    [OK] TP hits: 1 (total +10.1 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C6 | Type: MAIN | ID: CYC_EURUSD_20260110111729_754...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #3320
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.5 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10568    1.10668 tp_hit          -              
+  M_S         1.10453    1.10353 cancelled       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #3320  CYCLE_CREATED  Cycle C6 created             type=main
+  #3320  MAIN_CREATED   M_B created PENDING          entry=1.10568 tp=1.10668
+  #3320  MAIN_CREATED   M_S created PENDING          entry=1.10453 tp=1.10353
+  #3414  STATUS_CHANGE  PENDING -> ACTIVE            
+  #3414  ACTIVATED      M_B activated                
+  #4277  TP_HIT         M_B TP hit                   +10.5 pips
+  #4277  CANCELLED      M_S cancelled                reason=counterpart_tp_hit
+  #4277  REALIZED       +1.05 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.5 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C7 | Type: MAIN | ID: CYC_EURUSD_20260110111729_144...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #4277
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10737    1.10837 tp_hit          -              
+  M_S         1.10623    1.10523 neutralized     -              
+  H_B         1.10837    0.00000 closed          M_B            
+  H_S         1.10523    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #4277  CYCLE_CREATED  Cycle C7 created             type=main
+  #4277  MAIN_CREATED   M_B created PENDING          entry=1.10737 tp=1.10837
+  #4277  MAIN_CREATED   M_S created PENDING          entry=1.10623 tp=1.10523
+  #4428  STATUS_CHANGE  PENDING -> ACTIVE            
+  #4428  ACTIVATED      M_S activated                
+  #4546  STATUS_CHANGE  ACTIVE -> HEDGED             
+  #4546  ACTIVATED      M_B activated                
+  #4546  HEDGE_CREATED  H_B created PENDING          entry=1.10837 linked_to=C
+  #4546  HEDGE_CREATED  H_S created PENDING          entry=1.10523 linked_to=C
+  #4678  STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #4678  TP_HIT         M_B TP hit                   +10.0 pips
+  #4678  NEUTRALIZED    M_S neutralized (hedged)     
+  #4678  CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #4678  REALIZED       +0.89 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.10837 matches M_B TP=1.10837
+    [OK] H_S entry=1.10523 matches M_S TP=1.10523
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R4 | Type: RECOVERY | ID: REC_EURUSD_1_111730...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #4678
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11050    1.11850 active       -              
+  R_S         1.10637    1.09837 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #4678  CYCLE_CREATED  Cycle R4 created             type=recovery
+  #4678  RECOVERY_CREATED R_B created PENDING          entry=1.11050 tp=1.11850
+  #4678  RECOVERY_CREATED R_S created PENDING          entry=1.10637 tp=1.09837
+  #6889  ACTIVATED      R_B activated                
+  #18465 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C8 | Type: MAIN | ID: CYC_EURUSD_20260110111730_225...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #4678
+  Final status:    IN_RECOVERY
+  Debt Units:      [20, 40, 40]
+  Debt Remaining:  100.0 pips
+  Total P&L:       +10.2 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10900    1.11000 neutralized     -              
+  M_S         1.10787    1.10687 tp_hit          -              
+  H_B         1.11000    0.00000 cancelled       M_B            
+  H_S         1.10687    0.00000 ACTIVE (Running) M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #4678  CYCLE_CREATED  Cycle C8 created             type=main
+  #4678  MAIN_CREATED   M_B created PENDING          entry=1.10900 tp=1.11000
+  #4678  MAIN_CREATED   M_S created PENDING          entry=1.10787 tp=1.10687
+  #4742  STATUS_CHANGE  PENDING -> ACTIVE            
+  #4742  ACTIVATED      M_B activated                
+  #4827  STATUS_CHANGE  ACTIVE -> HEDGED             
+  #4827  ACTIVATED      M_S activated                
+  #4827  HEDGE_CREATED  H_B created PENDING          entry=1.11000 linked_to=C
+  #4827  HEDGE_CREATED  H_S created PENDING          entry=1.10687 linked_to=C
+  #5015  ACTIVATED      H_S activated                
+  #5037  STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #5037  NEUTRALIZED    M_B neutralized (hedged)     
+  #5037  TP_HIT         M_S TP hit                   +10.2 pips
+  #5037  CANCELLED      H_B cancelled                reason=counterpart_main_t
+  #5037  REALIZED       +1.02 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11000 matches M_B TP=1.11000
+    [OK] H_S entry=1.10687 matches M_S TP=1.10687
+    [OK] TP hits: 1 (total +10.2 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R5 | Type: RECOVERY | ID: REC_EURUSD_2_111730...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #5037
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.10885    1.11685 active       -              
+  R_S         1.10471    1.09671 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #5037  CYCLE_CREATED  Cycle R5 created             type=recovery
+  #5037  RECOVERY_CREATED R_B created PENDING          entry=1.10885 tp=1.11685
+  #5037  RECOVERY_CREATED R_S created PENDING          entry=1.10471 tp=1.09671
+  #6869  ACTIVATED      R_B activated                
+  #18623 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C9 | Type: MAIN | ID: CYC_EURUSD_20260110111730_804...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #5037
+  Final status:    IN_RECOVERY
+  Debt Units:      [20, 40]
+  Debt Remaining:  60.0 pips
+  Total P&L:       +10.2 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10735    1.10835 tp_hit          -              
+  M_S         1.10621    1.10521 neutralized     -              
+  H_B         1.10835    0.00000 closed          M_B            
+  H_S         1.10521    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #5037  CYCLE_CREATED  Cycle C9 created             type=main
+  #5037  MAIN_CREATED   M_B created PENDING          entry=1.10735 tp=1.10835
+  #5037  MAIN_CREATED   M_S created PENDING          entry=1.10621 tp=1.10521
+  #5244  STATUS_CHANGE  PENDING -> ACTIVE            
+  #5244  ACTIVATED      M_S activated                
+  #5768  STATUS_CHANGE  ACTIVE -> HEDGED             
+  #5768  ACTIVATED      M_B activated                
+  #5768  HEDGE_CREATED  H_B created PENDING          entry=1.10835 linked_to=C
+  #5768  HEDGE_CREATED  H_S created PENDING          entry=1.10521 linked_to=C
+  #6756  STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #6756  TP_HIT         M_B TP hit                   +10.2 pips
+  #6756  NEUTRALIZED    M_S neutralized (hedged)     
+  #6756  CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #6756  REALIZED       +0.92 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.10835 matches M_B TP=1.10835
+    [OK] H_S entry=1.10521 matches M_S TP=1.10521
+    [OK] TP hits: 1 (total +10.2 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R6 | Type: RECOVERY | ID: REC_EURUSD_1_111731...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #6756
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11049    1.11849 active       -              
+  R_S         1.10637    1.09837 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #6756  CYCLE_CREATED  Cycle R6 created             type=recovery
+  #6756  RECOVERY_CREATED R_B created PENDING          entry=1.11049 tp=1.11849
+  #6756  RECOVERY_CREATED R_S created PENDING          entry=1.10637 tp=1.09837
+  #8031  ACTIVATED      R_B activated                
+  #18369 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C10 | Type: MAIN | ID: CYC_EURUSD_20260110111731_242...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #6756
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.4 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10899    1.10999 tp_hit          -              
+  M_S         1.10787    1.10687 cancelled       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #6756  CYCLE_CREATED  Cycle C10 created            type=main
+  #6756  MAIN_CREATED   M_B created PENDING          entry=1.10899 tp=1.10999
+  #6756  MAIN_CREATED   M_S created PENDING          entry=1.10787 tp=1.10687
+  #6889  STATUS_CHANGE  PENDING -> ACTIVE            
+  #6889  ACTIVATED      M_B activated                
+  #7052  TP_HIT         M_B TP hit                   +10.4 pips
+  #7052  CANCELLED      M_S cancelled                reason=counterpart_tp_hit
+  #7052  REALIZED       +1.04 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.4 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C11 | Type: MAIN | ID: CYC_EURUSD_20260110111731_950...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #7052
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +11.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11063    1.11163 cancelled       -              
+  M_S         1.10953    1.10853 tp_hit          -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #7052  CYCLE_CREATED  Cycle C11 created            type=main
+  #7052  MAIN_CREATED   M_B created PENDING          entry=1.11063 tp=1.11163
+  #7052  MAIN_CREATED   M_S created PENDING          entry=1.10953 tp=1.10853
+  #7096  STATUS_CHANGE  PENDING -> ACTIVE            
+  #7096  ACTIVATED      M_S activated                
+  #7467  CANCELLED      M_B cancelled                reason=counterpart_tp_hit
+  #7467  TP_HIT         M_S TP hit                   +11.0 pips
+  #7467  REALIZED       +1.10 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +11.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C12 | Type: MAIN | ID: CYC_EURUSD_20260110111731_256...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #7467
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.1 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10893    1.10993 tp_hit          -              
+  M_S         1.10781    1.10681 neutralized     -              
+  H_B         1.10993    0.00000 closed          M_B            
+  H_S         1.10681    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #7467  CYCLE_CREATED  Cycle C12 created            type=main
+  #7467  MAIN_CREATED   M_B created PENDING          entry=1.10893 tp=1.10993
+  #7467  MAIN_CREATED   M_S created PENDING          entry=1.10781 tp=1.10681
+  #7523  STATUS_CHANGE  PENDING -> ACTIVE            
+  #7523  ACTIVATED      M_S activated                
+  #7631  STATUS_CHANGE  ACTIVE -> HEDGED             
+  #7631  ACTIVATED      M_B activated                
+  #7631  HEDGE_CREATED  H_B created PENDING          entry=1.10993 linked_to=C
+  #7631  HEDGE_CREATED  H_S created PENDING          entry=1.10681 linked_to=C
+  #7701  STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #7701  TP_HIT         M_B TP hit                   +10.1 pips
+  #7701  NEUTRALIZED    M_S neutralized (hedged)     
+  #7701  CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #7701  REALIZED       +0.88 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.10993 matches M_B TP=1.10993
+    [OK] H_S entry=1.10681 matches M_S TP=1.10681
+    [OK] TP hits: 1 (total +10.1 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R7 | Type: RECOVERY | ID: REC_EURUSD_1_111732...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #7701
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11205    1.12005 pending      -              
+  R_S         1.10794    1.09994 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #7701  CYCLE_CREATED  Cycle R7 created             type=recovery
+  #7701  RECOVERY_CREATED R_B created PENDING          entry=1.11205 tp=1.12005
+  #7701  RECOVERY_CREATED R_S created PENDING          entry=1.10794 tp=1.09994
+  #10301 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C13 | Type: MAIN | ID: CYC_EURUSD_20260110111732_314...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #7701
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11055    1.11155 tp_hit          -              
+  M_S         1.10944    1.10844 neutralized     -              
+  H_B         1.11155    0.00000 closed          M_B            
+  H_S         1.10844    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #7701  CYCLE_CREATED  Cycle C13 created            type=main
+  #7701  MAIN_CREATED   M_B created PENDING          entry=1.11055 tp=1.11155
+  #7701  MAIN_CREATED   M_S created PENDING          entry=1.10944 tp=1.10844
+  #7724  STATUS_CHANGE  PENDING -> ACTIVE            
+  #7724  ACTIVATED      M_S activated                
+  #8032  STATUS_CHANGE  ACTIVE -> HEDGED             
+  #8032  ACTIVATED      M_B activated                
+  #8032  HEDGE_CREATED  H_B created PENDING          entry=1.11155 linked_to=C
+  #8032  HEDGE_CREATED  H_S created PENDING          entry=1.10844 linked_to=C
+  #8293  STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #8293  TP_HIT         M_B TP hit                   +10.0 pips
+  #8293  NEUTRALIZED    M_S neutralized (hedged)     
+  #8293  CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #8293  REALIZED       +0.86 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11155 matches M_B TP=1.11155
+    [OK] H_S entry=1.10844 matches M_S TP=1.10844
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C14 | Type: MAIN | ID: CYC_EURUSD_20260110111732_955...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #8293
+  Final status:    IN_RECOVERY
+  Debt Units:      [20, 40]
+  Debt Remaining:  60.0 pips
+  Total P&L:       +10.8 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11217    1.11317 neutralized     -              
+  M_S         1.11105    1.11005 tp_hit          -              
+  H_B         1.11317    0.00000 cancelled       M_B            
+  H_S         1.11005    0.00000 ACTIVE (Running) M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #8293  CYCLE_CREATED  Cycle C14 created            type=main
+  #8293  MAIN_CREATED   M_B created PENDING          entry=1.11217 tp=1.11317
+  #8293  MAIN_CREATED   M_S created PENDING          entry=1.11105 tp=1.11005
+  #8341  STATUS_CHANGE  PENDING -> ACTIVE            
+  #8341  ACTIVATED      M_S activated                
+  #8667  STATUS_CHANGE  ACTIVE -> HEDGED             
+  #8667  ACTIVATED      M_B activated                
+  #8667  HEDGE_CREATED  H_B created PENDING          entry=1.11317 linked_to=C
+  #8667  HEDGE_CREATED  H_S created PENDING          entry=1.11005 linked_to=C
+  #9768  ACTIVATED      H_S activated                
+  #9782  STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #9782  NEUTRALIZED    M_B neutralized (hedged)     
+  #9782  TP_HIT         M_S TP hit                   +10.8 pips
+  #9782  CANCELLED      H_B cancelled                reason=counterpart_main_t
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11317 matches M_B TP=1.11317
+    [OK] H_S entry=1.11005 matches M_S TP=1.11005
+    [OK] TP hits: 1 (total +10.8 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C15 | Type: MAIN | ID: CYC_EURUSD_20260110111732_811...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #8658
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.1 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11248    1.11348 neutralized     -              
+  M_S         1.11133    1.11033 tp_hit          -              
+  H_B         1.11348    0.00000 cancelled       M_B            
+  H_S         1.11033    0.00000 ACTIVE (Running) M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #8658  CYCLE_CREATED  Cycle C15 created            type=main
+  #8658  MAIN_CREATED   M_B created PENDING          entry=1.11248 tp=1.11348
+  #8658  MAIN_CREATED   M_S created PENDING          entry=1.11133 tp=1.11033
+  #8676  STATUS_CHANGE  PENDING -> ACTIVE            
+  #8676  ACTIVATED      M_B activated                
+  #9043  STATUS_CHANGE  ACTIVE -> HEDGED             
+  #9043  ACTIVATED      M_S activated                
+  #9043  HEDGE_CREATED  H_B created PENDING          entry=1.11348 linked_to=C
+  #9043  HEDGE_CREATED  H_S created PENDING          entry=1.11033 linked_to=C
+  #9545  ACTIVATED      H_S activated                
+  #9564  STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #9564  NEUTRALIZED    M_B neutralized (hedged)     
+  #9564  TP_HIT         M_S TP hit                   +10.1 pips
+  #9564  CANCELLED      H_B cancelled                reason=counterpart_main_t
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11348 matches M_B TP=1.11348
+    [OK] H_S entry=1.11033 matches M_S TP=1.11033
+    [OK] TP hits: 1 (total +10.1 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R8 | Type: RECOVERY | ID: REC_EURUSD_1_111733...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #9540
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11247    1.12047 pending      -              
+  R_S         1.10834    1.10034 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #9540  CYCLE_CREATED  Cycle R8 created             type=recovery
+  #9540  RECOVERY_CREATED R_B created PENDING          entry=1.11247 tp=1.12047
+  #9540  RECOVERY_CREATED R_S created PENDING          entry=1.10834 tp=1.10034
+  #14677 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R9 | Type: RECOVERY | ID: REC_EURUSD_2_111733...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #9564
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11232    1.12032 pending      -              
+  R_S         1.10819    1.10019 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #9564  CYCLE_CREATED  Cycle R9 created             type=recovery
+  #9564  RECOVERY_CREATED R_B created PENDING          entry=1.11232 tp=1.12032
+  #9564  RECOVERY_CREATED R_S created PENDING          entry=1.10819 tp=1.10019
+  #16938 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C16 | Type: MAIN | ID: CYC_EURUSD_20260110111733_347...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #9564
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11082    1.11182 tp_hit          -              
+  M_S         1.10969    1.10869 cancelled       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #9564  CYCLE_CREATED  Cycle C16 created            type=main
+  #9564  MAIN_CREATED   M_B created PENDING          entry=1.11082 tp=1.11182
+  #9564  MAIN_CREATED   M_S created PENDING          entry=1.10969 tp=1.10869
+  #9614  STATUS_CHANGE  PENDING -> ACTIVE            
+  #9614  ACTIVATED      M_B activated                
+  #10017 TP_HIT         M_B TP hit                   +10.0 pips
+  #10017 CANCELLED      M_S cancelled                reason=counterpart_tp_hit
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R10 | Type: RECOVERY | ID: REC_EURUSD_1_111734...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #9782
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11197    1.11997 active       -              
+  R_S         1.10783    1.09983 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #9782  CYCLE_CREATED  Cycle R10 created            type=recovery
+  #9782  RECOVERY_CREATED R_B created PENDING          entry=1.11197 tp=1.11997
+  #9782  RECOVERY_CREATED R_S created PENDING          entry=1.10783 tp=1.09983
+  #10020 ACTIVATED      R_B activated                
+  #18111 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C17 | Type: MAIN | ID: CYC_EURUSD_20260110111734_394...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #9782
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.5 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11047    1.11147 tp_hit          -              
+  M_S         1.10933    1.10833 cancelled       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #9782  CYCLE_CREATED  Cycle C17 created            type=main
+  #9782  MAIN_CREATED   M_B created PENDING          entry=1.11047 tp=1.11147
+  #9782  MAIN_CREATED   M_S created PENDING          entry=1.10933 tp=1.10833
+  #9820  STATUS_CHANGE  PENDING -> ACTIVE            
+  #9820  ACTIVATED      M_B activated                
+  #10012 TP_HIT         M_B TP hit                   +10.5 pips
+  #10012 CANCELLED      M_S cancelled                reason=counterpart_tp_hit
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.5 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C18 | Type: MAIN | ID: CYC_EURUSD_20260110111734_549...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #10012
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.3 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11216    1.11316 cancelled       -              
+  M_S         1.11102    1.11002 tp_hit          -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #10012 CYCLE_CREATED  Cycle C18 created            type=main
+  #10012 MAIN_CREATED   M_B created PENDING          entry=1.11216 tp=1.11316
+  #10012 MAIN_CREATED   M_S created PENDING          entry=1.11102 tp=1.11002
+  #10095 STATUS_CHANGE  PENDING -> ACTIVE            
+  #10095 ACTIVATED      M_S activated                
+  #10243 CANCELLED      M_B cancelled                reason=counterpart_tp_hit
+  #10243 TP_HIT         M_S TP hit                   +10.3 pips
+  #10243 REALIZED       +1.03 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.3 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C19 | Type: MAIN | ID: CYC_EURUSD_20260110111734_710...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #10017
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.2 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11243    1.11343 cancelled       -              
+  M_S         1.11132    1.11032 tp_hit          -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #10017 CYCLE_CREATED  Cycle C19 created            type=main
+  #10017 MAIN_CREATED   M_B created PENDING          entry=1.11243 tp=1.11343
+  #10017 MAIN_CREATED   M_S created PENDING          entry=1.11132 tp=1.11032
+  #10071 STATUS_CHANGE  PENDING -> ACTIVE            
+  #10071 ACTIVATED      M_S activated                
+  #10150 CANCELLED      M_B cancelled                reason=counterpart_tp_hit
+  #10150 TP_HIT         M_S TP hit                   +10.2 pips
+  #10150 REALIZED       +0.70 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.2 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C20 | Type: MAIN | ID: CYC_EURUSD_20260110111734_307...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #10150
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11080    1.11180 tp_hit          -              
+  M_S         1.10966    1.10866 neutralized     -              
+  H_B         1.11180    0.00000 closed          M_B            
+  H_S         1.10866    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #10150 CYCLE_CREATED  Cycle C20 created            type=main
+  #10150 MAIN_CREATED   M_B created PENDING          entry=1.11080 tp=1.11180
+  #10150 MAIN_CREATED   M_S created PENDING          entry=1.10966 tp=1.10866
+  #10199 STATUS_CHANGE  PENDING -> ACTIVE            
+  #10199 ACTIVATED      M_B activated                
+  #10297 STATUS_CHANGE  ACTIVE -> HEDGED             
+  #10297 ACTIVATED      M_S activated                
+  #10297 HEDGE_CREATED  H_B created PENDING          entry=1.11180 linked_to=C
+  #10297 HEDGE_CREATED  H_S created PENDING          entry=1.10866 linked_to=C
+  #11663 STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #11663 TP_HIT         M_B TP hit                   +10.0 pips
+  #11663 NEUTRALIZED    M_S neutralized (hedged)     
+  #11663 CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #11663 REALIZED       +0.89 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11180 matches M_B TP=1.11180
+    [OK] H_S entry=1.10866 matches M_S TP=1.10866
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C21 | Type: MAIN | ID: CYC_EURUSD_20260110111734_243...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #10243
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11049    1.11149 tp_hit          -              
+  M_S         1.10937    1.10837 neutralized     -              
+  H_B         1.11149    0.00000 closed          M_B            
+  H_S         1.10837    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #10243 CYCLE_CREATED  Cycle C21 created            type=main
+  #10243 MAIN_CREATED   M_B created PENDING          entry=1.11049 tp=1.11149
+  #10243 MAIN_CREATED   M_S created PENDING          entry=1.10937 tp=1.10837
+  #10366 STATUS_CHANGE  PENDING -> ACTIVE            
+  #10366 ACTIVATED      M_S activated                
+  #10981 STATUS_CHANGE  ACTIVE -> HEDGED             
+  #10981 ACTIVATED      M_B activated                
+  #10981 HEDGE_CREATED  H_B created PENDING          entry=1.11149 linked_to=C
+  #10981 HEDGE_CREATED  H_S created PENDING          entry=1.10837 linked_to=C
+  #11598 STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #11598 TP_HIT         M_B TP hit                   +10.0 pips
+  #11598 NEUTRALIZED    M_S neutralized (hedged)     
+  #11598 CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #11598 REALIZED       +0.87 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11149 matches M_B TP=1.11149
+    [OK] H_S entry=1.10837 matches M_S TP=1.10837
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R11 | Type: RECOVERY | ID: REC_EURUSD_1_111737...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #11598
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11359    1.12159 pending      -              
+  R_S         1.10949    1.10149 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #11598 CYCLE_CREATED  Cycle R11 created            type=recovery
+  #11598 RECOVERY_CREATED R_B created PENDING          entry=1.11359 tp=1.12159
+  #11598 RECOVERY_CREATED R_S created PENDING          entry=1.10949 tp=1.10149
+  #12477 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C22 | Type: MAIN | ID: CYC_EURUSD_20260110111737_633...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #11598
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11209    1.11309 cancelled       -              
+  M_S         1.11099    1.10999 tp_hit          -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #11598 CYCLE_CREATED  Cycle C22 created            type=main
+  #11598 MAIN_CREATED   M_B created PENDING          entry=1.11209 tp=1.11309
+  #11598 MAIN_CREATED   M_S created PENDING          entry=1.11099 tp=1.10999
+  #11841 STATUS_CHANGE  PENDING -> ACTIVE            
+  #11841 ACTIVATED      M_S activated                
+  #12471 CANCELLED      M_B cancelled                reason=counterpart_tp_hit
+  #12471 TP_HIT         M_S TP hit                   +10.0 pips
+  #12471 REALIZED       +1.00 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C23 | Type: MAIN | ID: CYC_EURUSD_20260110111737_110...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #11663
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11241    1.11341 cancelled       -              
+  M_S         1.11130    1.11030 tp_hit          -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #11663 CYCLE_CREATED  Cycle C23 created            type=main
+  #11663 MAIN_CREATED   M_B created PENDING          entry=1.11241 tp=1.11341
+  #11663 MAIN_CREATED   M_S created PENDING          entry=1.11130 tp=1.11030
+  #11703 STATUS_CHANGE  PENDING -> ACTIVE            
+  #11703 ACTIVATED      M_S activated                
+  #12393 CANCELLED      M_B cancelled                reason=counterpart_tp_hit
+  #12393 TP_HIT         M_S TP hit                   +10.0 pips
+  #12393 REALIZED       +1.00 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C24 | Type: MAIN | ID: CYC_EURUSD_20260110111738_738...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #12393
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.1 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11080    1.11180 tp_hit          -              
+  M_S         1.10968    1.10868 neutralized     -              
+  H_B         1.11180    0.00000 closed          M_B            
+  H_S         1.10868    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #12393 CYCLE_CREATED  Cycle C24 created            type=main
+  #12393 MAIN_CREATED   M_B created PENDING          entry=1.11080 tp=1.11180
+  #12393 MAIN_CREATED   M_S created PENDING          entry=1.10968 tp=1.10868
+  #12481 STATUS_CHANGE  PENDING -> ACTIVE            
+  #12481 ACTIVATED      M_S activated                
+  #12751 STATUS_CHANGE  ACTIVE -> HEDGED             
+  #12751 ACTIVATED      M_B activated                
+  #12751 HEDGE_CREATED  H_B created PENDING          entry=1.11180 linked_to=C
+  #12751 HEDGE_CREATED  H_S created PENDING          entry=1.10868 linked_to=C
+  #13297 STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #13297 TP_HIT         M_B TP hit                   +10.1 pips
+  #13297 NEUTRALIZED    M_S neutralized (hedged)     
+  #13297 CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #13297 REALIZED       +0.89 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11180 matches M_B TP=1.11180
+    [OK] H_S entry=1.10868 matches M_S TP=1.10868
+    [OK] TP hits: 1 (total +10.1 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C25 | Type: MAIN | ID: CYC_EURUSD_20260110111738_933...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #12471
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11049    1.11149 tp_hit          -              
+  M_S         1.10938    1.10838 cancelled       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #12471 CYCLE_CREATED  Cycle C25 created            type=main
+  #12471 MAIN_CREATED   M_B created PENDING          entry=1.11049 tp=1.11149
+  #12471 MAIN_CREATED   M_S created PENDING          entry=1.10938 tp=1.10838
+  #12747 STATUS_CHANGE  PENDING -> ACTIVE            
+  #12747 ACTIVATED      M_B activated                
+  #13085 TP_HIT         M_B TP hit                   +10.0 pips
+  #13085 CANCELLED      M_S cancelled                reason=counterpart_tp_hit
+  #13085 REALIZED       +1.00 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C26 | Type: MAIN | ID: CYC_EURUSD_20260110111739_557...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #13085
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.2 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11213    1.11313 neutralized     -              
+  M_S         1.11099    1.10999 tp_hit          -              
+  H_B         1.11313    0.00000 cancelled       M_B            
+  H_S         1.10999    0.00000 ACTIVE (Running) M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #13085 CYCLE_CREATED  Cycle C26 created            type=main
+  #13085 MAIN_CREATED   M_B created PENDING          entry=1.11213 tp=1.11313
+  #13085 MAIN_CREATED   M_S created PENDING          entry=1.11099 tp=1.10999
+  #13106 STATUS_CHANGE  PENDING -> ACTIVE            
+  #13106 ACTIVATED      M_S activated                
+  #13314 STATUS_CHANGE  ACTIVE -> HEDGED             
+  #13314 ACTIVATED      M_B activated                
+  #13314 HEDGE_CREATED  H_B created PENDING          entry=1.11313 linked_to=C
+  #13314 HEDGE_CREATED  H_S created PENDING          entry=1.10999 linked_to=C
+  #13682 ACTIVATED      H_S activated                
+  #13689 STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #13689 NEUTRALIZED    M_B neutralized (hedged)     
+  #13689 TP_HIT         M_S TP hit                   +10.2 pips
+  #13689 CANCELLED      H_B cancelled                reason=counterpart_main_t
+  #13689 REALIZED       +1.02 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11313 matches M_B TP=1.11313
+    [OK] H_S entry=1.10999 matches M_S TP=1.10999
+    [OK] TP hits: 1 (total +10.2 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R12 | Type: RECOVERY | ID: REC_EURUSD_1_111740...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #13297
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11395    1.12195 pending      -              
+  R_S         1.10981    1.10181 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #13297 CYCLE_CREATED  Cycle R12 created            type=recovery
+  #13297 RECOVERY_CREATED R_B created PENDING          entry=1.11395 tp=1.12195
+  #13297 RECOVERY_CREATED R_S created PENDING          entry=1.10981 tp=1.10181
+  #13701 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C27 | Type: MAIN | ID: CYC_EURUSD_20260110111740_187...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #13297
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11245    1.11345 cancelled       -              
+  M_S         1.11131    1.11031 tp_hit          -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #13297 CYCLE_CREATED  Cycle C27 created            type=main
+  #13297 MAIN_CREATED   M_B created PENDING          entry=1.11245 tp=1.11345
+  #13297 MAIN_CREATED   M_S created PENDING          entry=1.11131 tp=1.11031
+  #13346 STATUS_CHANGE  PENDING -> ACTIVE            
+  #13346 ACTIVATED      M_S activated                
+  #13518 CANCELLED      M_B cancelled                reason=counterpart_tp_hit
+  #13518 TP_HIT         M_S TP hit                   +10.0 pips
+  #13518 REALIZED       +1.00 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C28 | Type: MAIN | ID: CYC_EURUSD_20260110111740_918...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #13518
+  Final status:    IN_RECOVERY
+  Debt Units:      [20, 40]
+  Debt Remaining:  60.0 pips
+  Total P&L:       +10.1 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11081    1.11181 neutralized     -              
+  M_S         1.10969    1.10869 tp_hit          -              
+  H_B         1.11181    0.00000 cancelled       M_B            
+  H_S         1.10869    0.00000 ACTIVE (Running) M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #13518 CYCLE_CREATED  Cycle C28 created            type=main
+  #13518 MAIN_CREATED   M_B created PENDING          entry=1.11081 tp=1.11181
+  #13518 MAIN_CREATED   M_S created PENDING          entry=1.10969 tp=1.10869
+  #13553 STATUS_CHANGE  PENDING -> ACTIVE            
+  #13553 ACTIVATED      M_B activated                
+  #13702 STATUS_CHANGE  ACTIVE -> HEDGED             
+  #13702 ACTIVATED      M_S activated                
+  #13702 HEDGE_CREATED  H_B created PENDING          entry=1.11181 linked_to=C
+  #13702 HEDGE_CREATED  H_S created PENDING          entry=1.10869 linked_to=C
+  #14624 ACTIVATED      H_S activated                
+  #14663 STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #14663 NEUTRALIZED    M_B neutralized (hedged)     
+  #14663 TP_HIT         M_S TP hit                   +10.1 pips
+  #14663 CANCELLED      H_B cancelled                reason=counterpart_main_t
+  #14663 REALIZED       +1.01 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11181 matches M_B TP=1.11181
+    [OK] H_S entry=1.10869 matches M_S TP=1.10869
+    [OK] TP hits: 1 (total +10.1 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R13 | Type: RECOVERY | ID: REC_EURUSD_1_111741...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #13689
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11197    1.11997 pending      -              
+  R_S         1.10783    1.09983 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #13689 CYCLE_CREATED  Cycle R13 created            type=recovery
+  #13689 RECOVERY_CREATED R_B created PENDING          entry=1.11197 tp=1.11997
+  #13689 RECOVERY_CREATED R_S created PENDING          entry=1.10783 tp=1.09983
+  #18111 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C29 | Type: MAIN | ID: CYC_EURUSD_20260110111741_733...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #13689
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.1 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11047    1.11147 neutralized     -              
+  M_S         1.10933    1.10833 tp_hit          -              
+  H_B         1.11147    0.00000 closed          M_B            
+  H_S         1.10833    0.00000 ACTIVE (Running) M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #13689 CYCLE_CREATED  Cycle C29 created            type=main
+  #13689 MAIN_CREATED   M_B created PENDING          entry=1.11047 tp=1.11147
+  #13689 MAIN_CREATED   M_S created PENDING          entry=1.10933 tp=1.10833
+  #13772 STATUS_CHANGE  PENDING -> ACTIVE            
+  #13772 ACTIVATED      M_S activated                
+  #13925 STATUS_CHANGE  ACTIVE -> HEDGED             
+  #13925 ACTIVATED      M_B activated                
+  #13925 HEDGE_CREATED  H_B created PENDING          entry=1.11147 linked_to=C
+  #13925 HEDGE_CREATED  H_S created PENDING          entry=1.10833 linked_to=C
+  #14677 ACTIVATED      H_S activated                
+  #16938 STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #16938 NEUTRALIZED    M_B neutralized (hedged)     
+  #16938 TP_HIT         M_S TP hit                   +10.1 pips
+  #16938 REALIZED       +1.01 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11147 matches M_B TP=1.11147
+    [OK] H_S entry=1.10833 matches M_S TP=1.10833
+    [OK] TP hits: 1 (total +10.1 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R14 | Type: RECOVERY | ID: REC_EURUSD_1_111743...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #14663
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11068    1.11868 active       -              
+  R_S         1.10656    1.09856 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #14663 CYCLE_CREATED  Cycle R14 created            type=recovery
+  #14663 RECOVERY_CREATED R_B created PENDING          entry=1.11068 tp=1.11868
+  #14663 RECOVERY_CREATED R_S created PENDING          entry=1.10656 tp=1.09856
+  #15070 ACTIVATED      R_B activated                
+  #18352 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C30 | Type: MAIN | ID: CYC_EURUSD_20260110111743_137...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #14663
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.6 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10918    1.11018 tp_hit          -              
+  M_S         1.10806    1.10706 cancelled       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #14663 CYCLE_CREATED  Cycle C30 created            type=main
+  #14663 MAIN_CREATED   M_B created PENDING          entry=1.10918 tp=1.11018
+  #14663 MAIN_CREATED   M_S created PENDING          entry=1.10806 tp=1.10706
+  #14723 STATUS_CHANGE  PENDING -> ACTIVE            
+  #14723 ACTIVATED      M_B activated                
+  #15061 TP_HIT         M_B TP hit                   +10.6 pips
+  #15061 CANCELLED      M_S cancelled                reason=counterpart_tp_hit
+  #15061 REALIZED       +1.06 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.6 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C31 | Type: MAIN | ID: CYC_EURUSD_20260110111743_714...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #15061
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11085    1.11185 neutralized     -              
+  M_S         1.10974    1.10874 tp_hit          -              
+  H_B         1.11185    0.00000 cancelled       M_B            
+  H_S         1.10874    0.00000 ACTIVE (Running) M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #15061 CYCLE_CREATED  Cycle C31 created            type=main
+  #15061 MAIN_CREATED   M_B created PENDING          entry=1.11085 tp=1.11185
+  #15061 MAIN_CREATED   M_S created PENDING          entry=1.10974 tp=1.10874
+  #15075 STATUS_CHANGE  PENDING -> ACTIVE            
+  #15075 ACTIVATED      M_B activated                
+  #15402 STATUS_CHANGE  ACTIVE -> HEDGED             
+  #15402 ACTIVATED      M_S activated                
+  #15402 HEDGE_CREATED  H_B created PENDING          entry=1.11185 linked_to=C
+  #15402 HEDGE_CREATED  H_S created PENDING          entry=1.10874 linked_to=C
+  #16435 ACTIVATED      H_S activated                
+  #16443 STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #16443 NEUTRALIZED    M_B neutralized (hedged)     
+  #16443 TP_HIT         M_S TP hit                   +10.0 pips
+  #16443 CANCELLED      H_B cancelled                reason=counterpart_main_t
+  #16443 REALIZED       +0.91 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11185 matches M_B TP=1.11185
+    [OK] H_S entry=1.10874 matches M_S TP=1.10874
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R15 | Type: RECOVERY | ID: REC_EURUSD_1_111746...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #16435
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11084    1.11884 pending      -              
+  R_S         1.10673    1.09873 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #16435 CYCLE_CREATED  Cycle R15 created            type=recovery
+  #16435 RECOVERY_CREATED R_B created PENDING          entry=1.11084 tp=1.11884
+  #16435 RECOVERY_CREATED R_S created PENDING          entry=1.10673 tp=1.09873
+  #18343 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R16 | Type: RECOVERY | ID: REC_EURUSD_2_111746...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #16443
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11074    1.11874 pending      -              
+  R_S         1.10660    1.09860 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #16443 CYCLE_CREATED  Cycle R16 created            type=recovery
+  #16443 RECOVERY_CREATED R_B created PENDING          entry=1.11074 tp=1.11874
+  #16443 RECOVERY_CREATED R_S created PENDING          entry=1.10660 tp=1.09860
+  #18352 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C32 | Type: MAIN | ID: CYC_EURUSD_20260110111746_711...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #16443
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10924    1.11024 neutralized     -              
+  M_S         1.10810    1.10710 tp_hit          -              
+  H_B         1.11024    0.00000 closed          M_B            
+  H_S         1.10710    0.00000 ACTIVE (Running) M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #16443 CYCLE_CREATED  Cycle C32 created            type=main
+  #16443 MAIN_CREATED   M_B created PENDING          entry=1.10924 tp=1.11024
+  #16443 MAIN_CREATED   M_S created PENDING          entry=1.10810 tp=1.10710
+  #16714 STATUS_CHANGE  PENDING -> ACTIVE            
+  #16714 ACTIVATED      M_B activated                
+  #16940 STATUS_CHANGE  ACTIVE -> HEDGED             
+  #16940 ACTIVATED      M_S activated                
+  #16940 HEDGE_CREATED  H_B created PENDING          entry=1.11024 linked_to=C
+  #16940 HEDGE_CREATED  H_S created PENDING          entry=1.10710 linked_to=C
+  #18264 ACTIVATED      H_S activated                
+  #18284 STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #18284 NEUTRALIZED    M_B neutralized (hedged)     
+  #18284 TP_HIT         M_S TP hit                   +10.0 pips
+  #18284 REALIZED       +1.00 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.11024 matches M_B TP=1.11024
+    [OK] H_S entry=1.10710 matches M_S TP=1.10710
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R17 | Type: RECOVERY | ID: REC_EURUSD_1_111747...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #16938
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11032    1.11832 pending      -              
+  R_S         1.10619    1.09819 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #16938 CYCLE_CREATED  Cycle R17 created            type=recovery
+  #16938 RECOVERY_CREATED R_B created PENDING          entry=1.11032 tp=1.11832
+  #16938 RECOVERY_CREATED R_S created PENDING          entry=1.10619 tp=1.09819
+  #18379 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C33 | Type: MAIN | ID: CYC_EURUSD_20260110111747_787...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #16938
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.1 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10882    1.10982 tp_hit          -              
+  M_S         1.10769    1.10669 cancelled       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #16938 CYCLE_CREATED  Cycle C33 created            type=main
+  #16938 MAIN_CREATED   M_B created PENDING          entry=1.10882 tp=1.10982
+  #16938 MAIN_CREATED   M_S created PENDING          entry=1.10769 tp=1.10669
+  #16966 STATUS_CHANGE  PENDING -> ACTIVE            
+  #16966 ACTIVATED      M_B activated                
+  #17656 TP_HIT         M_B TP hit                   +10.1 pips
+  #17656 CANCELLED      M_S cancelled                reason=counterpart_tp_hit
+  #17656 REALIZED       +1.01 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.1 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C34 | Type: MAIN | ID: CYC_EURUSD_20260110111750_245...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #17656
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.5 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.11046    1.11146 cancelled       -              
+  M_S         1.10933    1.10833 tp_hit          -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #17656 CYCLE_CREATED  Cycle C34 created            type=main
+  #17656 MAIN_CREATED   M_B created PENDING          entry=1.11046 tp=1.11146
+  #17656 MAIN_CREATED   M_S created PENDING          entry=1.10933 tp=1.10833
+  #17731 STATUS_CHANGE  PENDING -> ACTIVE            
+  #17731 ACTIVATED      M_S activated                
+  #18096 CANCELLED      M_B cancelled                reason=counterpart_tp_hit
+  #18096 TP_HIT         M_S TP hit                   +10.5 pips
+  #18096 REALIZED       +0.92 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.5 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C35 | Type: MAIN | ID: CYC_EURUSD_20260110111751_246...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #18096
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.4 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10878    1.10978 cancelled       -              
+  M_S         1.10766    1.10666 tp_hit          -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #18096 CYCLE_CREATED  Cycle C35 created            type=main
+  #18096 MAIN_CREATED   M_B created PENDING          entry=1.10878 tp=1.10978
+  #18096 MAIN_CREATED   M_S created PENDING          entry=1.10766 tp=1.10666
+  #18116 STATUS_CHANGE  PENDING -> ACTIVE            
+  #18116 ACTIVATED      M_S activated                
+  #18352 CANCELLED      M_B cancelled                reason=counterpart_tp_hit
+  #18352 TP_HIT         M_S TP hit                   +10.4 pips
+  #18352 REALIZED       +1.04 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.4 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R18 | Type: RECOVERY | ID: REC_EURUSD_2_111751...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #18111
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11397    1.12197 pending      -              
+  R_S         1.10997    1.10197 pending      -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #18111 CYCLE_CREATED  Cycle R18 created            type=recovery
+  #18111 RECOVERY_CREATED R_B created PENDING          entry=1.11397 tp=1.12197
+  #18111 RECOVERY_CREATED R_S created PENDING          entry=1.10997 tp=1.10197
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R19 | Type: RECOVERY | ID: REC_EURUSD_1_111751...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #18284
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.10910    1.11710 pending      -              
+  R_S         1.10497    1.09697 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #18284 CYCLE_CREATED  Cycle R19 created            type=recovery
+  #18284 RECOVERY_CREATED R_B created PENDING          entry=1.10910 tp=1.11710
+  #18284 RECOVERY_CREATED R_S created PENDING          entry=1.10497 tp=1.09697
+  #18464 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C36 | Type: MAIN | ID: CYC_EURUSD_20260110111751_327...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #18284
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.1 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10760    1.10860 cancelled       -              
+  M_S         1.10647    1.10547 tp_hit          -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #18284 CYCLE_CREATED  Cycle C36 created            type=main
+  #18284 MAIN_CREATED   M_B created PENDING          entry=1.10760 tp=1.10860
+  #18284 MAIN_CREATED   M_S created PENDING          entry=1.10647 tp=1.10547
+  #18367 STATUS_CHANGE  PENDING -> ACTIVE            
+  #18367 ACTIVATED      M_S activated                
+  #18437 CANCELLED      M_B cancelled                reason=counterpart_tp_hit
+  #18437 TP_HIT         M_S TP hit                   +10.1 pips
+  #18437 REALIZED       +1.01 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.1 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R20 | Type: RECOVERY | ID: REC_EURUSD_2_111752...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #18352
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11268    1.12068 pending      -              
+  R_S         1.10868    1.10068 pending      -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #18352 CYCLE_CREATED  Cycle R20 created            type=recovery
+  #18352 RECOVERY_CREATED R_B created PENDING          entry=1.11268 tp=1.12068
+  #18352 RECOVERY_CREATED R_S created PENDING          entry=1.10868 tp=1.10068
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C37 | Type: MAIN | ID: CYC_EURUSD_20260110111752_634...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #18352
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10712    1.10812 cancelled       -              
+  M_S         1.10602    1.10502 tp_hit          -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #18352 CYCLE_CREATED  Cycle C37 created            type=main
+  #18352 MAIN_CREATED   M_B created PENDING          entry=1.10712 tp=1.10812
+  #18352 MAIN_CREATED   M_S created PENDING          entry=1.10602 tp=1.10502
+  #18413 STATUS_CHANGE  PENDING -> ACTIVE            
+  #18413 ACTIVATED      M_S activated                
+  #18465 CANCELLED      M_B cancelled                reason=counterpart_tp_hit
+  #18465 TP_HIT         M_S TP hit                   +10.0 pips
+  #18465 REALIZED       +1.00 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.0 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C38 | Type: MAIN | ID: CYC_EURUSD_20260110111752_924...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #18437
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.4 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10596    1.10696 tp_hit          -              
+  M_S         1.10485    1.10385 neutralized     -              
+  H_B         1.10696    0.00000 closed          M_B            
+  H_S         1.10385    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #18437 CYCLE_CREATED  Cycle C38 created            type=main
+  #18437 MAIN_CREATED   M_B created PENDING          entry=1.10596 tp=1.10696
+  #18437 MAIN_CREATED   M_S created PENDING          entry=1.10485 tp=1.10385
+  #18484 STATUS_CHANGE  PENDING -> ACTIVE            
+  #18484 ACTIVATED      M_S activated                
+  #18547 STATUS_CHANGE  ACTIVE -> HEDGED             
+  #18547 ACTIVATED      M_B activated                
+  #18547 HEDGE_CREATED  H_B created PENDING          entry=1.10696 linked_to=C
+  #18547 HEDGE_CREATED  H_S created PENDING          entry=1.10385 linked_to=C
+  #19388 STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #19388 TP_HIT         M_B TP hit                   +10.4 pips
+  #19388 NEUTRALIZED    M_S neutralized (hedged)     
+  #19388 CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #19388 REALIZED       +1.00 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.10696 matches M_B TP=1.10696
+    [OK] H_S entry=1.10385 matches M_S TP=1.10385
+    [OK] TP hits: 1 (total +10.4 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R21 | Type: RECOVERY | ID: REC_EURUSD_3_111752...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #18465
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11100    1.11900 pending      -              
+  R_S         1.10700    1.09900 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #18465 CYCLE_CREATED  Cycle R21 created            type=recovery
+  #18465 RECOVERY_CREATED R_B created PENDING          entry=1.11100 tp=1.11900
+  #18465 RECOVERY_CREATED R_S created PENDING          entry=1.10700 tp=1.09900
+  #19388 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C39 | Type: MAIN | ID: CYC_EURUSD_20260110111752_810...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #18465
+  Final status:    IN_RECOVERY
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +10.3 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10552    1.10652 tp_hit          -              
+  M_S         1.10438    1.10338 neutralized     -              
+  H_B         1.10652    0.00000 closed          M_B            
+  H_S         1.10338    0.00000 cancelled       M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #18465 CYCLE_CREATED  Cycle C39 created            type=main
+  #18465 MAIN_CREATED   M_B created PENDING          entry=1.10552 tp=1.10652
+  #18465 MAIN_CREATED   M_S created PENDING          entry=1.10438 tp=1.10338
+  #18527 STATUS_CHANGE  PENDING -> ACTIVE            
+  #18527 ACTIVATED      M_B activated                
+  #18628 STATUS_CHANGE  ACTIVE -> HEDGED             
+  #18628 ACTIVATED      M_S activated                
+  #18628 HEDGE_CREATED  H_B created PENDING          entry=1.10652 linked_to=C
+  #18628 HEDGE_CREATED  H_S created PENDING          entry=1.10338 linked_to=C
+  #19349 STATUS_CHANGE  HEDGED -> IN_RECOVERY        
+  #19349 TP_HIT         M_B TP hit                   +10.3 pips
+  #19349 NEUTRALIZED    M_S neutralized (hedged)     
+  #19349 CANCELLED      H_S cancelled                reason=counterpart_main_t
+  #19349 REALIZED       +0.89 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.10652 matches M_B TP=1.10652
+    [OK] H_S entry=1.10338 matches M_S TP=1.10338
+    [OK] TP hits: 1 (total +10.3 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R22 | Type: RECOVERY | ID: REC_EURUSD_4_111753...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #18623
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.11085    1.11885 pending      -              
+  R_S         1.10685    1.09885 active       -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #18623 CYCLE_CREATED  Cycle R22 created            type=recovery
+  #18623 RECOVERY_CREATED R_B created PENDING          entry=1.11085 tp=1.11885
+  #18623 RECOVERY_CREATED R_S created PENDING          entry=1.10685 tp=1.09885
+  #19384 ACTIVATED      R_S activated                
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: R23 | Type: RECOVERY | ID: REC_EURUSD_1_111755...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #19349
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  R_B         1.10865    1.11665 pending      -              
+  R_S         1.10455    1.09655 pending      -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #19349 CYCLE_CREATED  Cycle R23 created            type=recovery
+  #19349 RECOVERY_CREATED R_B created PENDING          entry=1.10865 tp=1.11665
+  #19349 RECOVERY_CREATED R_S created PENDING          entry=1.10455 tp=1.09655
+
+  VERIFICATION:
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C40 | Type: MAIN | ID: CYC_EURUSD_20260110111755_539...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #19349
+  Final status:    HEDGED
+  Debt Units:      [20]
+  Debt Remaining:  20.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10715    1.10815 ACTIVE (Running) -              
+  M_S         1.10605    1.10505 ACTIVE (Running) -              
+  H_B         1.10815    0.00000 pending         M_B            
+  H_S         1.10505    0.00000 pending         M_S            
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #19349 CYCLE_CREATED  Cycle C40 created            type=main
+  #19349 MAIN_CREATED   M_B created PENDING          entry=1.10715 tp=1.10815
+  #19349 MAIN_CREATED   M_S created PENDING          entry=1.10605 tp=1.10505
+  #19388 STATUS_CHANGE  PENDING -> ACTIVE            
+  #19388 ACTIVATED      M_B activated                
+  #19435 STATUS_CHANGE  ACTIVE -> HEDGED             
+  #19435 ACTIVATED      M_S activated                
+  #19435 HEDGE_CREATED  H_B created PENDING          entry=1.10815 linked_to=C
+  #19435 HEDGE_CREATED  H_S created PENDING          entry=1.10505 linked_to=C
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] Hedge operations: 2/2 (cycle was HEDGED)
+    [OK] H_B entry=1.10815 matches M_B TP=1.10815
+    [OK] H_S entry=1.10505 matches M_S TP=1.10505
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C41 | Type: MAIN | ID: CYC_EURUSD_20260110111755_626...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #19388
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +10.1 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10765    1.10865 cancelled       -              
+  M_S         1.10650    1.10550 tp_hit          -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #19388 CYCLE_CREATED  Cycle C41 created            type=main
+  #19388 MAIN_CREATED   M_B created PENDING          entry=1.10765 tp=1.10865
+  #19388 MAIN_CREATED   M_S created PENDING          entry=1.10650 tp=1.10550
+  #19423 STATUS_CHANGE  PENDING -> ACTIVE            
+  #19423 ACTIVATED      M_S activated                
+  #19888 CANCELLED      M_B cancelled                reason=counterpart_tp_hit
+  #19888 TP_HIT         M_S TP hit                   +10.1 pips
+  #19888 REALIZED       +1.01 EUR                    
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+    [OK] TP hits: 1 (total +10.1 pips)
+
+----------------------------------------------------------------------------------------------------
+CYCLE: C42 | Type: MAIN | ID: CYC_EURUSD_20260110111756_140...
+----------------------------------------------------------------------------------------------------
+  Created at tick: #19888
+  Final status:    ACTIVE
+  Debt Units:      []
+  Debt Remaining:  0.0 pips
+  Total P&L:       +0.0 pips
+
+  OPERATIONS:
+  ------------------------------------------------------------
+  Type          Entry         TP Status       Linked To      
+  ------------------------------------------------------------
+  M_B         1.10599    1.10699 ACTIVE (Running) -              
+  M_S         1.10486    1.10386 pending         -              
+
+  EVENT TIMELINE:
+  ------------------------------------------------------------
+  Tick     Event              Description                    Details
+  ------------------------------------------------------------
+  #19888 CYCLE_CREATED  Cycle C42 created            type=main
+  #19888 MAIN_CREATED   M_B created PENDING          entry=1.10599 tp=1.10699
+  #19888 MAIN_CREATED   M_S created PENDING          entry=1.10486 tp=1.10386
+  #19937 STATUS_CHANGE  PENDING -> ACTIVE            
+  #19937 ACTIVATED      M_B activated                
+
+  VERIFICATION:
+    [OK] Main operations: 2/2
+
+====================================================================================================
+GLOBAL SUMMARY
+====================================================================================================
+  Main cycles:     42
+  Recovery cycles: 23
+  Total P&L:       +570.0 pips
+  Balance:         10040.77 EUR -> 10040.77 EUR
+  Equity:          10032.83 EUR
+  Floating:        -7.94 EUR
+
+  INVARIANT CHECKS:
+    [OK] All MAIN cycles have exactly 2 main operations
+====================================================================================================

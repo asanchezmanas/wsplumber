@@ -33,7 +33,9 @@ from ._params import (
     MAX_SPREAD_PIPS, 
     RECOVERY_DISTANCE_PIPS, 
     RECOVERY_LEVEL_STEP,
-    MAX_RECOVERY_LEVELS
+    MAX_RECOVERY_LEVELS,
+    MIN_ATR_PIPS,
+    ATR_WINDOW_SIZE
 )
 from ._formulas import calculate_main_tp, calculate_recovery_setup
 
@@ -57,6 +59,48 @@ class WallStreetPlumberStrategy(IStrategy):
     def __init__(self):
         self._active_cycles: Dict[CurrencyPair, Cycle] = {}
         self._state: Dict[str, Any] = {}
+        # Sistema Inmune Layer 2: ATR Tracking
+        # {pair: {"current_hour": YYYYMMDDHH, "high": X, "low": Y, "history": [range1, range2, ...]}}
+        self._atr_data: Dict[CurrencyPair, Dict[str, Any]] = {}
+
+    def _update_atr(self, pair: CurrencyPair, price: float, timestamp: datetime):
+        """Actualiza la data de ATR para el par."""
+        if pair not in self._atr_data:
+            self._atr_data[pair] = {
+                "current_hour": timestamp.strftime("%Y%m%d%H"),
+                "high": price,
+                "low": price,
+                "history": []
+            }
+            return
+
+        data = self._atr_data[pair]
+        hour_key = timestamp.strftime("%Y%m%d%H")
+
+        if hour_key != data["current_hour"]:
+            # Nueva hora - Guardar rango de la anterior
+            hour_range = data["high"] - data["low"]
+            data["history"].append(hour_range)
+            if len(data["history"]) > ATR_WINDOW_SIZE:
+                data["history"].pop(0)
+            
+            # Reset para nueva hora
+            data["current_hour"] = hour_key
+            data["high"] = price
+            data["low"] = price
+        else:
+            # Misma hora - Actualizar High/Low
+            data["high"] = max(data["high"], price)
+            data["low"] = min(data["low"], price)
+
+    def _get_current_atr(self, pair: CurrencyPair) -> float:
+        """Calcula el ATR actual en pips."""
+        if pair not in self._atr_data or not self._atr_data[pair]["history"]:
+            return 999.0 # Valor por defecto alto para no bloquear si no hay historial
+            
+        avg_range = sum(self._atr_data[pair]["history"]) / len(self._atr_data[pair]["history"])
+        multiplier = 100 if "JPY" in pair else 10000
+        return avg_range * multiplier
 
     # ============================================
     # MÉTODOS ABSTRACTOS DE ISTRATEGY
@@ -72,6 +116,9 @@ class WallStreetPlumberStrategy(IStrategy):
         """
         Procesa un tick y retorna señal.
         """
+        # Actualizar ATR (Layer 2)
+        self._update_atr(pair, ask, timestamp)
+        
         spread_pips = _pips_between(Decimal(str(bid)), Decimal(str(ask)), pair)
         
         # Validar spread
@@ -84,11 +131,25 @@ class WallStreetPlumberStrategy(IStrategy):
 
         # Verificar si hay ciclo activo
         if pair not in self._active_cycles:
+            # --- IMMUNE SYSTEM: Layer 2 - ATR Filter ---
+            atr_pips = self._get_current_atr(pair)
+            if atr_pips < MIN_ATR_PIPS:
+                return StrategySignal(
+                    signal_type=SignalType.NO_ACTION,
+                    pair=pair,
+                    metadata={
+                        "reason": "low_volatility", 
+                        "atr_pips": round(atr_pips, 1),
+                        "min_required": MIN_ATR_PIPS
+                    }
+                )
+            # --- END IMMUNE SYSTEM ---
+
             return StrategySignal(
                 signal_type=SignalType.OPEN_CYCLE,
                 pair=pair,
                 entry_price=Price(Decimal(str(ask))),
-                metadata={"reason": "no_active_cycle", "spread": spread_pips}
+                metadata={"reason": "no_active_cycle", "spread": spread_pips, "atr": round(atr_pips, 1)}
             )
 
         # Analizar ciclo existente para detectar necesidad de recovery

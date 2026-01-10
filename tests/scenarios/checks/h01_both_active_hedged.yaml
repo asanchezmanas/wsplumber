@@ -15,23 +15,23 @@ checks:
     expect:
       count: ">= 1"
 
-  # Ambas mains neutralizadas
-  - name: "MAIN_BUY is NEUTRALIZED"
+  # Ambas mains activas (no neutralizadas aún, según V4.1)
+  - name: "MAIN_BUY is ACTIVE"
     type: operation_status
     filter:
       is_main: true
       op_type: main_buy
     expect:
-      status: neutralized
+      status: active
       count: ">= 1"
 
-  - name: "MAIN_SELL is NEUTRALIZED"
+  - name: "MAIN_SELL is ACTIVE"
     type: operation_status
     filter:
       is_main: true
       op_type: main_sell
     expect:
-      status: neutralized
+      status: active
       count: ">= 1"
 
   # Hedges creados

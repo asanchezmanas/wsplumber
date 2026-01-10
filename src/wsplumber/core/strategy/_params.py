@@ -28,6 +28,10 @@ MAX_RECOVERY_LEVELS = 999999 # Límite eliminado por petición
 # Configuración de Spreads
 MAX_SPREAD_PIPS = 3.0    # No operar si el spread es superior
 
+# Filtro de Volatilidad Sistema Inmune (Layer 2)
+MIN_ATR_PIPS = 20.0      # Mínima volatilidad (ATR de 4H) para abrir nuevos ciclos
+ATR_WINDOW_SIZE = 4      # Número de velas de 1 hora para el cálculo del ATR
+
 # =========================================
 # PHASE 5: DYNAMIC DEBT FEATURE FLAGS
 # =========================================

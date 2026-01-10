@@ -46,6 +46,7 @@ from wsplumber.domain.entities.cycle import Cycle, CycleStatus
 from wsplumber.domain.entities.operation import Operation
 from wsplumber.domain.entities.debt import DebtUnit  # PHASE 4: Shadow tracking
 from wsplumber.application.services.trading_service import TradingService
+from wsplumber.application.services.pruning_service import PruningService
 from wsplumber.core.strategy._params import (
     MAIN_TP_PIPS, MAIN_DISTANCE_PIPS, RECOVERY_TP_PIPS, RECOVERY_DISTANCE_PIPS, RECOVERY_LEVEL_STEP
 )
@@ -143,6 +144,21 @@ class CycleOrchestrator:
         sync_res = await self.trading_service.sync_all_active_positions(pair)
         if not sync_res.success:
             return
+
+        # --- IMMUNE SYSTEM: Layer 4 - Periodic Pruning ---
+        # Ejecutar poda cruzada una vez por hora (simple throttle usando timestamp)
+        now = datetime.now()
+        if now.minute == 0 and not self.metadata.get("last_pruning_hour") == now.hour:
+            self.metadata["last_pruning_hour"] = now.hour
+            all_cycles = []
+            for p in self._active_cycles:
+                res = await self.repository.get_active_cycles(p)
+                if res.success: all_cycles.extend(res.value)
+            
+            if all_cycles:
+                pruning_svc = PruningService(self.repository)
+                await pruning_svc.execute_pruning(all_cycles)
+        # --- END IMMUNE SYSTEM ---
 
         # FIX: Monitoreamos TODOS los ciclos activos para este par (Principal + Recoveries)
         cycles_res = await self.repository.get_active_cycles(pair)
@@ -943,11 +959,13 @@ class CycleOrchestrator:
         acc_info = await self.trading_service.broker.get_account_info()
         balance = acc_info.value["balance"] if acc_info.success else 10000.0
 
-        # Validar con el RiskManager
+        # Validar con el RiskManager (Sistema Inmune Layer 3 integrado)
         can_open = self.risk_manager.can_open_position(
             pair, 
             current_exposure=exposure_pct,
-            num_recoveries=num_recoveries
+            num_recoveries=num_recoveries,
+            free_margin_percent=acc_info.value.get("free_margin_percent", 100.0) if acc_info.success else 100.0,
+            is_recovery=False
         )
         if not can_open.success:
             logger.info("Signal rejected by RiskManager", reason=can_open.error, pair=pair)
@@ -1101,12 +1119,15 @@ class CycleOrchestrator:
             logger.warning("No active cycle to attach recovery", pair=pair)
             return
 
-        # 1. Validar con RiskManager
+        # 1. Validar con RiskManager (Sistema Inmune Layer 3 integrado)
+        acc_info = await self.trading_service.broker.get_account_info()
         exposure_pct, num_recoveries = await self._get_exposure_metrics(pair)
         can_open = self.risk_manager.can_open_position(
             pair, 
             current_exposure=exposure_pct,
-            num_recoveries=num_recoveries
+            num_recoveries=num_recoveries,
+            free_margin_percent=acc_info.value.get("free_margin_percent", 100.0) if acc_info.success else 100.0,
+            is_recovery=True
         )
         if not can_open.success:
             logger.warning("Risk manager denied recovery", reason=can_open.error)

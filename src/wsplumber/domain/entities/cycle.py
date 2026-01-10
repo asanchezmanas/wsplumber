@@ -65,10 +65,14 @@ class CycleAccounting:
     
     # Cola de unidades de deuda (pips por unidad) - EXISTING HARDCODED
     # Ej: [20.0, 40.0, 40.0]
-    debt_units: List[float] = field(default_factory=lambda: [20.0])
+    debt_units: List[float] = field(default_factory=list)
     
     # Acumulado de deuda generada para cálculo de beneficio neto real
-    total_debt_incurred: float = 20.0
+    total_debt_incurred: float = 0.0
+
+    # PHASE 6: Pruning Jar (Hucha de Poda)
+    # Acumulado de pips sobrantes de recoveries exitosos
+    surplus_pips: float = 0.0
     
     # ID de los recoverys asociados a la deuda (opcional, para trazabilidad)
     recovery_queue: List[RecoveryId] = field(default_factory=list)
@@ -85,9 +89,12 @@ class CycleAccounting:
     _shadow_recovered: float = 0.0
 
     def add_locked_pips(self, pips: Pips) -> None:
-        """Añade pips bloqueados (usado para ajustes manuales o inicialización)."""
-        self.pips_locked = Pips(float(self.pips_locked) + float(pips))
-        self.total_debt_incurred += float(pips)
+        """Añade pips bloqueados a la cola de deuda."""
+        val = float(pips)
+        if val > 0:
+            self.debt_units.append(val)
+            self.total_debt_incurred += val
+            self.pips_locked = Pips(sum(self.debt_units))
 
     def add_recovery_failure_unit(self) -> None:
         """Añade una unidad de deuda de 40 pips por fallo de recovery."""
@@ -121,6 +128,10 @@ class CycleAccounting:
         # Actualizar pips_locked para reflejar lo que queda en la cola
         self.pips_locked = Pips(sum(self.debt_units))
         
+        # Accumulate surplus into the Pruning Jar
+        if remaining_tp > 0:
+            self.surplus_pips += remaining_tp
+            
         return remaining_tp
 
     # =========================================
@@ -554,12 +565,11 @@ class Cycle:
     def record_recovery_tp(self, pips: Pips) -> None:
         """
         Registra un TP de recovery.
-
+        
         Args:
             pips: Pips recuperados
         """
-        self.accounting.add_recovered_pips(pips)
-        self.accounting.total_recovery_tps += 1
+        self.accounting.process_recovery_tp(float(pips))
 
         # Verificar si se completó la recuperación
         if self.accounting.is_fully_recovered and not self.needs_recovery:
@@ -617,8 +627,8 @@ class Cycle:
             total_commissions=Money(Decimal(accounting_data.get("total_commissions", "0"))),
             total_swaps=Money(Decimal(accounting_data.get("total_swaps", "0"))),
             recovery_queue=accounting_data.get("recovery_queue", []),
-            debt_units=accounting_data.get("debt_units", [20.0]),
-            total_debt_incurred=accounting_data.get("total_debt_incurred", 20.0),
+            debt_units=accounting_data.get("debt_units", []),
+            total_debt_incurred=accounting_data.get("total_debt_incurred", 0.0),
         )
 
         cycle = cls(

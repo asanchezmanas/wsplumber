@@ -1,0 +1,21 @@
+# e02_high_spread_rejection - Rechazo por Spread Muy Alto
+# Referencia: docs/expted_behavior_specification_fixed.md 
+
+scenario: e02_high_spread_rejection
+description: "No debe abrirse ciclo si el spread es superior a MAX_SPREAD_PIPS"
+priority: HIGH
+
+checks:
+  # No hay ciclos
+  - name: "No cycles created"
+    type: cycle_count
+    filter: {}
+    expect:
+      count: 0
+
+  # No hay operaciones
+  - name: "No operations created"
+    type: operation_status
+    filter: {}
+    expect:
+      count: 0

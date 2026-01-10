@@ -46,25 +46,42 @@ class RiskManager(IRiskManager):
         pair: CurrencyPair,
         current_exposure: float,
         num_recoveries: int = 0,
+        free_margin_percent: float = 100.0,
+        is_recovery: bool = False
     ) -> Result[bool]:
         """
-        Verifica si se permite abrir una nueva posición.
+        Verifica si se permite abrir una nueva posición basándose en exposición,
+        recoveries y salud del margen (Sistema Inmune Layer 3).
         """
-        # 1. Verificar exposición total (30% límite)
+        # --- IMMUNE SYSTEM: Layer 3 - Margin Operating Modes ---
+        # 1. Modo SUPERVIVENCIA (< 40%) - Bloqueo TOTAL de nuevas operaciones
+        if free_margin_percent < 40.0:
+            msg = f"SURVIVAL MODE: Margin too low ({free_margin_percent:.1f}%). Blocked all operations."
+            logger.error(msg, pair=pair)
+            return Result.fail(msg, "RISK_MARGIN_SURVIVAL")
+
+        # 2. Modo ALERTA (40% - 60%) - Bloquea nuevos ciclos, solo permite gestionar los existentes
+        if free_margin_percent <= 60.0 and not is_recovery:
+            msg = f"ALERT MODE: Margin at {free_margin_percent:.1f}%. Only RECOVERY allowed."
+            logger.warning(msg, pair=pair)
+            return Result.fail(msg, "RISK_MARGIN_ALERT")
+        # --- END IMMUNE SYSTEM ---
+
+        # 3. Verificar exposición total (Límite dinámico si fuera necesario)
         max_exp = EMERGENCY_LIMITS['max_exposure_percent']
         if current_exposure >= max_exp:
             msg = f"Max exposure reached: {current_exposure:.2f}% >= {max_exp}%"
             logger.warning(msg, pair=pair)
             return Result.fail(msg, "RISK_EXPOSURE_LIMIT")
 
-        # 2. Verificar número de recoveries simultáneos (20 límite)
+        # 4. Verificar número de recoveries simultáneos
         max_rec = EMERGENCY_LIMITS['max_concurrent_recovery']
         if num_recoveries >= max_rec:
             msg = f"Max concurrent recoveries reached for {pair}: {num_recoveries} >= {max_rec}"
             logger.warning(msg, pair=pair)
             return Result.fail(msg, "RISK_RECOVERY_LIMIT")
 
-        # 3. Verificar límites de drawdown (Placeholder)
+        # 5. Verificar límites de drawdown (Placeholder)
         if self.check_emergency_stop():
             return Result.fail("Emergency stop active", "RISK_EMERGENCY_STOP")
 

@@ -1,0 +1,41 @@
+# c01_tp_simple_sell - TP Simple SELL
+# Referencia: docs/expted_behavior_specification_fixed.md Escenario 1 (Sell)
+
+scenario: c01_tp_simple_sell
+description: "SELL se activa y toca TP, BUY se cancela, nuevas mains creadas"
+priority: CRITICAL
+
+checks:
+  # SELL alcanza TP
+  - name: "MAIN_SELL status TP_HIT"
+    type: operation_status
+    filter:
+      is_main: true
+      op_type: main_sell
+    expect:
+      status: tp_hit
+      count: ">= 1"
+
+  # BUY cancelada
+  - name: "MAIN_BUY status CANCELLED"
+    type: operation_status
+    filter:
+      is_main: true
+      op_type: main_buy
+    expect:
+      status: cancelled
+      count: ">= 1"
+
+  # Balance aumentó
+  - name: "Balance increased"
+    type: balance
+    expect:
+      final: "> initial"
+
+  # Nuevo ciclo creado
+  - name: "New cycle created after TP"
+    type: cycle_count
+    filter:
+      cycle_type: main
+    expect:
+      count: ">= 2"
