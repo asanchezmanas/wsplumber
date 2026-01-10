@@ -480,6 +480,25 @@ TICK     | BALANCE    | EQUITY     | PIPS      | CYC(O/C)  | REC(A/MX) | MAINS |
 | V3.x    | Standard   | ~14 tps          | 10 hours       |
 | **V4.0** | **Optimized** | **~1,000 tps**  | **12 minutes** |
 
+## Advanced Robustness & Safety Standards (V4.1)
+
+To ensure the system is mathematically sound beyond simple historical backtests, we follow a strict set of **Robustness Engineering Standards**. 
+
+Detailed specifications can be found in **[robustness_standards.md](file:///c:/Users/Artur/wsplumber/docs/robustness_standards.md)**.
+
+### 1. Survivability Metrics
+We don't just measure profit; we measure the distance to the "Edge of the Cliff":
+
+- **RED Score (Recovery Exhaustion Depth)**: Measures margin usage vs. total defense capacity.
+- **CER (Cycle Efficiency Ratio)**: Ensures pips generated $> 15\%$ above execution costs.
+- **Entropy Persistence**: Probability of resolution under market noise (Monte Carlo).
+
+### 2. The Robustness Certificate
+Every major version of the engine must pass a **500,000 tick Stress Test** and a **100,000 tick Monte Carlo Random Walk**. The results are compiled into a formal certificate that validates:
+- [x] Zero Debt Leakage (99.9% Resolution).
+- [x] Margin Buffer Integrity (RED Score never > 0.8).
+- [x] Execution Cost Sustainability (CER > 1.15).
+
 ---
 *Updated: 2026-01-10*
-*System: WSPlumber Engine 4.0 - Scaled Performance Mode*
+*System: WSPlumber Engine 4.1 - Robustness Suite Active*
