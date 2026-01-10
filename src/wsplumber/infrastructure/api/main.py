@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from datetime import datetime
@@ -112,6 +112,35 @@ async def get_backtest_status(task_id: str):
         error=task.error,
         result=task.result if task.status == "completed" else None
     )
+
+@app.websocket("/ws/{task_id}")
+async def websocket_endpoint(websocket: WebSocket, task_id: str):
+    """Real-time monitoring of a specific backtest via WebSocket."""
+    if task_id not in sim_manager.tasks:
+        await websocket.close(code=4044)
+        return
+
+    await websocket.accept()
+    
+    # Create a dedicated queue for this connection
+    queue = asyncio.Queue()
+    if task_id not in sim_manager.subscribers:
+        sim_manager.subscribers[task_id] = []
+    sim_manager.subscribers[task_id].append(queue)
+    
+    try:
+        while True:
+            # Wait for messages from the simulation
+            message = await queue.get()
+            await websocket.send_json(message)
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for task {task_id}")
+    finally:
+        # Cleanup
+        if task_id in sim_manager.subscribers:
+            sim_manager.subscribers[task_id].remove(queue)
+            if not sim_manager.subscribers[task_id]:
+                del sim_manager.subscribers[task_id]
 
 @app.get("/")
 async def root():

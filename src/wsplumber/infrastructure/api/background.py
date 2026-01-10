@@ -39,7 +39,15 @@ class SimulationManager:
             cls._instance = super(SimulationManager, cls).__new__(cls)
             cls._instance.tasks = {}
             cls._instance._lock = asyncio.Lock()
+            # Dictionary to map task_id to a list of broadcast queues
+            cls._instance.subscribers: Dict[str, List[asyncio.Queue]] = {}
         return cls._instance
+
+    async def _broadcast(self, task_id: str, message: Dict[str, Any]):
+        """Send a message to all subscribers of a task."""
+        if task_id in self.subscribers:
+            for queue in self.subscribers[task_id]:
+                await queue.put(message)
 
     async def run_simulation(self, task_id: str, csv_path: str, initial_balance: float = 10000.0):
         task = self.tasks[task_id]
@@ -104,9 +112,20 @@ class SimulationManager:
                     balance = float(acc.value["balance"])
                     equity = float(acc.value["equity"])
                     
-                    # Update auditor (Opt: Every 1 tick? Yes, for correctness in accounting)
+                    # Update auditor
                     auditor.check(tick_count, repo, broker, balance)
                     
+                    # Broadcast tick data (sampling)
+                    if tick_count % 100 == 0:
+                        await self._broadcast(task_id, {
+                            "type": "tick",
+                            "tick": tick_count,
+                            "balance": balance,
+                            "equity": equity,
+                            "pips": sum(c.total_pips for c in auditor.cycles.values()),
+                            "timestamp": datetime.utcnow().isoformat()
+                        })
+
                     # Update status periodically (every 1000 ticks)
                     if tick_count % 1000 == 0:
                         task.tick_count = tick_count
