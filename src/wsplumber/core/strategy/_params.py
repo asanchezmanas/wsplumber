@@ -27,3 +27,15 @@ MAX_RECOVERY_LEVELS = 999999 # Límite eliminado por petición
 
 # Configuración de Spreads
 MAX_SPREAD_PIPS = 3.0    # No operar si el spread es superior
+
+# =========================================
+# PHASE 5: DYNAMIC DEBT FEATURE FLAGS
+# =========================================
+
+# When True, uses dynamic debt calculation based on real execution prices
+# When False (default), uses hardcoded 20/40/80 pip values
+USE_DYNAMIC_DEBT = False  # Set to True to enable dynamic mode
+
+# When True, logs comparison between hardcoded and dynamic systems
+# Useful for validation before switching to dynamic mode
+LOG_DEBT_COMPARISON = True

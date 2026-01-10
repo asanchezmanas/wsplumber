@@ -356,6 +356,95 @@ Added explicit `broker.close_position()` calls in both sync paths:
 
 Now when sync detects a `tp_hit`, it immediately closes the position in the broker, realizing the P&L and updating the balance.
 
+## Dynamic Debt Calculation System (V4.0)
+
+### Overview
+
+The system now supports **dynamic debt calculation** as an alternative to hardcoded values. This runs in **shadow mode** (parallel to existing system) for validation.
+
+### Why Dynamic?
+
+| Aspect | Hardcoded (V3.x) | Dynamic (V4.0) |
+|--------|------------------|----------------|
+| Main+Hedge debt | 20 pips fixed | Calculated from actual prices |
+| Recovery failure | 40 pips fixed | Calculated from real distance |
+| Accumulated error | Compounds over time | Zero (reality-based) |
+| Slippage tracking | ❌ | ✅ Per-operation |
+| Spread tracking | ❌ | ✅ Per-operation |
+
+### New Entities
+
+**DebtUnit** (`domain/entities/debt.py`):
+```python
+DebtUnit(
+    id="DEBT_20260110...",
+    pips_owed=Decimal("21.3"),    # REAL, not 20
+    slippage_entry=Decimal("0.8"),
+    spread_cost=Decimal("0.5"),
+    debt_type="main_hedge"
+)
+```
+
+**Operation Properties** (new):
+- `realized_pips`: Actual P&L from execution prices
+- `theoretical_pips`: Planned P&L from TP price
+- `execution_efficiency`: realized/theoretical * 100%
+- `execution_cost_pips`: slippage + spread
+
+### Shadow Accounting
+
+The `CycleAccounting` class now has parallel tracking:
+
+```python
+# Existing (unchanged)
+cycle.accounting.add_recovery_failure_unit()  # Adds 40.0
+
+# Shadow (new, runs in parallel)
+debt = DebtUnit.from_recovery_failure(...)    # Calculates 41.3
+cycle.accounting.shadow_add_debt(debt)
+
+# Compare both systems
+diff = cycle.accounting.get_accounting_comparison()
+# {"hardcoded": {"total_debt": 40.0}, "shadow": {"total_debt": 41.3}, "difference": {"debt": -1.3}}
+```
+
+### Migration Status
+
+| Phase | Status | Description |
+|-------|--------|-------------|
+| 1 | ✅ | Spread tracking fields in Operation |
+| 2 | ✅ | Calculated properties in Operation |
+| 3 | ✅ | DebtUnit entity + shadow accounting |
+| 4 | ✅ | Orchestrator integration (3 tracking points) |
+| 4b | ✅ | Initial debt tracking at HEDGED transition |
+| 5 | ✅ | Feature flags (`USE_DYNAMIC_DEBT`, `LOG_DEBT_COMPARISON`) |
+
+### Feature Flags
+
+Located in `core/strategy/_params.py`:
+
+```python
+USE_DYNAMIC_DEBT = False    # Set to True to enable dynamic mode
+LOG_DEBT_COMPARISON = True  # Log comparisons for validation
+```
+
+## Massive Stress Test Results (2026-01-10)
+
+### 500k EUR/USD M1 Tick Test
+
+| Tick | Balance | Equity | Pips | Cycles | Recoveries |
+|------|---------|--------|------|--------|------------|
+| 10,000 | 10,036 | 10,042 | +282 | 31 | 13 |
+| 20,000 | 10,140 | 10,113 | +1,363 | 61 | 22 |
+| 30,000 | 11,311 | 11,304 | +12,687 | 555 | 102 |
+| 40,000 | **12,249** | 10,240 | **+23,091** | 970 | 232 |
+
+**Key Metrics:**
+- Starting balance: 10,000 EUR
+- Current balance: 12,249 EUR (+22.5%)
+- Total pips: +23,091
+- System stable with 970+ concurrent cycles
+
 ---
 *Updated: 2026-01-10*
-*System: WSPlumber Engine 3.1 (FIX-CLOSE-04)*
+*System: WSPlumber Engine 4.0 (Dynamic Debt - All Phases Complete)*

@@ -44,6 +44,7 @@ from wsplumber.domain.types import (
 )
 from wsplumber.domain.entities.cycle import Cycle, CycleStatus
 from wsplumber.domain.entities.operation import Operation
+from wsplumber.domain.entities.debt import DebtUnit  # PHASE 4: Shadow tracking
 from wsplumber.application.services.trading_service import TradingService
 from wsplumber.core.strategy._params import (
     MAIN_TP_PIPS, MAIN_DISTANCE_PIPS, RECOVERY_TP_PIPS, RECOVERY_DISTANCE_PIPS, RECOVERY_LEVEL_STEP
@@ -188,6 +189,32 @@ class CycleOrchestrator:
                         logger.info("Both main operations active, transitioning to HEDGED", 
                                 cycle_id=cycle.id)
                         cycle.activate_hedge()
+                        
+                        # PHASE 4b: Shadow tracking for initial debt
+                        # Calculate real debt from actual main operation prices
+                        main_buy = next((o for o in active_main_ops if o.is_buy), None)
+                        main_sell = next((o for o in active_main_ops if o.is_sell), None)
+                        if main_buy and main_sell:
+                            # Real distance between mains = actual loss when neutralized
+                            buy_entry = main_buy.actual_entry_price or main_buy.entry_price
+                            sell_entry = main_sell.actual_entry_price or main_sell.entry_price
+                            multiplier = 100 if "JPY" in str(pair) else 10000
+                            real_distance = abs(float(buy_entry) - float(sell_entry)) * multiplier
+                            
+                            debt = DebtUnit.from_neutralization(
+                                cycle_id=str(cycle.id),
+                                losing_main_id=str(main_sell.id),  # Placeholder - actual loser determined at TP
+                                losing_main_entry=Decimal(str(sell_entry)),
+                                losing_main_close=Decimal(str(buy_entry)),  # Neutralized at other main's entry
+                                winning_main_id=str(main_buy.id),
+                                hedge_id="pending",  # Will be set when hedge created
+                                pair=str(pair)
+                            )
+                            cycle.accounting.shadow_add_debt(debt)
+                            logger.debug("Shadow accounting: initial debt added at HEDGED",
+                                        real_debt=float(debt.pips_owed),
+                                        theoretical=20.0,
+                                        difference=float(debt.pips_owed) - 20.0)
                         
                         # Crear operaciones de hedge y neutralizar mains
                         # CONCEPTO: Hedges de CONTINUACIÓN (del mismo lado)
@@ -671,6 +698,19 @@ class CycleOrchestrator:
         had_initial_debt = len(parent_cycle.accounting.debt_units) > 0 and parent_cycle.accounting.debt_units[0] == 20.0
         
         surplus = parent_cycle.accounting.process_recovery_tp(float(RECOVERY_TP_PIPS))
+        
+        # PHASE 4: Shadow tracking with REAL profit value
+        # Get the actual profit pips from the recovery operation that hit TP
+        recovery_ops = [op for op in (await self.repository.get_operations_by_cycle(recovery_cycle.id)).value 
+                       if op.status == OperationStatus.TP_HIT]
+        if recovery_ops:
+            real_profit = float(recovery_ops[0].realized_pips)
+            shadow_result = parent_cycle.accounting.shadow_process_recovery(real_profit)
+            logger.debug("Shadow accounting: recovery processed", 
+                        real_profit=real_profit,
+                        theoretical=float(RECOVERY_TP_PIPS),
+                        difference=real_profit - float(RECOVERY_TP_PIPS),
+                        shadow_debt_remaining=shadow_result.get("shadow_debt_remaining", 0))
         
         # 3. Aplicar cierres atómicos para las unidades que se hayan liquidado
         # Si la unidad de 20 pips ya no está en la cola, procedemos al cierre atómico de Main+Hedge
@@ -1221,9 +1261,34 @@ class CycleOrchestrator:
             
         parent_cycle = parent_res.value
         
-        # 1. Registrar unidad de deuda de 40 pips
+        # 1. Registrar unidad de deuda de 40 pips (hardcoded)
         parent_cycle.accounting.add_recovery_failure_unit()
-        logger.info("Added 40 pips debt unit due to recovery failure", parent_id=parent_cycle.id, failed_id=failed_cycle.id)
+        
+        # PHASE 4: Shadow tracking with REAL calculated value
+        # Get both recovery operations that caused the failure
+        failed_ops_res = await self.repository.get_operations_by_cycle(failed_cycle.id)
+        if failed_ops_res.success:
+            active_ops = [op for op in failed_ops_res.value if op.status == OperationStatus.ACTIVE]
+            if len(active_ops) >= 2:
+                buy_op = next((op for op in active_ops if op.is_buy), None)
+                sell_op = next((op for op in active_ops if op.is_sell), None)
+                if buy_op and sell_op:
+                    debt = DebtUnit.from_recovery_failure(
+                        cycle_id=parent_cycle.id,
+                        recovery_buy_id=buy_op.id,
+                        recovery_buy_entry=Decimal(str(buy_op.actual_entry_price or buy_op.entry_price)),
+                        recovery_sell_id=sell_op.id,
+                        recovery_sell_entry=Decimal(str(sell_op.actual_entry_price or sell_op.entry_price)),
+                        pair=str(parent_cycle.pair)
+                    )
+                    parent_cycle.accounting.shadow_add_debt(debt)
+                    logger.debug("Shadow accounting: recovery failure debt added",
+                                real_debt=float(debt.pips_owed),
+                                theoretical=40.0,
+                                difference=float(debt.pips_owed) - 40.0)
+        
+        logger.info("Added 40 pips debt unit due to recovery failure", 
+                   parent_id=parent_cycle.id, failed_id=failed_cycle.id)
         await self.repository.save_cycle(parent_cycle)
         
         # 2. Abrir nuevo ciclo recovery (renovación por fallo)
