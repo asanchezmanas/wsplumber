@@ -39,14 +39,16 @@ from wsplumber.domain.entities.operation import Operation
 @dataclass
 class CycleAccounting:
     """
-    Contabilidad del ciclo - rastrea pips y costos.
+    Contabilidad del ciclo - rastrea pips y costos por unidades.
 
-    FIX-003 APLICADO: El costo ahora se basa en la posición en la cola,
-    no en los pips ya recuperados.
+    Lógica de unidades de deuda:
+    1. Unidad Inicial: 20 pips (Main + Hedge bloqueados).
+    2. Unidad Recovery: 40 pips por cada ciclo recovery que falla (ambas activas).
     
-    Esta clase implementa la lógica FIFO para recoveries:
-    - El primer recovery cuesta 20 pips (incluye las main + hedge)
-    - Los siguientes cuestan 40 pips cada uno
+    Lógica de recuperación:
+    - Cada TP de recovery aporta +80 pips.
+    - Se liquidan las unidades en orden FIFO.
+    - El ciclo solo puede cerrarse si deuda == 0 Y excedente >= 20 pips.
     """
 
     pips_locked: Pips = Pips(0.0)
@@ -55,96 +57,70 @@ class CycleAccounting:
     total_recovery_tps: int = 0
     total_commissions: Money = Money(Decimal("0"))
     total_swaps: Money = Money(Decimal("0"))
-    recovery_queue: List[RecoveryId] = field(default_factory=list)
     
-    # FIX-003: Contador de recoveries procesados (para determinar costo)
-    recoveries_closed_count: int = 0
+    # Cola de unidades de deuda (pips por unidad)
+    # Ej: [20.0, 40.0, 40.0]
+    debt_units: List[float] = field(default_factory=lambda: [20.0])
+    
+    # Acumulado de deuda generada para cálculo de beneficio neto real
+    total_debt_incurred: float = 20.0
+    
+    # ID de los recoverys asociados a la deuda (opcional, para trazabilidad)
+    recovery_queue: List[RecoveryId] = field(default_factory=list)
 
     def add_locked_pips(self, pips: Pips) -> None:
-        """Añade pips bloqueados (cuando se neutraliza)."""
+        """Añade pips bloqueados (usado para ajustes manuales o inicialización)."""
         self.pips_locked = Pips(float(self.pips_locked) + float(pips))
+        self.total_debt_incurred += float(pips)
 
-    def add_recovered_pips(self, pips: Pips) -> None:
-        """Añade pips recuperados (cuando recovery hace TP)."""
-        self.pips_recovered = Pips(float(self.pips_recovered) + float(pips))
+    def add_recovery_failure_unit(self) -> None:
+        """Añade una unidad de deuda de 40 pips por fallo de recovery."""
+        self.debt_units.append(40.0)
+        self.total_debt_incurred += 40.0
+        self.pips_locked = Pips(sum(self.debt_units))
 
-    def get_recovery_cost(self) -> Pips:
+    def process_recovery_tp(self, tp_pips: float = 80.0) -> float:
         """
-        FIX-003: Calcula el costo del próximo recovery en la cola.
-        
-        Basado en cuántos recoveries ya se han cerrado, no en pips_recovered.
-        
-        Según la teoría del documento madre:
-        - El primer recovery cuesta 20 pips (cubre deuda inicial de mains + hedge)
-        - Los siguientes cuestan 40 pips cada uno
+        Procesa un TP de recovery (+80 pips) contra la cola FIFO de deudas.
         
         Returns:
-            Pips: Costo del próximo recovery a cerrar
-            
-        Examples:
-            >>> accounting = CycleAccounting()
-            >>> accounting.get_recovery_cost()  # Primer recovery
-            Pips(20.0)
-            >>> accounting.mark_recovery_closed()
-            >>> accounting.get_recovery_cost()  # Segundo recovery
-            Pips(40.0)
+            float: El excedente (surplus) de pips después de liquidar deudas.
         """
-        if self.recoveries_closed_count == 0:
-            return Pips(20.0)  # Primer recovery (incluye main + hedge)
-        return Pips(40.0)  # Siguientes recoveries
-
-    def mark_recovery_closed(self) -> None:
-        """
-        FIX-003: Incrementa el contador de recoveries cerrados.
+        self.pips_recovered = Pips(float(self.pips_recovered) + tp_pips)
+        self.total_recovery_tps += 1
         
-        Este método debe llamarse después de cerrar un recovery mediante FIFO.
-        Afecta el cálculo del costo del próximo recovery.
+        remaining_tp = tp_pips
         
-        Examples:
-            >>> accounting = CycleAccounting()
-            >>> accounting.recoveries_closed_count
-            0
-            >>> accounting.mark_recovery_closed()
-            >>> accounting.recoveries_closed_count
-            1
-        """
-        self.recoveries_closed_count += 1
-
-    def get_recoveries_needed(self) -> int:
-        """
-        Calcula cuántos recoveries se necesitan para cubrir lo bloqueado.
+        while remaining_tp > 0 and self.debt_units:
+            unit_cost = self.debt_units[0]
+            if remaining_tp >= unit_cost:
+                remaining_tp -= unit_cost
+                self.debt_units.pop(0)
+            else:
+                # Pago parcial de unidad (aunque en teoría son unidades enteras,
+                # para robustez permitimos parciales)
+                self.debt_units[0] -= remaining_tp
+                remaining_tp = 0
         
-        Returns:
-            int: Número de recoveries TP necesarios
-            
-        Examples:
-            >>> accounting = CycleAccounting(pips_locked=Pips(100.0))
-            >>> accounting.get_recoveries_needed()
-            2  # 1 recovery (80-20=60) + 1 recovery (80-40=40) = 100
-        """
-        remaining = float(self.pips_locked) - float(self.pips_recovered)
-        if remaining <= 0:
-            return 0
+        # Actualizar pips_locked para reflejar lo que queda en la cola
+        self.pips_locked = Pips(sum(self.debt_units))
+        
+        return remaining_tp
 
-        # Primer recovery: 80 pips ganados - 20 pips costo = 60 pips neto
-        if remaining <= 60:
-            return 1
-
-        # Recoveries adicionales: 80 pips ganados - 40 pips costo = 40 pips neto cada uno
-        remaining -= 60
-        additional = int(remaining / 40) + (1 if remaining % 40 > 0 else 0)
-
-        return 1 + additional
+    @property
+    def pips_remaining(self) -> Pips:
+        """Pips que faltan por recuperar para limpiar la deuda."""
+        return Pips(sum(self.debt_units))
 
     @property
     def net_pips(self) -> Pips:
-        """Pips netos (recuperados - bloqueados)."""
-        return Pips(float(self.pips_recovered) - float(self.pips_locked))
+        """Pips netos totales del ciclo (recuperados - costo de todas las deudas)."""
+        return Pips(float(self.pips_recovered) - self.total_debt_incurred)
 
     @property
     def is_fully_recovered(self) -> bool:
-        """True si se han recuperado todos los pips bloqueados."""
-        return float(self.pips_recovered) >= float(self.pips_locked)
+        """True si la cola de deudas está vacía."""
+        return len(self.debt_units) == 0 or sum(self.debt_units) <= 0
 
 
 
@@ -531,6 +507,8 @@ class Cycle:
                 "total_commissions": str(self.accounting.total_commissions),
                 "total_swaps": str(self.accounting.total_swaps),
                 "recovery_queue": self.accounting.recovery_queue,
+                "debt_units": self.accounting.debt_units,
+                "total_debt_incurred": self.accounting.total_debt_incurred,
             },
             "created_at": self.created_at.isoformat(),
             "activated_at": self.activated_at.isoformat() if self.activated_at else None,
@@ -550,6 +528,8 @@ class Cycle:
             total_commissions=Money(Decimal(accounting_data.get("total_commissions", "0"))),
             total_swaps=Money(Decimal(accounting_data.get("total_swaps", "0"))),
             recovery_queue=accounting_data.get("recovery_queue", []),
+            debt_units=accounting_data.get("debt_units", [20.0]),
+            total_debt_incurred=accounting_data.get("total_debt_incurred", 20.0),
         )
 
         cycle = cls(

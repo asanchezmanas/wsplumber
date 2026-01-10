@@ -36,8 +36,8 @@ Esta estrategia representa un cambio paradigmático en el trading, basándose en
 ## Estructura de Operaciones
 
 ### Operaciones Principales
-- Se colocan a **5 pips del precio**
-- Take Profit de **10 pips**
+- Se colocan a **5 pips del precio actual** (precio medio/mid)
+- Take Profit de **10 pips** (resultando a **15 pips** del precio actual inicial)
 - Genera un bloque de operaciones separadas entre ellas por 10 pips
 
 ### Operaciones de Cobertura
@@ -46,8 +46,8 @@ Esta estrategia representa un cambio paradigmático en el trading, basándose en
 - Precio de entrada al nivel del TP de la operación principal opuesta
 
 ### Operaciones de Recovery
-- Se colocan a **20 pips del precio**
-- Take Profit de **80 pips**
+- Se colocan a **20 pips del precio actual**
+- Take Profit de **80 pips** (resultando a **100 pips** del precio actual inicial)
 - Separadas entre ellas por **40 pips**
 
 ---
@@ -56,7 +56,7 @@ Esta estrategia representa un cambio paradigmático en el trading, basándose en
 
 ### Escenario 1: Resolución Simple (FIX-CRITICAL 2026-01-09)
 1. Se abren dos operaciones principales (buy stop y sell stop) en Ciclo C1
-2. Una se activa y llega a TP (+10 pips)
+2. Una se activa y llega a TP (+10 pips desde la entrada, a 15 pips del inicio)
 3. Se cierra la otra pendiente
 4. **Se crea un NUEVO CICLO independiente (C2)** con sus propias 2 mains
 5. C1 mantiene exactamente 2 mains (no se acumulan renovaciones dentro de C1)
@@ -73,20 +73,31 @@ Esta estrategia representa un cambio paradigmático en el trading, basándose en
 6. Se abre un ciclo recovery para recuperar los 20 pips neutralizados
 
 ### Escenario 3: Recovery Exitoso (Primer Intento)
-1. Estamos en el momento en que una operación principal (ej: buy) ha tocado TP
-2. Se abre recovery: sell stop y buy stop a 20 pips del precio actual
-3. El precio se mueve y toca TP (+80 pips)
-4. Se elimina la orden pendiente recovery
-5. Se eliminan el sell principal y el buy de cobertura
-6. **Beneficio neto: +60 pips**
+1. Estamos en el momento en que una operación principal (ej: buy) ha tocado TP.
+2. Se abre recovery (R1): sell stop y buy stop a 20 pips del precio actual (que coincide con el nivel de TP del main).
+3. El precio se mueve y toca TP (+80 pips).
+4. **Condición de Cierre del Ciclo**:
+   - Se procesa la deuda en FIFO: Main+Hedge (20 pips).
+   - Sobran 60 pips (80 - 20).
+   - Como la deuda restante es 0 y el sobrante es ≥ 20 pips, **se cierra el ciclo completo**.
+5. Se eliminan todas las órdenes neutralizadas (sell principal y buy de cobertura).
+6. **Beneficio neto: +60 pips**.
 
-### Escenario 4: Recovery con Reintento
-1. Se abre ciclo recovery tras TP de principal
-2. El precio se mueve en dirección contraria y activa el segundo recovery
-3. Se neutraliza el primer recovery activado
-4. **Contabilidad actualizada:** -20 pips (ciclo inicial) + -40 pips (recovery) = -60 pips
-5. Se coloca nuevo ciclo recovery adaptado al precio actual
-6. El proceso se repite hasta resolución
+### Escenario 4: Recovery con Reintento (Cascada)
+1. Se abre ciclo recovery (R1) tras TP de principal.
+2. El precio activa una orden (ej: R1_B) pero luego se gira y activa la contraria (R1_S).
+3. **El recovery ha fallado**: La pérdida se bloquea en 40 pips.
+4. **Contabilidad unificada (FIFO)**:
+   - Unidad 1 (Main+Hedge): 20 pips.
+   - Unidad 2 (R1 fallido): 40 pips.
+   - Deuda total: 60 pips.
+5. **Renovación del Recovery (R2)**:
+   - Se colocan dos nuevas órdenes a **±20 pips del precio de entrada de la operación que bloqueó** (en este ejemplo, del R1_S).
+6. El proceso se repite (R3, R4...) acumulando deuda de 40 pips por cada unidad fallida.
+7. **Resolución por TP (+80 pips)**:
+   - Se liquidan unidades en orden FIFO.
+   - **Condición de cierre**: Solo se cierra el ciclo completo si la deuda es 0 Y el excedente es ≥ 20 pips.
+   - Si no se cumple (ej: sobra 0 o +10), se abre un nuevo recovery (R_next) a ±20 pips del nivel de TP alcanzado para buscar el beneficio restante.
 
 ### Cierre de Ciclos Recovery
 - **Si es el primero:** Se borran la cobertura y la operación principal restantes (-20 pips)
@@ -134,7 +145,8 @@ Recientemente se han identificado y corregido los siguientes gaps en la implemen
 5. **Cancelación de Contra-órdenes Main**: Cuando una operación Main toca TP, la orden pendiente del lado opuesto se cancela inmediatamente para evitar entradas no deseadas.
 6. **Sincronización Robusta**: El `TradingService` ahora verifica el historial del broker para detectar operaciones que se activan y cierran (por TP) en el mismo tick, evitando que queden "huérfanas" en la base de datos.
 7. **Renovación Automática (OPEN_CYCLE)**: Al finalizar exitosamente un ciclo por TP de una main, el sistema emite una señal de renovación que abre un nuevo ciclo dual bajo las condiciones actuales de mercado.
-8. **Identificadores Únicos y Colisiones**: Los IDs de ciclos ahora cuentan con un sufijo aleatorio para evitar colisiones cuando ocurren renovaciones múltiples dentro del mismo segundo (escenarios de alta volatilidad o backtesting acelerado).
+8. **Cierre Atómico FIFO (V3.1)**: Para garantizar auditorías transparentes, cuando una unidad de deuda (ej: los 20 pips iniciales) se liquida por un Recovery TP, el sistema cierra **automáticamente y al mismo tiempo** la operación Main neutralizada y su cobertura Hedge asociada.
+9. **Identificadores Únicos y Colisiones**: Los IDs de ciclos ahora cuentan con un sufijo aleatorio para evitar colisiones cuando ocurren renovaciones múltiples dentro del mismo segundo.
 
 
 **Activación de Recoverys:**

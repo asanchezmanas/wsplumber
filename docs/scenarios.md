@@ -166,34 +166,60 @@
 
 ---
 
+## Verificación de Escenarios
+
+Para verificar un escenario específico y generar un reporte detallado del ciclo de vida y la contabilidad FIFO:
+
+```bash
+# Uso del Auditor de Escenarios
+python scripts/audit_scenario.py tests/scenarios/r07_cascade_n1_n2_n3.csv
+```
+
+Este comando generará un reporte "limpio" que muestra:
+1. **Contabilidad FIFO**: Unidades de deuda `[20, 40]` y su liquidación.
+2. **Timeline de Eventos**: Activaciones, neutralizaciones y cierres atómicos.
+3. **P&L Acumulado**: Beneficio neto pips tras recuperar deudas.
+
+## Estructura de Archivos (Tests)
+
+Los archivos CSV de los escenarios se encuentran en:
+- `tests/scenarios/`: Escenarios oficiales por ID (r01, f01, etc.)
+- `tests/test_scenarios/`: Escenarios de integración y casos de borde.
+
+---
+*Actualizado: 2026-01-09*
+*Versión: 3.1 (Con Cierre Atómico FIFO verificado)*
+
+---
+
 ## Archivos CSV Corregidos
 ```bash
 # ❌ ELIMINAR (usan SL inexistente)
-test_scenarios/core/c02_sl_hit.csv
-test_scenarios/core/c05_gap_sl.csv
-test_scenarios/cycles/cy03_sl_triggers_recovery.csv
-test_scenarios/money_management/mm05_balance_update_sl.csv
+tests/test_scenarios/core/c02_sl_hit.csv
+tests/test_scenarios/core/c05_gap_sl.csv
+tests/test_scenarios/cycles/cy03_sl_triggers_recovery.csv
+tests/test_scenarios/money_management/mm05_balance_update_sl.csv
 
 # ✅ CREAR NUEVOS (reflejan arquitectura real)
-test_scenarios/hedged/h02_create_hedge_operations.csv
-test_scenarios/hedged/h03_neutralize_mains.csv
-test_scenarios/hedged/h04_lock_20_pips.csv
-test_scenarios/hedged/h07_buy_tp_hedge_sell.csv
-test_scenarios/hedged/h08_sell_tp_hedge_buy.csv
+tests/test_scenarios/hedged/h02_create_hedge_operations.csv
+tests/test_scenarios/hedged/h03_neutralize_mains.csv
+tests/test_scenarios/hedged/h04_lock_20_pips.csv
+tests/test_scenarios/hedged/h07_buy_tp_hedge_sell.csv
+tests/test_scenarios/hedged/h08_sell_tp_hedge_buy.csv
 
-test_scenarios/recovery/r01_open_from_tp.csv
-test_scenarios/recovery/r02_recovery_distance_20.csv
-test_scenarios/recovery/r09_cancel_recovery_counter.csv
+tests/test_scenarios/recovery/r01_open_from_tp.csv
+tests/test_scenarios/recovery/r02_recovery_distance_20.csv
+tests/test_scenarios/recovery/r09_cancel_recovery_counter.csv
 
-test_scenarios/fifo/f01_fifo_first_costs_20.csv
-test_scenarios/fifo/f02_fifo_subsequent_40.csv
-test_scenarios/fifo/f03_fifo_atomic_close.csv
+tests/test_scenarios/fifo/f01_fifo_first_costs_20.csv
+tests/test_scenarios/fifo/f02_fifo_subsequent_40.csv
+tests/test_scenarios/fifo/f03_fifo_atomic_close.csv
 
-test_scenarios/cycles/cy03_tp_renews_operations.csv
-test_scenarios/cycles/cy04_cancel_counter_main.csv
+tests/test_scenarios/cycles/cy03_tp_renews_operations.csv
+tests/test_scenarios/cycles/cy04_cancel_counter_main.csv
 
-test_scenarios/jpy/j02_usdjpy_hedged.csv
-test_scenarios/jpy/j04_usdjpy_pips_calculation.csv
+tests/test_scenarios/jpy/j02_usdjpy_hedged.csv
+tests/test_scenarios/jpy/j04_usdjpy_pips_calculation.csv
 
-test_scenarios/money_management/mm03_pnl_hedged.csv (renombrado desde mm03_pnl_loss)
+tests/test_scenarios/money_management/mm03_pnl_hedged.csv (renombrado desde mm03_pnl_loss)
 ```

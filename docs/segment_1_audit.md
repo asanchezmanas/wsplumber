@@ -1,3 +1,14 @@
+> ⚠️ **NOTA HISTÓRICA:** Este archivo documenta el comportamiento del sistema ANTES del fix
+> de cycle renewal (2026-01-09). El comportamiento descrito aquí (renovación
+> dentro del mismo ciclo) era INCORRECTO. Ver `docs/bug_fix_cycle_renewal.md`
+> para el comportamiento correcto.
+>
+> **Fix aplicado:** Main TP ahora crea NUEVO ciclo (C2), no renueva dentro de C1.
+> **Fecha del fix:** 2026-01-09
+> **Logs generados:** 2026-01-08 22:52 (PRE-FIX)
+
+---
+
 2026-01-08 22:52:19,399 | INFO | wsplumber.core.backtest.backtest_engine | {"timestamp": "2026-01-08T21:52:19.399933Z", "level": "INFO", "logger": "wsplumber.core.backtest.backtest_engine", "message": "Logging de auditoría configurado en: docs/segment_1_audit.md"}
 2026-01-08 22:52:19,399 | INFO | wsplumber.core.backtest.backtest_engine | {"timestamp": "2026-01-08T21:52:19.399933Z", "level": "INFO", "logger": "wsplumber.core.backtest.backtest_engine", "message": "Cargando datos M1 para EURUSD desde CSV 2026.1.5EURUSD_M1_UTCPlus02(2)-M1-No Session_ohlc.csv (max_bars=100000)..."}
 2026-01-08 22:52:22,821 | INFO | tests.fixtures.simulated_broker | {"timestamp": "2026-01-08T21:52:22.821074Z", "level": "INFO", "logger": "tests.fixtures.simulated_broker", "message": "Loaded synthetic ticks from M1 CSV", "data": {"max_bars": 100000, "total_ticks": 400000, "file": "2026.1.5EURUSD_M1_UTCPlus02(2)-M1-No Session_ohlc.csv"}}

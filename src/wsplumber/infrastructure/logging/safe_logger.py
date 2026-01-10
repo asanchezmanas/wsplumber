@@ -53,6 +53,8 @@ TERMINOLOGY_MAP: Dict[str, str] = {
     # Estados
     "in_recovery": "correcting",
     "hedged": "balanced",
+    "debt_units": "locked_units",
+    "total_debt_incurred": "total_locked_variance",
 }
 
 

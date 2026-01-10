@@ -14,7 +14,7 @@
 | `RECOVERY_DISTANCE_PIPS` | **20** | Distancia de entrada del recovery |
 | `RECOVERY_TP_PIPS` | **80** | Take Profit de operaciones recovery |
 | `RECOVERY_LEVEL_STEP` | **40** | Separación entre niveles de recovery |
-| `HEDGE_LOCK_PIPS` | **20** | Deuda bloqueada al activar cobertura (10 sep + 10 TP) |
+| `HEDGE_LOCK_PIPS` | **20** | Deuda bloqueada: 10 (distancia entre mains) + 10 (prolongación al TP) |
 
 ---
 
@@ -47,7 +47,7 @@ PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
 ```
 1. Abrir ciclo dual (BUY_STOP + SELL_STOP a ±5 pips)
 2. UNA operación se activa
-3. Esa operación toca TP (+10 pips)
+3. Esa operación toca TP (+10 pips de profit, a +15 pips del precio inicial)
 4. Cancelar la orden pendiente opuesta
 5. Ciclo → CLOSED
 6. Abrir nuevo ciclo (renovación)
@@ -71,21 +71,23 @@ PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
 ```
 1. Recovery abierto (BUY_STOP + SELL_STOP a ±20 pips, TP=80)
 2. Precio se mueve, recovery toca TP (+80 pips)
-3. Sistema FIFO:
-   - Primer recovery: consume 20 pips (deuda inicial)
-   - Resto: consume 40 pips por nivel adicional
-4. Si pips restantes ≥ 0: Cerrar ciclo completo
-5. Si pips restantes < 0: Abrir nuevo recovery
+3. Sistema FIFO por UNIDADES:
+   - Unidad Main+Hedge: 20 pips
+   - Unidades Recovery Fallido: 40 pips cada una
+4. Condición de cierre:
+   - Deuda total == 0 AND Excedente >= 20 pips
+5. Si OK: Cerrar ciclo completo
+6. Si NO: Abrir nuevo recovery a ±20 pips del TP alcanzado
 ```
 **Log esperado**: `[RECOVERY_TP_HIT] profit=80 debt_remaining=X`
 
-### Flujo 4: Recovery en Cascada
+### Flujo 4: Recovery en Cascada (Fallo)
 ```
-1. Recovery N1 activado, precio gira
-2. Recovery N1 en flotante negativo (-40 pips)
-3. Activar Recovery N2 (otra dirección)
-4. Deuda acumulada: -20 (inicial) + -40 (N1) = -60 pips
-5. Repetir hasta que un Recovery alcance TP
+1. Recovery N1 activado, precio se gira.
+2. Segundo recovery de N1 se activa → Fallo bloqueado a 40 pips.
+3. Deuda acumulada: 20 (Main+Hedge) + 40 (R1) = 60 pips.
+4. Nuevo Recovery (N2) a ±20 pips del ENTRY de la orden que bloqueó.
+5. Repetir (R3, R4...) hasta que un Recovery alcance TP.
 ```
 **Log esperado**: `[RECOVERY_CASCADE] level=N debt_total=X`
 
@@ -97,8 +99,9 @@ PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
 
 | Tipo | Costo | Cuándo |
 |------|-------|--------|
-| **Primer Recovery** | 20 pips | Cierra mains + hedges originales |
-| **Recovery N2+** | 40 pips | Cierra un recovery neutralizado |
+| **Unidad Main+Hedge** | 20 pips | Al activar la primera cobertura |
+| **Unidad Recovery** | 40 pips | Al activarse la orden opuesta del ciclo recovery |
+| **Cierre Ciclo** | Surplus ≥ 20 | Solo si deuda es 0 y sobran pips |
 
 ### Ejemplo de Resolución
 
@@ -143,7 +146,7 @@ EMERGENCY_LIMITS = {
 ### Al Abrir un Ciclo
 - [ ] ¿Se crearon 2 operaciones (BUY_STOP + SELL_STOP)?
 - [ ] ¿Los precios de entrada son ±5 pips del precio actual?
-- [ ] ¿Los TP son ±15 pips del precio actual (entry + 10)?
+- [ ] ¿Los TP están a ±10 pips del ENTRY? (Resultando en ±15 pips desde el precio actual)
 - [ ] ¿El estado del ciclo es `PENDING` → `ACTIVE`?
 - [ ] ¿Los `broker_ticket` se guardaron en BD?
 
@@ -155,7 +158,7 @@ EMERGENCY_LIMITS = {
 
 ### Al Abrir Recovery
 - [ ] ¿El recovery se abre a ±20 pips del precio actual?
-- [ ] ¿El TP del recovery es a ±100 pips (entry ± 80)?
+- [ ] ¿El TP del recovery está a ±80 pips del ENTRY? (Resultando en ±100 pips desde el precio actual)
 - [ ] ¿El `recovery_level` se incrementó?
 - [ ] ¿La operación tiene `parent_cycle_id` correcto?
 
@@ -169,11 +172,11 @@ EMERGENCY_LIMITS = {
 
 ## 📝 Logs Esperados por Evento
 
-### Apertura de Ciclo
+### Apertura de Ciclo (Ejemplo: Mid = 1.0850)
 ```
 [INFO] Cycle created: cycle_id=EURUSD_001, type=MAIN
-[INFO] Operation placed: op_id=EURUSD_001_BUY, entry=1.0855, tp=1.0865
-[INFO] Operation placed: op_id=EURUSD_001_SELL, entry=1.0845, tp=1.0835
+[INFO] Operation placed: op_id=EURUSD_001_BUY, entry=1.0855 (+5), tp=1.0865 (+15 from mid, +10 from entry)
+[INFO] Operation placed: op_id=EURUSD_001_SELL, entry=1.0845 (-5), tp=1.0835 (-15 from mid, -10 from entry)
 ```
 
 ### Activación de Main

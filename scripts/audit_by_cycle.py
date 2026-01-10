@@ -267,7 +267,7 @@ class CycleAuditor:
                         break
             self.last_balance = balance
     
-    def print_report(self, final_balance: float, final_equity: float):
+    def print_report(self, repo, final_balance: float, final_equity: float):
         """Print professional cycle-grouped report."""
         print()
         print("=" * 80)
@@ -282,6 +282,15 @@ class CycleAuditor:
             print(f"{'-'*100}")
             print(f"  Created at tick: #{audit.created_tick}")
             print(f"  Final status:    {audit.status.upper()}")
+            
+            # Show debt units if recovery is involved (from repo data)
+            cycle_data = repo.cycles.get(audit.id)
+            if cycle_data and hasattr(cycle_data.accounting, 'debt_units'):
+                units = cycle_data.accounting.debt_units
+                remaining = float(cycle_data.accounting.pips_remaining)
+                print(f"  Debt Units:      [{', '.join([f'{u:.0f}' for u in units])}]")
+                print(f"  Debt Remaining:  {remaining:.1f} pips")
+            
             print(f"  Total P&L:       +{audit.total_pips:.1f} pips")
             print()
             
@@ -294,7 +303,10 @@ class CycleAuditor:
             for op_id, op in audit.mains.items():
                 short = self.get_op_short_name(op.op_type, op_id)
                 linked = "-"
-                print(f"  {short:<8} {op.entry_price:>10.5f} {op.tp_price:>10.5f} {op.status:<12} {linked:<15}")
+                status_str = op.status
+                if status_str == "active" and audit.status != "closed":
+                    status_str = "ACTIVE (Running)"
+                print(f"  {short:<8} {op.entry_price:>10.5f} {op.tp_price:>10.5f} {status_str:<15} {linked:<15}")
             
             for op_id, op in audit.hedges.items():
                 short = self.get_op_short_name(op.op_type, op_id)
@@ -303,7 +315,11 @@ class CycleAuditor:
                 if op.linked_op and op.linked_op in audit.mains:
                     linked_type = audit.mains[op.linked_op].op_type
                     linked = self.get_op_short_name(linked_type, op.linked_op)
-                print(f"  {short:<8} {op.entry_price:>10.5f} {op.tp_price:>10.5f} {op.status:<12} {linked:<15}")
+                
+                status_str = op.status
+                if status_str == "active" and audit.status != "closed":
+                    status_str = "ACTIVE (Running)"
+                print(f"  {short:<8} {op.entry_price:>10.5f} {op.tp_price:>10.5f} {status_str:<15} {linked:<15}")
             
             for op_id, op in audit.recoveries.items():
                 short = self.get_op_short_name(op.op_type, op_id)
@@ -430,7 +446,7 @@ async def run_cycle_audit(max_bars: int = 500):
     final_balance = float(acc.value["balance"])
     final_equity = float(acc.value["equity"])
     
-    auditor.print_report(final_balance, final_equity)
+    auditor.print_report(repo, final_balance, final_equity)
 
 
 if __name__ == "__main__":

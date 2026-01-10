@@ -176,13 +176,13 @@ async def run_all_scenarios():
         
         # Status
         if result['success'] and result.get('cycles', 0) > 0:
-            status = "✅"
+            status = "[OK]"
             passed += 1
         elif result['success']:
-            status = "⚠️"  # Ejecutó pero sin crear ciclos
+            status = "[--]"  # Ejecutó pero sin crear ciclos
             passed += 1
         else:
-            status = "❌"
+            status = "[FAIL]"
             failed += 1
         
         # Mostrar progreso
@@ -209,7 +209,7 @@ async def run_all_scenarios():
     # Mostrar errores
     errors = [r for r in results if not r['success']]
     if errors:
-        print("\n❌ ESCENARIOS CON ERRORES:")
+        print("\nERRORS IN SCENARIOS:")
         for r in errors:
             print(f"  {r['file']}: {r['error']}")
     

@@ -6,12 +6,20 @@ Fixes aplicados:
 - FIX-TS-01: Sync detecta TPs correctamente, no asume TP si no hay precio
 - FIX-TS-02: Llamada única a get_order_history (eficiencia)
 - FIX-TS-03: Manejo de errores si broker desconecta durante sync
+- FIX-CLOSE-03: Prevenir cierre de operaciones ya cerradas (double-close protection + race condition)
+  * Verificar estado antes y después del broker.close_position()
+  * Capturar ValueError de close_v2() cuando estado no permite cerrar
+  * Aplicado en close_operation() líneas 90-127
+- FIX-CLOSE-04: Realizar P&L en sync cuando broker marca TP_HIT
+  * Llamar a broker.close_position() durante sync para mover P&L al balance
+  * Aplicado en sync_all_active_positions() para pending->TP_HIT y active->TP_HIT
 """
 
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 from datetime import datetime
+from decimal import Decimal
 
 from wsplumber.domain.interfaces.ports import IBroker, IRepository
 from wsplumber.domain.types import (
@@ -22,6 +30,7 @@ from wsplumber.domain.types import (
     OrderRequest,
     OrderResult,
     Result,
+    Price,
 )
 from wsplumber.domain.entities.operation import Operation
 from wsplumber.domain.entities.cycle import Cycle
@@ -85,6 +94,13 @@ class TradingService:
             return Result.fail("Operation has no broker ticket", "INVALID_STATE")
 
         try:
+            # FIX-CLOSE-03: Verificar estado antes de intentar cerrar
+            if operation.status in (OperationStatus.CLOSED, OperationStatus.TP_HIT):
+                logger.warning("Attempted to close already-closed operation",
+                             operation_id=operation.id,
+                             status=operation.status.value)
+                return Result.fail(f"Operation already closed (status={operation.status.value})", "ALREADY_CLOSED")
+
             logger.info("Closing position", ticket=operation.broker_ticket, operation_id=operation.id)
             broker_result = await self.broker.close_position(operation.broker_ticket)
 
@@ -92,15 +108,30 @@ class TradingService:
                 return broker_result
 
             order_res = broker_result.value
+
+            # FIX-CLOSE-03: Verificar estado antes de llamar a close_v2 (race condition protection)
+            if operation.status in (OperationStatus.CLOSED, OperationStatus.TP_HIT):
+                logger.warning("Operation was closed by another process during broker close",
+                             operation_id=operation.id,
+                             status=operation.status.value)
+                return Result.ok(order_res)  # El broker cerró exitosamente, aceptar
+
             operation.close_v2(
                 price=order_res.fill_price,
                 timestamp=order_res.timestamp or datetime.now()
             )
 
             await self.repository.save_operation(operation)
-            
+
             return Result.ok(order_res)
 
+        except ValueError as e:
+            # close_v2() puede lanzar ValueError si el estado no permite cerrar
+            logger.error("Failed to close operation - invalid state",
+                        exception=e,
+                        operation_id=operation.id,
+                        status=operation.status.value)
+            return Result.fail(f"Invalid state for close: {str(e)}", "INVALID_STATE")
         except Exception as e:
             logger.error("Failed to close operation", exception=e, operation_id=operation.id)
             return Result.fail(str(e), "TRADING_SERVICE_ERROR")
@@ -160,30 +191,41 @@ class TradingService:
                     
                     if broker_status == "tp_hit":
                         # FIX-TS-01: El broker marcó TP, activar y cerrar con precio real
-                        close_price = broker_pos.get("actual_close_price") or broker_pos.get("close_price")
-                        if close_price is None:
+                        raw_close_price = broker_pos.get("actual_close_price") or broker_pos.get("close_price")
+                        if raw_close_price is None:
                             logger.warning("TP_HIT without close price, skipping", op_id=op.id)
                             continue
                         
+                        # FIX-CLOSE-04: Cerrar en el broker para realizar el P&L
+                        close_result = await self.broker.close_position(op.broker_ticket)
+                        if not close_result.success:
+                            logger.error("Failed to close TP_HIT position in broker", 
+                                        op_id=op.id, error=close_result.error)
+                            continue
+                        
+                        close_price = Price(Decimal(str(raw_close_price)))
+                        fill_price = Price(Decimal(str(broker_pos.get("entry_price") or broker_pos.get("fill_price") or op.entry_price)))
+                        
                         # Primero activar
                         op.activate(
+                            fill_price=fill_price,
                             broker_ticket=op.broker_ticket,
-                            fill_price=broker_pos.get("entry_price") or broker_pos.get("fill_price") or op.entry_price,
                             timestamp=broker_pos.get("open_time") or datetime.now()
                         )
-                        # Luego marcar cierre (el orquestador decidirá cuándo cerrar realmente)
+                        # Luego marcar cierre
                         op.close_v2(
                             price=close_price,
                             timestamp=broker_pos.get("close_time") or datetime.now()
                         )
                         await self.repository.save_operation(op)
                         sync_count += 1
-                        logger.info("Synced pending->TP_HIT", op_id=op.id, close_price=close_price)
+                        logger.info("Synced pending->TP_HIT (P&L realized)", op_id=op.id, close_price=float(close_price))
                     else:
+                        fill_price = Price(Decimal(str(broker_pos.get("entry_price") or broker_pos.get("fill_price") or op.entry_price)))
                         # Orden activada normalmente
                         op.activate(
+                            fill_price=fill_price,
                             broker_ticket=op.broker_ticket,
-                            fill_price=broker_pos.get("entry_price") or broker_pos.get("fill_price"),
                             timestamp=broker_pos.get("open_time") or datetime.now()
                         )
                         await self.repository.save_operation(op)
@@ -195,16 +237,21 @@ class TradingService:
                     h_pos = broker_history[ticket_str]
                     
                     # FIX-TS-01: Solo procesar si hay precio de cierre real
-                    close_price = h_pos.get("actual_close_price") or h_pos.get("close_price")
-                    if close_price is None:
+                    raw_close_price = h_pos.get("actual_close_price") or h_pos.get("close_price")
+                    if raw_close_price is None:
                         logger.warning("History entry without close price, skipping", 
                                       op_id=op.id, ticket=ticket_str)
                         continue
                     
+                    # Garantizar tipos Decimal para operar con seguridad
+                    close_price = Price(Decimal(str(raw_close_price)))
+                    raw_entry_price = h_pos.get("entry_price") or op.entry_price
+                    fill_price = Price(Decimal(str(raw_entry_price)))
+                    
                     # Activar y cerrar
                     op.activate(
+                        fill_price=fill_price,
                         broker_ticket=op.broker_ticket,
-                        fill_price=h_pos.get("entry_price") or op.entry_price,
                         timestamp=h_pos.get("open_time") or datetime.now()
                     )
                     op.close_v2(
@@ -230,18 +277,26 @@ class TradingService:
                     
                     # Verificar si el broker la marcó como TP_HIT
                     if broker_status == "tp_hit":
-                        close_price = broker_pos.get("actual_close_price") or broker_pos.get("close_price")
-                        if close_price is None:
+                        raw_close_price = broker_pos.get("actual_close_price") or broker_pos.get("close_price")
+                        if raw_close_price is None:
                             logger.warning("Active marked TP_HIT without price", op_id=op.id)
                             continue
                         
+                        # FIX-CLOSE-04: Cerrar en el broker para realizar el P&L
+                        close_result = await self.broker.close_position(op.broker_ticket)
+                        if not close_result.success:
+                            logger.error("Failed to close TP_HIT position in broker", 
+                                        op_id=op.id, error=close_result.error)
+                            continue
+                        
+                        close_price = Price(Decimal(str(raw_close_price)))
                         op.close_v2(
                             price=close_price,
                             timestamp=broker_pos.get("close_time") or datetime.now()
                         )
                         await self.repository.save_operation(op)
                         sync_count += 1
-                        logger.info("Synced active->TP_HIT", op_id=op.id, close_price=close_price)
+                        logger.info("Synced active->TP_HIT (P&L realized)", op_id=op.id, close_price=float(close_price))
                 
                 # Caso B: Ya no está en abiertas - buscar en historial
                 elif ticket_str not in broker_positions:
@@ -249,8 +304,8 @@ class TradingService:
                         h_pos = broker_history[ticket_str]
                         
                         # FIX-TS-01: Requerir precio de cierre
-                        close_price = h_pos.get("actual_close_price") or h_pos.get("close_price")
-                        if close_price is None:
+                        raw_close_price = h_pos.get("actual_close_price") or h_pos.get("close_price")
+                        if raw_close_price is None:
                             logger.error("Active operation disappeared without close price!", 
                                         op_id=op.id, ticket=ticket_str)
                             # Marcar como cerrada pero con flag de error
@@ -259,6 +314,8 @@ class TradingService:
                             # Usar TP como fallback pero loguear warning
                             close_price = op.tp_price
                             logger.warning("Using TP as fallback close price", op_id=op.id)
+                        else:
+                            close_price = Price(Decimal(str(raw_close_price)))
                         
                         close_time = h_pos.get("closed_at") or h_pos.get("close_time") or datetime.now()
                         op.close_v2(price=close_price, timestamp=close_time)
@@ -280,5 +337,5 @@ class TradingService:
         
         except Exception as e:
             # FIX-TS-03: Capturar errores de conexión
-            logger.error("Sync failed with exception", exception=e, pair=pair)
+            logger.error("Sync failed with exception", _exception=e, pair=pair)
             return Result.fail(str(e), "SYNC_EXCEPTION")
