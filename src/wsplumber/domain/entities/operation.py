@@ -81,6 +81,10 @@ class Operation:
     commission_close: Money = Money(Decimal("7.0"))
     swap_total: Money = Money(Decimal("0"))
     slippage_pips: Pips = Pips(0.0)
+    
+    # PHASE 1: Spread tracking fields (zero impact on existing logic)
+    spread_at_entry: Optional[Pips] = None   # Spread when position opened
+    spread_at_close: Optional[Pips] = None   # Spread when position closed
 
     # Broker
     broker_ticket: Optional[BrokerTicket] = None
@@ -196,6 +200,84 @@ class Operation:
         # Esto es una aproximación, el valor real depende del par
         base_pip_value = 10.0  # USD por lote estándar
         return base_pip_value * float(self.lot_size)
+
+    # ============================================
+    # PHASE 2: DYNAMIC DEBT CALCULATED PROPERTIES
+    # These are READ-ONLY and have zero impact on existing logic
+    # ============================================
+
+    @property
+    def realized_pips(self) -> Pips:
+        """
+        Calculate REAL pips from actual execution prices.
+        
+        This is what we ACTUALLY earned/lost, not what we planned.
+        Uses actual_entry_price and actual_close_price if available.
+        """
+        entry = self.actual_entry_price or self.entry_price
+        close = self.actual_close_price
+        
+        if close is None:
+            return Pips(0.0)
+        
+        # Calculate pip difference
+        multiplier = 100 if "JPY" in str(self.pair) else 10000
+        diff = float(close) - float(entry)
+        
+        # Direction matters: BUY profits when price goes up
+        if self.is_buy:
+            pips = diff * multiplier
+        else:
+            pips = -diff * multiplier
+        
+        return Pips(round(pips, 1))
+
+    @property
+    def theoretical_pips(self) -> Pips:
+        """
+        Calculate PLANNED pips from intended prices.
+        
+        This is what we SHOULD have earned with perfect execution.
+        """
+        if self.tp_price is None or float(self.tp_price) == 0:
+            return self.pips_target
+        
+        multiplier = 100 if "JPY" in str(self.pair) else 10000
+        diff = float(self.tp_price) - float(self.entry_price)
+        
+        if self.is_buy:
+            pips = diff * multiplier
+        else:
+            pips = -diff * multiplier
+        
+        return Pips(round(abs(pips), 1))
+
+    @property
+    def execution_cost_pips(self) -> Pips:
+        """
+        Total pips lost to execution imperfections (slippage + spread).
+        """
+        slippage = float(self.slippage_pips) if self.slippage_pips else 0.0
+        spread_entry = float(self.spread_at_entry) if self.spread_at_entry else 0.0
+        spread_close = float(self.spread_at_close) if self.spread_at_close else 0.0
+        
+        return Pips(slippage + spread_entry + spread_close)
+
+    @property
+    def execution_efficiency(self) -> float:
+        """
+        Efficiency: realized_pips / theoretical_pips * 100.
+        
+        100% = perfect execution
+        <100% = lost pips to slippage/spread
+        >100% = better than expected (rare)
+        """
+        theoretical = float(self.theoretical_pips)
+        if theoretical == 0:
+            return 0.0
+        
+        realized = float(self.realized_pips)
+        return round((realized / theoretical) * 100, 1)
 
     # ============================================
     # MÉTODOS DE NEGOCIO

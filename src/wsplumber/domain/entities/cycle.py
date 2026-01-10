@@ -49,6 +49,11 @@ class CycleAccounting:
     - Cada TP de recovery aporta +80 pips.
     - Se liquidan las unidades en orden FIFO.
     - El ciclo solo puede cerrarse si deuda == 0 Y excedente >= 20 pips.
+    
+    PHASE 3 SHADOW ACCOUNTING:
+    - _shadow_debts: Parallel tracking with real calculated values
+    - _shadow_recovered: Real profit from recoveries
+    - Use get_accounting_comparison() to compare both systems
     """
 
     pips_locked: Pips = Pips(0.0)
@@ -58,7 +63,7 @@ class CycleAccounting:
     total_commissions: Money = Money(Decimal("0"))
     total_swaps: Money = Money(Decimal("0"))
     
-    # Cola de unidades de deuda (pips por unidad)
+    # Cola de unidades de deuda (pips por unidad) - EXISTING HARDCODED
     # Ej: [20.0, 40.0, 40.0]
     debt_units: List[float] = field(default_factory=lambda: [20.0])
     
@@ -67,6 +72,17 @@ class CycleAccounting:
     
     # ID de los recoverys asociados a la deuda (opcional, para trazabilidad)
     recovery_queue: List[RecoveryId] = field(default_factory=list)
+    
+    # =========================================
+    # PHASE 3: SHADOW ACCOUNTING SYSTEM
+    # Runs in parallel with hardcoded system
+    # =========================================
+    
+    # Shadow debt queue with real calculated values
+    # Import DebtUnit when needed to avoid circular imports
+    _shadow_debts: List[Any] = field(default_factory=list)
+    _shadow_total_debt: float = 0.0
+    _shadow_recovered: float = 0.0
 
     def add_locked_pips(self, pips: Pips) -> None:
         """Añade pips bloqueados (usado para ajustes manuales o inicialización)."""
@@ -106,6 +122,79 @@ class CycleAccounting:
         self.pips_locked = Pips(sum(self.debt_units))
         
         return remaining_tp
+
+    # =========================================
+    # SHADOW ACCOUNTING METHODS (Phase 3)
+    # =========================================
+    
+    def shadow_add_debt(self, debt_unit: Any) -> None:
+        """
+        SHADOW: Add a dynamically calculated debt unit.
+        
+        This runs in parallel with the hardcoded system.
+        The debt_unit should be a DebtUnit instance.
+        """
+        self._shadow_debts.append(debt_unit)
+        self._shadow_total_debt += float(debt_unit.pips_owed)
+    
+    def shadow_process_recovery(self, real_profit_pips: float) -> dict:
+        """
+        SHADOW: Process recovery with REAL profit value.
+        
+        Returns comparison with hardcoded system.
+        """
+        self._shadow_recovered += real_profit_pips
+        remaining = real_profit_pips
+        liquidated_count = 0
+        
+        while remaining > 0 and self._shadow_debts:
+            oldest = self._shadow_debts[0]
+            pips_owed = float(oldest.pips_owed)
+            
+            if remaining >= pips_owed:
+                remaining -= pips_owed
+                oldest.status = "liquidated"
+                self._shadow_debts.pop(0)
+                liquidated_count += 1
+            else:
+                oldest.pips_owed -= remaining
+                oldest.status = "partially_paid"
+                remaining = 0
+        
+        return {
+            "liquidated_count": liquidated_count,
+            "remaining_profit": remaining,
+            "shadow_debt_remaining": sum(float(d.pips_owed) for d in self._shadow_debts)
+        }
+    
+    def get_accounting_comparison(self) -> dict:
+        """
+        Compare hardcoded vs shadow (dynamic) accounting.
+        
+        Use this to analyze the difference and validate before switching.
+        """
+        hardcoded_debt = sum(self.debt_units)
+        shadow_debt = sum(float(d.pips_owed) for d in self._shadow_debts)
+        
+        return {
+            "hardcoded": {
+                "total_debt": hardcoded_debt,
+                "num_units": len(self.debt_units),
+                "total_incurred": self.total_debt_incurred,
+                "recovered": float(self.pips_recovered)
+            },
+            "shadow": {
+                "total_debt": shadow_debt,
+                "num_units": len(self._shadow_debts),
+                "total_incurred": self._shadow_total_debt,
+                "recovered": self._shadow_recovered
+            },
+            "difference": {
+                "debt": hardcoded_debt - shadow_debt,
+                "incurred": self.total_debt_incurred - self._shadow_total_debt,
+                "recovered": float(self.pips_recovered) - self._shadow_recovered
+            }
+        }
 
     @property
     def pips_remaining(self) -> Pips:
