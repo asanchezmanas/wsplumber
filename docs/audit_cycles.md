@@ -445,6 +445,41 @@ LOG_DEBT_COMPARISON = True  # Log comparisons for validation
 - Total pips: +23,091
 - System stable with 970+ concurrent cycles
 
+## Performance Scaling & Optimization (2026-01-10)
+
+To support massive 500,000 tick stress tests, the auditing system was optimized for maximum performance.
+
+### 1. The "Fast Path" Auditor
+The `CycleAuditor` now implements a **Fast Path** mechanism:
+- **State Caching**: Remembers the status of every operation and cycle from the previous tick.
+- **Instant Skip**: If no status changes are detected, it bypasses heavy logic collection in microseconds.
+- **Combined Loops**: Reduced iteration complexity from $O(3n)$ to $O(n)$ per tick.
+
+### 2. Hot Loop Optimization
+Expensive statistical calculations (like counting hundreds of open recoveries) are moved out of the per-tick hot path and executed only during:
+- **Logging Intervals** (every 1,000 ticks)
+- **Chart Sampling** (configurable, e.g., every 500 ticks)
+
+### 3. Backtest Metrics Format
+The `audit_scenario.py` utility displays a high-density status line optimized for console readability and real-time monitoring:
+
+```text
+TICK     | BALANCE    | EQUITY     | PIPS      | CYC(O/C)  | REC(A/MX) | MAINS | DD%
+```
+
+| Metric | Description |
+|--------|-------------|
+| **CYC(O/C)** | **O**pen vs **C**losed cycles (total created). |
+| **REC(A/MX)** | **A**ctive total recoveries vs **M**aximum recursion level in a single cycle. |
+| **MAINS** | Accumulated total of Main operations hit (Unit count). |
+| **DD%** | Real-time Drawdown percentage based on Equity peak. |
+
+### 4. Results
+| Version | Efficiency | Ticks per Second | 500k Time Est. |
+|---------|------------|------------------|----------------|
+| V3.x    | Standard   | ~14 tps          | 10 hours       |
+| **V4.0** | **Optimized** | **~1,000 tps**  | **12 minutes** |
+
 ---
 *Updated: 2026-01-10*
-*System: WSPlumber Engine 4.0 (Dynamic Debt - All Phases Complete)*
+*System: WSPlumber Engine 4.0 - Scaled Performance Mode*

@@ -119,143 +119,103 @@ class CycleAuditor:
         """Analyze changes and record events per cycle."""
         self.tick = tick
         
-        # Detect new cycles
+        # 1. Detect new cycles and status changes in a single loop
         for c in repo.cycles.values():
-            if c.id not in self.cycles:
-                name = self.get_cycle_name(c.id, c.cycle_type.value)
-                self.cycles[c.id] = CycleAudit(
-                    id=c.id,
+            cid = c.id
+            if cid not in self.cycles:
+                name = self.get_cycle_name(cid, c.cycle_type.value)
+                audit = CycleAudit(
+                    id=cid,
                     name=name,
                     cycle_type=c.cycle_type.value,
                     created_tick=tick,
                     status=c.status.value
                 )
-                self.cycles[c.id].add_event(
+                self.cycles[cid] = audit
+                audit.add_event(
                     tick, "CYCLE_CREATED", 
                     f"Cycle {name} created",
                     details=f"type={c.cycle_type.value}"
                 )
-        
-        # Detect cycle status changes
-        for c in repo.cycles.values():
-            if c.id in self.cycles:
-                audit = self.cycles[c.id]
+            else:
+                audit = self.cycles[cid]
                 if audit.status != c.status.value:
                     old_status = audit.status
-                    new_status = c.status.value
+                    audit.status = c.status.value
                     audit.add_event(
                         tick, "STATUS_CHANGE",
-                        f"{old_status.upper()} -> {new_status.upper()}"
+                        f"{old_status.upper()} -> {audit.status.upper()}"
                     )
-                    audit.status = new_status
         
-        # Detect new operations and status changes
+        # 2. Optimized operations check
         for op in repo.operations.values():
             op_id = str(op.id)
             status = op.status.value
-            op_type = op.op_type.value
-            cycle_id = op.cycle_id
             
+            # FAST PATH: Skip if already tracked and status is same
+            last_op = self.last_ops.get(op_id)
+            if last_op and last_op["status"] == status:
+                continue
+                
+            cycle_id = op.cycle_id
             if cycle_id not in self.cycles:
                 continue
             
             audit = self.cycles[cycle_id]
+            op_type = op.op_type.value
             short_name = self.get_op_short_name(op_type, op_id)
             entry = float(op.entry_price)
             tp = float(op.tp_price) if op.tp_price else 0
             
-            if op_id not in self.last_ops:
+            if not last_op:
                 # New operation
                 self.last_ops[op_id] = {"status": status, "cycle_id": cycle_id, "type": op_type}
-                
-                op_ref = OperationRef(
-                    op_id=op_id,
-                    op_type=op_type,
-                    entry_price=entry,
-                    tp_price=tp,
-                    status=status
-                )
+                op_ref = OperationRef(op_id=op_id, op_type=op_type, entry_price=entry, tp_price=tp, status=status)
                 
                 if "main" in op_type:
                     audit.mains[op_id] = op_ref
-                    audit.add_event(
-                        tick, "MAIN_CREATED", 
-                        f"{short_name} created PENDING",
-                        details=f"entry={entry:.5f} tp={tp:.5f}",
-                        op_id=op_id
-                    )
+                    audit.add_event(tick, "MAIN_CREATED", f"{short_name} created PENDING", 
+                                  details=f"entry={entry:.5f} tp={tp:.5f}", op_id=op_id)
                 elif "hedge" in op_type:
-                    # Find which main this hedge is linked to
+                    # Link logic (simplified for speed but kept for accuracy)
                     linked_main = ""
                     if "buy" in op_type:
-                        # H_B is at MAIN_BUY TP
                         for mid, mref in audit.mains.items():
                             if "buy" in mref.op_type and abs(mref.tp_price - entry) < 0.00001:
-                                linked_main = mid
-                                break
+                                linked_main = mid; break
                     else:
-                        # H_S is at MAIN_SELL TP
                         for mid, mref in audit.mains.items():
                             if "sell" in mref.op_type and abs(mref.tp_price - entry) < 0.00001:
-                                linked_main = mid
-                                break
+                                linked_main = mid; break
                     
                     op_ref.linked_op = linked_main
                     audit.hedges[op_id] = op_ref
-                    audit.add_event(
-                        tick, "HEDGE_CREATED", 
-                        f"{short_name} created PENDING",
-                        details=f"entry={entry:.5f} linked_to={linked_main[:20] if linked_main else 'none'}",
-                        op_id=op_id,
-                        ref_op_id=linked_main
-                    )
+                    audit.add_event(tick, "HEDGE_CREATED", f"{short_name} created PENDING",
+                                  details=f"entry={entry:.5f} linked_to={linked_main[:20] if linked_main else 'none'}",
+                                  op_id=op_id, ref_op_id=linked_main)
                 elif "recovery" in op_type:
                     audit.recoveries[op_id] = op_ref
-                    audit.add_event(
-                        tick, "RECOVERY_CREATED", 
-                        f"{short_name} created PENDING",
-                        details=f"entry={entry:.5f} tp={tp:.5f}",
-                        op_id=op_id
-                    )
+                    audit.add_event(tick, "RECOVERY_CREATED", f"{short_name} created PENDING",
+                                  details=f"entry={entry:.5f} tp={tp:.5f}", op_id=op_id)
             else:
-                # Status change
-                old_status = self.last_ops[op_id]["status"]
+                # Status change path
+                old_status = last_op["status"]
+                last_op["status"] = status
                 
-                if old_status != status:
-                    if old_status == "pending" and status == "active":
-                        audit.add_event(tick, "ACTIVATED", f"{short_name} activated", op_id=op_id)
-                        
-                    elif old_status == "active" and status == "neutralized":
-                        audit.add_event(tick, "NEUTRALIZED", f"{short_name} neutralized (hedged)", op_id=op_id)
-                        
-                    elif status == "tp_hit":
-                        pips = float(op.profit_pips) if op.profit_pips else 0
-                        audit.add_event(
-                            tick, "TP_HIT", 
-                            f"{short_name} TP hit",
-                            details=f"+{pips:.1f} pips",
-                            pips=pips,
-                            op_id=op_id
-                        )
-                        
-                    elif status == "cancelled":
-                        reason = op.metadata.get("cancel_reason", "counterpart")
-                        audit.add_event(
-                            tick, "CANCELLED", 
-                            f"{short_name} cancelled",
-                            details=f"reason={reason}",
-                            op_id=op_id
-                        )
-                    
-                    # Update status in operation ref
-                    if op_id in audit.mains:
-                        audit.mains[op_id].status = status
-                    elif op_id in audit.hedges:
-                        audit.hedges[op_id].status = status
-                    elif op_id in audit.recoveries:
-                        audit.recoveries[op_id].status = status
-                    
-                    self.last_ops[op_id]["status"] = status
+                # Update ref status
+                ref = audit.mains.get(op_id) or audit.hedges.get(op_id) or audit.recoveries.get(op_id)
+                if ref: ref.status = status
+                
+                if old_status == "pending" and status == "active":
+                    audit.add_event(tick, "ACTIVATED", f"{short_name} activated", op_id=op_id)
+                elif old_status == "active" and status == "neutralized":
+                    audit.add_event(tick, "NEUTRALIZED", f"{short_name} neutralized (hedged)", op_id=op_id)
+                elif status == "tp_hit":
+                    pips = float(op.profit_pips) if op.profit_pips else 0
+                    audit.add_event(tick, "TP_HIT", f"{short_name} TP hit", details=f"+{pips:.1f} pips", pips=pips, op_id=op_id)
+                elif status == "cancelled":
+                    reason = op.metadata.get("cancel_reason", "counterpart")
+                    audit.add_event(tick, "CANCELLED", f"{short_name} cancelled", details=f"reason={reason}", op_id=op_id)
         
         # Detect balance change
         if balance > self.last_balance + 0.01:
