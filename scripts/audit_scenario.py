@@ -22,16 +22,29 @@ from scripts.audit_by_cycle import CycleAuditor
 
 async def audit_scenario(csv_path_str: str, log_level: str = "INFO"):
     import logging
-    numeric_level = getattr(logging, log_level.upper(), None)
-    if not isinstance(numeric_level, int):
-        numeric_level = logging.INFO
-    logging.basicConfig(level=numeric_level, format='%(message)s')
+    from pathlib import Path as LogPath
     
-    # SILENCE INTERNAL LOGGERS
-    logging.getLogger("wsplumber").setLevel(logging.CRITICAL)
-    logging.getLogger("wsplumber.core").setLevel(logging.CRITICAL)
-    logging.getLogger("wsplumber.application").setLevel(logging.CRITICAL)
-    logging.getLogger("tests.fixtures.simulated_broker").setLevel(logging.CRITICAL)
+    csv_path = Path(csv_path_str)
+    log_file = f"audit_logs_{csv_path.stem}.log"
+    
+    # Configure file handler to save ALL logs
+    file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(name)s | %(message)s'))
+    
+    # Root logger writes to file
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+    root_logger.addHandler(file_handler)
+    
+    # Enable wsplumber loggers
+    logging.getLogger("wsplumber").setLevel(logging.DEBUG)
+    logging.getLogger("wsplumber.core").setLevel(logging.DEBUG)
+    logging.getLogger("wsplumber.application").setLevel(logging.DEBUG)
+    logging.getLogger("tests.fixtures.simulated_broker").setLevel(logging.DEBUG)
+    
+    print(f"[INFO] Logs will be saved to: {log_file}")
+
     
     csv_path = Path(csv_path_str)
     if not csv_path.exists():

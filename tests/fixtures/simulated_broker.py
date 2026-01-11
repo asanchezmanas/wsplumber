@@ -448,7 +448,13 @@ class SimulatedBroker(IBroker):
 
         # 2. Actualizar P&L y MARCAR TPs (NO cerrar)
         for ticket, pos in self.open_positions.items():
-            # FIX-SB-03: Considerar spread en cálculo de P&L
+            # FIX-SB-04: Skip P&L recalculation for TP_HIT positions
+            # Their P&L should be frozen at the TP price, not recalculated
+            if pos.status == OperationStatus.TP_HIT:
+                # P&L is already frozen at close price, skip recalculation
+                continue
+            
+            # FIX-SB-03: Considerar spread en calculo de P&L
             mult = 100 if "JPY" in pos.pair else 10000
             
             if pos.order_type.is_buy:
@@ -463,6 +469,7 @@ class SimulatedBroker(IBroker):
             pos.current_pnl_pips = pips
             pip_value_per_lot = 10.0 
             pos.current_pnl_money = pips * float(pos.lot_size) * pip_value_per_lot
+
             
             # FIX-SB-01: Solo MARCAR TP, NO cerrar
             if pos.status == OperationStatus.ACTIVE:  # Solo si no está ya marcado
