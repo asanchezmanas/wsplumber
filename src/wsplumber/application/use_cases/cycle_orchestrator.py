@@ -74,6 +74,8 @@ class CycleOrchestrator:
         
         self._running = False
         self._active_cycles: Dict[CurrencyPair, Cycle] = {}
+        self.metadata: Dict[str, Any] = {}  # FIX: Added for Immune System Layer 4
+
 
     async def start(self, pairs: List[CurrencyPair]):
         """Inicia la orquestación para los pares indicados."""
@@ -403,7 +405,7 @@ class CycleOrchestrator:
                         await self._open_new_cycle(signal_open_cycle, tick)
 
                         logger.info(
-                            "✅ New cycle opened after main TP (C1 stays IN_RECOVERY)",
+                            "[OK] New cycle opened after main TP (C1 stays IN_RECOVERY)",
                             old_cycle=cycle.id,
                             old_cycle_status=cycle.status.value
                         )
@@ -743,9 +745,10 @@ class CycleOrchestrator:
         )
         
         # 4. Condición de Cierre Atómico
-        # El ciclo se cierra si NO hay deuda pendiente Y el excedente es >= 20 pips
-        if parent_cycle.accounting.is_fully_recovered and surplus >= 20.0:
-            logger.info("🎉 Cycle FULLY RESOLVED with surplus >= 20. Closing cycle.", 
+        # El ciclo se cierra si NO hay deuda pendiente Y el excedente es >= 0 pips
+        # FIX: Cambiado de >= 20 a >= 0 para evitar loops innecesarios
+        if parent_cycle.accounting.is_fully_recovered and surplus >= 0.0:
+            logger.info("[SUCCESS] Cycle FULLY RESOLVED with surplus >= 0. Closing cycle.", 
                       cycle_id=parent_cycle.id, surplus=surplus)
             
             # Cerrar todas las operaciones restantes (neutralizadas)

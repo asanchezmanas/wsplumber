@@ -4,21 +4,27 @@ Este documento detalla la implementación quirúrgica de las capas de seguridad 
 
 ---
 
-## 🛡️ Capa 1: Recovery Breakeven (Regla del 50%)
+## 🛡️ Capa 1: Recovery Breakeven V2 (Dynamic Trailing)
 
-**Objetivo**: Evitar que una operación de recuperación que ha alcanzado el 50% de su objetivo (+40 pips) vuelva a entrar en pérdidas negativas.
+**Objetivo**: Proteger profits de recoveries mediante un trailing dinámico que se adapta al máximo alcanzado.
 
-### Detalles de Implementación:
+### Lógica Mejorada:
+1. **Tracking**: Guardar `max_floating_pips` en metadata de la operación.
+2. **Activación**: Cuando `max_floating >= 40 pips` → activar protección.
+3. **Trailing Dinámico**: `trailing_SL = max(peak * 0.5, 10 pips)` → 50% del máximo, mínimo +10.
+4. **Cierre**: Cuando `floating <= trailing_SL` → cerrar con profit bloqueado.
+
+### Ejemplo:
+| Peak Alcanzado | Trailing SL | Si baja a... | Resultado |
+|----------------|-------------|--------------|-----------|
+| +60 pips | +30 pips | +28 pips | Cierra con ~+28 pips |
+| +80 pips | +40 pips | +38 pips | Cierra con ~+38 pips |
+| +45 pips | +22.5 pips | +20 pips | Cierra con ~+20 pips |
+
+### Implementación:
 - **Ubicación**: `src/wsplumber/application/services/trading_service.py`
 - **Método**: `sync_all_active_positions`
-- **Lógica**:
-    1.  Para cada operación de tipo `RECOVERY` en estado `ACTIVE`.
-    2.  Calcular `unrealized_pips` usando el precio actual del tick.
-    3.  Si `unrealized_pips >= 40.0`:
-        - Marcar `op.metadata["be_protected"] = True`.
-    4.  Si `op.metadata.get("be_protected") == True` Y `unrealized_pips <= 0.5`:
-        - Ejecutar `self.broker.close_position(op.broker_ticket)`.
-        - Al cerrar en 0 pips, el ciclo permanece bloqueado pero **no añade una nueva unidad de deuda de 40 pips**.
+
 
 ---
 

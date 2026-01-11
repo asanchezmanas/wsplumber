@@ -275,7 +275,7 @@ class TradingService:
                     broker_pos = broker_positions[ticket_str]
                     broker_status = broker_pos.get("status", "active")
                     
-                    # --- IMMUNE SYSTEM: Layer 1 - Recovery Breakeven ---
+                    # --- IMMUNE SYSTEM: Layer 1 - Recovery Breakeven (V2: Dynamic Trailing) ---
                     if op.is_recovery and broker_status == "active":
                         # Usar el LTP (Last Traded Price) o el precio actual del broker
                         current_price = broker_pos.get("current_price") or broker_pos.get("bid") or broker_pos.get("ask")
@@ -290,26 +290,43 @@ class TradingService:
                             else:
                                 floating_pips = (entry - curr) * multiplier
                             
+                            # Tracking del máximo alcanzado (peak)
+                            max_floating = op.metadata.get("max_floating_pips", 0.0)
+                            if floating_pips > max_floating:
+                                max_floating = floating_pips
+                                op.metadata["max_floating_pips"] = max_floating
+                            
                             # 1. Activar protección si llega a +40 pips
-                            if floating_pips >= 40.0:
+                            if max_floating >= 40.0:
                                 if not op.metadata.get("be_protected"):
                                     op.metadata["be_protected"] = True
                                     logger.info("Immune System: Recovery protection ACTIVATED (+40 pips)", 
                                                op_id=op.id, current_pips=round(floating_pips, 1))
                             
-                            # 2. Ejecutar Breakeven si retrocede a <= +0.5 pips
-                            if op.metadata.get("be_protected") and floating_pips <= 0.5:
-                                logger.warning("Immune System: Recovery Breakeven TRIGGERED (Whip-saw protection)", 
-                                             op_id=op.id, current_pips=round(floating_pips, 1))
-                                # Forzar cierre al precio actual para evitar deuda adicional
-                                close_result = await self.broker.close_position(op.broker_ticket)
-                                if close_result.success:
-                                    op.close_v2(price=Price(Decimal(str(current_price))), timestamp=datetime.now())
-                                    op.metadata["close_reason"] = "recovery_breakeven"
-                                    await self.repository.save_operation(op)
-                                    sync_count += 1
-                                    continue # Ya está cerrada, saltar al siguiente
+                            # 2. Dynamic Trailing: 50% del máximo con suelo de +10 pips
+                            if op.metadata.get("be_protected"):
+                                # Calcular trailing SL dinámico
+                                trailing_sl = max(max_floating * 0.5, 10.0)  # 50% del peak, mínimo +10
+                                
+                                if floating_pips <= trailing_sl:
+                                    logger.warning(
+                                        "Immune System: Dynamic Trailing TRIGGERED", 
+                                        op_id=op.id, 
+                                        current_pips=round(floating_pips, 1),
+                                        max_pips=round(max_floating, 1),
+                                        trailing_sl=round(trailing_sl, 1)
+                                    )
+                                    # Forzar cierre al precio actual para proteger profit
+                                    close_result = await self.broker.close_position(op.broker_ticket)
+                                    if close_result.success:
+                                        op.close_v2(price=Price(Decimal(str(current_price))), timestamp=datetime.now())
+                                        op.metadata["close_reason"] = "dynamic_trailing"
+                                        op.metadata["locked_pips"] = round(floating_pips, 1)
+                                        await self.repository.save_operation(op)
+                                        sync_count += 1
+                                        continue # Ya está cerrada, saltar al siguiente
                     # --- END IMMUNE SYSTEM ---
+
 
                     # Verificar si el broker la marcó como TP_HIT
                     if broker_status == "tp_hit":

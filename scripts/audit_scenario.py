@@ -152,22 +152,27 @@ class AuditMetrics:
 
 
 async def audit_scenario(csv_path_str: str, log_level: str = "INFO", sample_rate: int = 500):
-    import logging
-    numeric_level = getattr(logging, log_level.upper(), None)
-    if not isinstance(numeric_level, int):
-        numeric_level = logging.INFO
-    logging.basicConfig(level=numeric_level, format='%(message)s')
-    
-    # SILENCE INTERNAL LOGGERS
-    logging.getLogger("wsplumber").setLevel(logging.CRITICAL)
-    logging.getLogger("wsplumber.core").setLevel(logging.CRITICAL)
-    logging.getLogger("wsplumber.application").setLevel(logging.CRITICAL)
-    logging.getLogger("tests.fixtures.simulated_broker").setLevel(logging.CRITICAL)
+    from pathlib import Path as LogPath
+    from wsplumber.infrastructure.logging.safe_logger import setup_logging
     
     csv_path = Path(csv_path_str)
+    log_file = LogPath(f"audit_logs_{csv_path.stem}.log")
+    
+    # Use safe_logger's setup_logging for proper file logging
+    setup_logging(
+        level=log_level,
+        log_file=log_file,
+        json_output=True,
+        environment="development"  # Use development to see internal terms
+    )
+    
+    print(f"[INFO] Logs will be saved to: {log_file}")
+
     if not csv_path.exists():
         print(f"Error: {csv_path} not found")
         return
+
+
 
     # Detect pair
     pair_str = "EURUSD"

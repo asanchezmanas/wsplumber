@@ -140,15 +140,21 @@ class SimulatedBroker(IBroker):
         for pos in self.open_positions.values():
             equity += Decimal(str(pos.current_pnl_money))
             margin_used += Decimal(str(pos.lot_size)) * 100000 / self.leverage
+        
+        free_margin = equity - margin_used
+        # FIX-SB-05: Calcular free_margin_percent para Layer 3 (Margin Modes)
+        free_margin_percent = (float(free_margin) / float(equity) * 100) if equity > 0 else 0.0
             
         return Result.ok({
             "balance": float(self.balance),
             "equity": float(equity),
             "margin": float(margin_used),
-            "free_margin": float(equity - margin_used),
+            "free_margin": float(free_margin),
+            "free_margin_percent": free_margin_percent,  # FIX-SB-05
             "leverage": self.leverage,
             "currency": "EUR"
         })
+
 
     async def get_current_price(self, pair: CurrencyPair) -> Result[TickData]:
         if self.current_tick_index < 0 or self.current_tick_index >= len(self.ticks):
@@ -446,8 +452,14 @@ class SimulatedBroker(IBroker):
                        entry_price=float(order.entry_price),
                        timestamp=tick.timestamp)
 
+
         # 2. Actualizar P&L y MARCAR TPs (NO cerrar)
         for ticket, pos in self.open_positions.items():
+            # FIX-SB-04: Saltar posiciones ya marcadas como TP_HIT
+            # Su P&L debe permanecer "congelado" al precio de cierre
+            if pos.status == OperationStatus.TP_HIT:
+                continue
+                
             # FIX-SB-03: Considerar spread en cálculo de P&L
             mult = 100 if "JPY" in pos.pair else 10000
             
@@ -465,24 +477,32 @@ class SimulatedBroker(IBroker):
             pos.current_pnl_money = pips * float(pos.lot_size) * pip_value_per_lot
             
             # FIX-SB-01: Solo MARCAR TP, NO cerrar
-            if pos.status == OperationStatus.ACTIVE:  # Solo si no está ya marcado
-                tp_hit = False
-                close_price = None
+            # (ya sabemos que pos.status != TP_HIT por el continue arriba)
+            tp_hit = False
+            close_price = None
+            
+            if pos.order_type.is_buy and tick.bid >= pos.tp_price:
+                tp_hit = True
+                close_price = tick.bid
+            elif pos.order_type.is_sell and tick.ask <= pos.tp_price:
+                tp_hit = True
+                close_price = tick.ask
                 
-                if pos.order_type.is_buy and tick.bid >= pos.tp_price:
-                    tp_hit = True
-                    close_price = tick.bid
-                elif pos.order_type.is_sell and tick.ask <= pos.tp_price:
-                    tp_hit = True
-                    close_price = tick.ask
-                    
-                if tp_hit:
-                    pos.status = OperationStatus.TP_HIT
-                    pos.actual_close_price = close_price
-                    pos.close_time = tick.timestamp
-                    logger.info(f"Broker: Position {ticket} marked as TP_HIT",
-                               operation_id=pos.operation_id,
-                               close_price=float(close_price),
-                               profit_pips=pos.current_pnl_pips)
-                    # NO llamar a close_position() aquí
-                    # El orquestador lo hará después de procesar
+            if tp_hit:
+                pos.status = OperationStatus.TP_HIT
+                pos.actual_close_price = close_price
+                pos.close_time = tick.timestamp
+                # Congelar el P&L al precio de TP
+                if pos.order_type.is_buy:
+                    frozen_pips = float((close_price - pos.entry_price) * mult)
+                else:
+                    frozen_pips = float((pos.entry_price - close_price) * mult)
+                pos.current_pnl_pips = frozen_pips
+                pos.current_pnl_money = frozen_pips * float(pos.lot_size) * pip_value_per_lot
+                
+                logger.info(f"Broker: Position {ticket} marked as TP_HIT",
+                           operation_id=pos.operation_id,
+                           close_price=float(close_price),
+                           profit_pips=pos.current_pnl_pips)
+                # NO llamar a close_position() aquí
+                # El orquestador lo hará después de procesar

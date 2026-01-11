@@ -41,7 +41,7 @@ async def main():
         environment=settings.environment.environment
     )
     
-    logger.info("🔧 Starting El Fontanero de Wall Street 🔧", version="2.0")
+    logger.info("Starting El Fontanero de Wall Street", version="2.0")
 
     # 2. Instanciar Infraestructura
     # Repositorio (Supabase)
@@ -71,7 +71,7 @@ async def main():
 
     # 5. Conectar el Dashboard State Broadcaster con el Orquestador
     state_broadcaster.connect_orchestrator(orchestrator)
-    logger.info("📡 Dashboard broadcaster connected to orchestrator")
+    logger.info("Dashboard broadcaster connected to orchestrator")
 
     # 6. Ejecutar
     try:
@@ -97,7 +97,7 @@ async def main():
         )
         server = uvicorn.Server(config)
         
-        logger.info("🚀 API Server starting at http://localhost:8000")
+        logger.info("API Server starting at http://localhost:8000")
         
         # Ejecutar ambos concurrentemente
         await asyncio.gather(
