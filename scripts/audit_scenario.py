@@ -107,10 +107,17 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO"):
                 acc = await broker.get_account_info()
                 equity = float(acc.value["equity"])
                 
-                # Count cycles by status
-                open_cycles = sum(1 for c in repo.cycles.values() if c.status.value != "closed")
-                closed_cycles = sum(1 for c in repo.cycles.values() if c.status.value == "closed")
-                active_rec = sum(1 for c in repo.cycles.values() if c.cycle_type.value == "recovery" and c.status.value != "closed")
+                # Count cycles by status (detailed)
+                main_cycles = [c for c in repo.cycles.values() if c.cycle_type.value == "main"]
+                rec_cycles = [c for c in repo.cycles.values() if c.cycle_type.value == "recovery"]
+                
+                c_active = sum(1 for c in main_cycles if c.status.value == "active")
+                c_hedged = sum(1 for c in main_cycles if c.status.value == "hedged")
+                c_in_rec = sum(1 for c in main_cycles if c.status.value == "in_recovery")
+                c_closed = sum(1 for c in main_cycles if c.status.value == "closed")
+                
+                active_rec = sum(1 for c in rec_cycles if c.status.value != "closed")
+                closed_rec = sum(1 for c in rec_cycles if c.status.value == "closed")
                 
                 # Count TPs by type
                 main_tps = sum(1 for o in repo.operations.values() if o.is_main and o.status.value == "tp_hit")
@@ -123,10 +130,11 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO"):
                 
                 # Print header every 10k ticks
                 if tick_count % 10000 == 0:
-                    print(f"\n{'TICK':>10} | {'Balance':>10} | {'Equity':>10} | {'DD%':>6} | {'Pips':>8} | {'Open':>5}/{'':<5} | {'MainTP':>6} | {'RecTP':>6} | {'Rec':>4}", flush=True)
-                    print("-"*100)
+                    print(f"\n{'TICK':>10} | {'Balance':>10} | {'Equity':>10} | {'DD%':>5} | {'Act':>4} | {'Hdg':>4} | {'InR':>4} | {'Clo':>4} | {'RecA':>5} | {'RecC':>5} | {'MTP':>5} | {'RTP':>5}", flush=True)
+                    print("-"*115)
                 
-                print(f"{tick_count:>10,} | {balance:>10.2f} | {equity:>10.2f} | {dd_pct:>5.1f}% | {total_pips:>+8.1f} | {open_cycles:>5}/{closed_cycles:<5} | {main_tps:>6} | {rec_tps:>6} | {active_rec:>4}", flush=True)
+                print(f"{tick_count:>10,} | {balance:>10.2f} | {equity:>10.2f} | {dd_pct:>4.1f}% | {c_active:>4} | {c_hedged:>4} | {c_in_rec:>4} | {c_closed:>4} | {active_rec:>5} | {closed_rec:>5} | {main_tps:>5} | {rec_tps:>5}", flush=True)
+
 
 
         acc = await broker.get_account_info()
