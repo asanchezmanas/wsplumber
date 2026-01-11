@@ -106,11 +106,28 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO"):
             if tick_count % 1000 == 0:
                 acc = await broker.get_account_info()
                 equity = float(acc.value["equity"])
-                open_cycles = sum(1 for c in repo.cycles.values() if c.status != "closed")
-                active_rec = sum(1 for c in repo.cycles.values() if c.cycle_type.value == "recovery" and c.status != "closed")
+                
+                # Count cycles by status
+                open_cycles = sum(1 for c in repo.cycles.values() if c.status.value != "closed")
+                closed_cycles = sum(1 for c in repo.cycles.values() if c.status.value == "closed")
+                active_rec = sum(1 for c in repo.cycles.values() if c.cycle_type.value == "recovery" and c.status.value != "closed")
+                
+                # Count TPs by type
+                main_tps = sum(1 for o in repo.operations.values() if o.is_main and o.status.value == "tp_hit")
+                rec_tps = sum(1 for o in repo.operations.values() if o.is_recovery and o.status.value == "tp_hit")
+                
+                # Calculate DD
+                dd_pct = ((balance - equity) / balance * 100) if balance > 0 else 0
+                
                 total_pips = sum(c.total_pips for c in auditor.cycles.values())
                 
-                print(f" TICK #{tick_count:7,} | Bal: {balance:10.2f} | Eq: {equity:10.2f} | Pips: +{total_pips:7.1f} | Cycles: {open_cycles:3} | Rec: {active_rec:2}", flush=True)
+                # Print header every 10k ticks
+                if tick_count % 10000 == 0:
+                    print(f"\n{'TICK':>10} | {'Balance':>10} | {'Equity':>10} | {'DD%':>6} | {'Pips':>8} | {'Open':>5}/{'':<5} | {'MainTP':>6} | {'RecTP':>6} | {'Rec':>4}", flush=True)
+                    print("-"*100)
+                
+                print(f"{tick_count:>10,} | {balance:>10.2f} | {equity:>10.2f} | {dd_pct:>5.1f}% | {total_pips:>+8.1f} | {open_cycles:>5}/{closed_cycles:<5} | {main_tps:>6} | {rec_tps:>6} | {active_rec:>4}", flush=True)
+
 
         acc = await broker.get_account_info()
         
