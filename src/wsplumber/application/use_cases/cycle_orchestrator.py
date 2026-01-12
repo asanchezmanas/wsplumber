@@ -828,9 +828,22 @@ class CycleOrchestrator:
                 metadata={"reason": "recovery_next_stage", "parent_cycle": parent_cycle.id}
             )
             await self._open_recovery_cycle(signal, tick, reference_price=reference_price)
-            
+
             # Guardar estado del padre
             await self.repository.save_cycle(parent_cycle)
+
+        # FIX-RECOVERY-CLOSURE: Cerrar el ciclo de recovery después de procesar su TP
+        # Una vez que el recovery tocó TP y pagó la deuda al padre, debe cerrarse
+        recovery_cycle.status = CycleStatus.CLOSED
+        recovery_cycle.closed_at = datetime.now()
+        recovery_cycle.metadata["close_reason"] = "tp_hit"
+        await self.repository.save_cycle(recovery_cycle)
+
+        logger.info(
+            "Recovery cycle closed after TP hit",
+            recovery_id=recovery_cycle.id,
+            parent_id=parent_cycle.id
+        )
 
 
 

@@ -446,7 +446,10 @@ class SimulatedBroker(IBroker):
                        entry_price=float(order.entry_price),
                        timestamp=tick.timestamp)
 
-        # 2. Actualizar P&L y MARCAR TPs (NO cerrar)
+        # 2. Actualizar P&L y MARCAR TPs
+        # Recolectar tickets a cerrar para no modificar dict durante iteración
+        tp_closures = []
+
         for ticket, pos in self.open_positions.items():
             # FIX-SB-04: Skip P&L recalculation for TP_HIT positions
             # Their P&L should be frozen at the TP price, not recalculated
@@ -484,12 +487,52 @@ class SimulatedBroker(IBroker):
                     close_price = tick.ask
                     
                 if tp_hit:
-                    pos.status = OperationStatus.TP_HIT
-                    pos.actual_close_price = close_price
-                    pos.close_time = tick.timestamp
-                    logger.info(f"Broker: Position {ticket} marked as TP_HIT",
-                               operation_id=pos.operation_id,
-                               close_price=float(close_price),
-                               profit_pips=pos.current_pnl_pips)
-                    # NO llamar a close_position() aquí
-                    # El orquestador lo hará después de procesar
+                    # Recolectar datos para cerrar después del loop
+                    tp_closures.append({
+                        "ticket": ticket,
+                        "pos": pos,
+                        "close_price": close_price,
+                        "pnl_pips": pos.current_pnl_pips,
+                        "pnl_money": pos.current_pnl_money,
+                        "timestamp": tick.timestamp
+                    })
+
+        # 3. Procesar cierres de TP después del loop (para no modificar dict durante iteración)
+        for closure in tp_closures:
+            ticket = closure["ticket"]
+            pos = closure["pos"]
+            close_price = closure["close_price"]
+
+            # Cerrar inmediatamente cuando toca TP (como broker real)
+            # Esto evita acumulación de posiciones "zombie" en estado tp_hit
+            self.balance += Decimal(str(closure["pnl_money"]))
+
+            # Mover a historial
+            self.history.append({
+                "ticket": pos.ticket,
+                "operation_id": pos.operation_id,
+                "pair": pos.pair,
+                "order_type": pos.order_type.value,
+                "entry_price": float(pos.entry_price),
+                "close_price": float(close_price),
+                "actual_close_price": float(close_price),
+                "lot_size": float(pos.lot_size),
+                "profit_pips": closure["pnl_pips"],
+                "profit_money": closure["pnl_money"],
+                "open_time": pos.open_time,
+                "close_time": closure["timestamp"],
+                "closed_at": closure["timestamp"],
+                "status": "tp_hit"
+            })
+
+            # Eliminar de posiciones abiertas
+            del self.open_positions[ticket]
+
+            logger.info(f"Broker: Position {ticket} marked as TP_HIT",
+                       operation_id=pos.operation_id,
+                       close_price=float(close_price),
+                       profit_pips=closure["pnl_pips"])
+            logger.info("Broker: Position closed",
+                       ticket=ticket,
+                       profit_pips=closure["pnl_pips"],
+                       close_price=float(close_price))
