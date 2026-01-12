@@ -134,6 +134,20 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO"):
                     print("-"*115)
                 
                 print(f"{tick_count:>10,} | {balance:>10.2f} | {equity:>10.2f} | {dd_pct:>4.1f}% | {c_active:>4} | {c_hedged:>4} | {c_in_rec:>4} | {c_closed:>4} | {active_rec:>5} | {closed_rec:>5} | {main_tps:>5} | {rec_tps:>5}", flush=True)
+                
+                # Detailed analysis every 25k ticks
+                if tick_count % 25000 == 0 and c_active > 1:
+                    print(f"\n--- ANÁLISIS DE CICLOS ACTIVE ({c_active}) ---")
+                    active_mains = [c for c in main_cycles if c.status.value == "active"]
+                    for i, c in enumerate(active_mains[:5]):
+                        ops = [o for o in repo.operations.values() if o.cycle_id == c.id]
+                        pending = sum(1 for o in ops if o.status.value == "pending")
+                        act = sum(1 for o in ops if o.status.value == "active")
+                        tp_hit = sum(1 for o in ops if o.status.value == "tp_hit")
+                        print(f"  C{i+1}: {c.id[:25]}... | Ops: {len(ops)} (P:{pending} A:{act} T:{tp_hit})")
+                    if len(active_mains) > 5:
+                        print(f"  ... y {len(active_mains)-5} más")
+                    print("---")
 
 
 

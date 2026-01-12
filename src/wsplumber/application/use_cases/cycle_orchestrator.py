@@ -146,12 +146,26 @@ class CycleOrchestrator:
 
         # FIX: Monitoreamos TODOS los ciclos activos para este par (Principal + Recoveries)
         cycles_res = await self.repository.get_active_cycles(pair)
+        
+        # FIX-OPEN-FIRST-CYCLE: Si no hay ciclos activos, abrir el primero
         if not cycles_res.success or not cycles_res.value:
+            # Solo abrir si no hay ya uno en cache
+            if pair not in self._active_cycles:
+                # Obtener tick actual del broker
+                tick_res = await self.trading_service.broker.get_current_price(pair)
+                if tick_res.success and tick_res.value:
+                    signal = StrategySignal(
+                        signal_type=SignalType.OPEN_CYCLE,
+                        pair=pair,
+                        metadata={"reason": "no_active_cycle_in_repo"}
+                    )
+                    await self._open_new_cycle(signal, tick_res.value)
             return
 
         for cycle in cycles_res.value:
-            # Sincronizar el cache interno si es el ciclo principal
-            if cycle.cycle_type == CycleType.MAIN:
+            # FIX-CACHE-OVERWRITE: Solo sincronizar cache con ciclos ACTIVE/HEDGED
+            # No sobrescribir con ciclos IN_RECOVERY/CLOSED que pueden disparar TP
+            if cycle.cycle_type == CycleType.MAIN and cycle.status in (CycleStatus.ACTIVE, CycleStatus.HEDGED, CycleStatus.PENDING):
                 self._active_cycles[pair] = cycle
 
             ops_res = await self.repository.get_operations_by_cycle(cycle.id)
@@ -358,6 +372,7 @@ class CycleOrchestrator:
                             
                             # Transition to IN_RECOVERY and open recovery cycle
                             cycle.start_recovery()
+                            cycle.metadata["just_transitioned"] = True  # FIX-IN-RECOVERY-SKIP
                             await self.repository.save_cycle(cycle)
                             logger.info("Cycle transitioned to IN_RECOVERY", cycle_id=cycle.id)
                             
@@ -374,20 +389,70 @@ class CycleOrchestrator:
 
                         # Registrar TP en contabilidad
                         cycle.record_main_tp(Pips(float(op.profit_pips or MAIN_TP_PIPS)))
+                        
+                        # FIX-CYCLE-EXPLOSION: Transicionar C1 ANTES de abrir C2
+                        # Esto evita que C1 quede huérfano en estado ACTIVE/HEDGED
+                        if cycle.status == CycleStatus.ACTIVE:
+                            # Solo 1 main estaba activo y tocó TP → ciclo se cierra (sin deuda)
+                            # Cancelar el main pendiente contrario
+                            for other_op in ops_res.value:
+                                if other_op.is_main and other_op.id != op.id and other_op.status == OperationStatus.PENDING:
+                                    other_op.status = OperationStatus.CANCELLED
+                                    other_op.metadata["cancel_reason"] = "counterpart_tp_hit"
+                                    await self.repository.save_operation(other_op)
+                            
+                            cycle.status = CycleStatus.CLOSED
+                            cycle.closed_at = datetime.now()
+                            cycle.metadata["close_reason"] = "single_main_tp_no_debt"
+                            cycle.metadata["just_transitioned"] = True  # FIX-IN-RECOVERY-SKIP
+                            logger.info("Cycle closed (single main TP, no debt)", cycle_id=cycle.id)
+                        
+                        # (HEDGED case already handled above at line 359-362)
+                        
                         await self.repository.save_cycle(cycle)
-
-                        # FIX-CRITICAL: Abrir NUEVO CICLO (C2) en lugar de renovar dentro de C1
-                        # El ciclo actual (C1) queda en estado IN_RECOVERY esperando que Recovery compense la deuda
-                        # El nuevo ciclo (C2) permite seguir generando flujo de mains mientras se resuelve C1
-                        signal_open_cycle = StrategySignal(
-                            signal_type=SignalType.OPEN_CYCLE,
-                            pair=cycle.pair,
-                            metadata={"reason": "renewal_after_main_tp", "parent_cycle": cycle.id}
-                        )
-                        await self._open_new_cycle(signal_open_cycle, tick)
+                        
+                        # FIX-IN-RECOVERY-SKIP: Solo abrir nuevo ciclo si este ciclo ACABA de
+                        # transicionar a IN_RECOVERY o CLOSED. Si ya estaba en IN_RECOVERY antes,
+                        # significa que ya se procesó anteriormente y no debe abrir más ciclos.
+                        # Los ciclos IN_RECOVERY pueden tener TPs de mains pendientes del momento de transición.
+                        if cycle.status == CycleStatus.IN_RECOVERY and not cycle.metadata.get("just_transitioned"):
+                            logger.info("Skipping renewal: cycle was already IN_RECOVERY",
+                                       cycle_id=cycle.id)
+                        elif cycle.status == CycleStatus.CLOSED and not cycle.metadata.get("just_transitioned"):
+                            logger.info("Skipping renewal: cycle was already CLOSED",
+                                       cycle_id=cycle.id)
+                        else:
+                            # Marcar que la transición se procesó
+                            cycle.metadata["just_transitioned"] = False
+                            await self.repository.save_cycle(cycle)
+                            
+                            # FIX-SAME-TICK-GUARD-V2: Solo abrir nuevo ciclo si:
+                            # 1. No hay ningún ciclo en cache, O
+                            # 2. El ciclo en cache es ESTE mismo ciclo (que acabamos de transicionar)
+                            if pair in self._active_cycles:
+                                cached_cycle = self._active_cycles[pair]
+                                if cached_cycle.id != cycle.id:
+                                    logger.info("Skipping renewal: another cycle already opened this tick",
+                                                existing_cycle=cached_cycle.id,
+                                                current_cycle=cycle.id)
+                                else:
+                                    del self._active_cycles[pair]
+                                    signal_open_cycle = StrategySignal(
+                                        signal_type=SignalType.OPEN_CYCLE,
+                                        pair=cycle.pair,
+                                        metadata={"reason": "renewal_after_main_tp", "parent_cycle": cycle.id}
+                                    )
+                                    await self._open_new_cycle(signal_open_cycle, tick)
+                            else:
+                                signal_open_cycle = StrategySignal(
+                                    signal_type=SignalType.OPEN_CYCLE,
+                                    pair=cycle.pair,
+                                    metadata={"reason": "renewal_after_main_tp", "parent_cycle": cycle.id}
+                                )
+                                await self._open_new_cycle(signal_open_cycle, tick)
 
                         logger.info(
-                            "✅ New cycle opened after main TP (C1 stays IN_RECOVERY)",
+                            "[OK] Main TP processed",
                             old_cycle=cycle.id,
                             old_cycle_status=cycle.status.value
                         )
@@ -963,14 +1028,12 @@ class CycleOrchestrator:
             is_renewal = signal.metadata and signal.metadata.get("reason") == "renewal_after_main_tp"
 
             # Permitir si está IN_RECOVERY o CLOSED/PAUSED
+            # FIX-CYCLE-EXPLOSION: Ya NO permitimos ACTIVE/HEDGED ni siquiera para renewals
+            # El cache se limpia antes de llamar a esta función en caso de renewal
             allowed_states = ["CLOSED", "PAUSED", "IN_RECOVERY"]
-            # Si es renovación, también permitir HEDGED y ACTIVE (main acaba de tocar TP)
-            if is_renewal:
-                allowed_states.append("HEDGED")
-                allowed_states.append("ACTIVE")
 
             if active_cycle.status.name not in allowed_states:
-                logger.debug("Signal ignored: Cycle already active",
+                logger.info("Signal BLOCKED: Cycle already active",
                             pair=pair, existing_cycle_id=active_cycle.id,
                             cycle_status=active_cycle.status.name,
                             is_renewal=is_renewal)

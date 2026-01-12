@@ -82,13 +82,15 @@ class WallStreetPlumberStrategy(IStrategy):
                 metadata={"reason": "high_spread", "spread": spread_pips}
             )
 
-        # Verificar si hay ciclo activo
+        # FIX-STRATEGY-CACHE: Strategy NO debe emitir OPEN_CYCLE
+        # El cache de Strategy no está sincronizado con Orchestrator
+        # Retornar NO_ACTION y dejar que Orchestrator maneje la apertura de ciclos
         if pair not in self._active_cycles:
             return StrategySignal(
-                signal_type=SignalType.OPEN_CYCLE,
+                signal_type=SignalType.NO_ACTION,
                 pair=pair,
                 entry_price=Price(Decimal(str(ask))),
-                metadata={"reason": "no_active_cycle", "spread": spread_pips}
+                metadata={"reason": "no_active_cycle_in_strategy", "spread": spread_pips}
             )
 
         # Analizar ciclo existente para detectar necesidad de recovery
