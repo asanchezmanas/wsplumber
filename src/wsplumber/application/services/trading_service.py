@@ -94,8 +94,9 @@ class TradingService:
             return Result.fail("Operation has no broker ticket", "INVALID_STATE")
 
         try:
-            # FIX-CLOSE-03: Verificar estado antes de intentar cerrar
-            if operation.status in (OperationStatus.CLOSED, OperationStatus.TP_HIT):
+            # FIX-CLOSE-05: Solo rechazar si está CLOSED, permitir TP_HIT
+            # Las operaciones en TP_HIT necesitan cerrarse en el broker para realizar el P&L
+            if operation.status == OperationStatus.CLOSED:
                 logger.warning("Attempted to close already-closed operation",
                              operation_id=operation.id,
                              status=operation.status.value)
@@ -109,17 +110,20 @@ class TradingService:
 
             order_res = broker_result.value
 
-            # FIX-CLOSE-03: Verificar estado antes de llamar a close_v2 (race condition protection)
-            if operation.status in (OperationStatus.CLOSED, OperationStatus.TP_HIT):
+            # FIX-CLOSE-05: Verificar si ya está CLOSED (race condition)
+            # Si está en TP_HIT, es normal - el orchestrator lo marcó así antes de llamarnos
+            if operation.status == OperationStatus.CLOSED:
                 logger.warning("Operation was closed by another process during broker close",
                              operation_id=operation.id,
                              status=operation.status.value)
                 return Result.ok(order_res)  # El broker cerró exitosamente, aceptar
 
-            operation.close_v2(
-                price=order_res.fill_price,
-                timestamp=order_res.timestamp or datetime.now()
-            )
+            # Si estaba en TP_HIT, no llamar close_v2 de nuevo (ya está cerrado lógicamente)
+            if operation.status != OperationStatus.TP_HIT:
+                operation.close_v2(
+                    price=order_res.fill_price,
+                    timestamp=order_res.timestamp or datetime.now()
+                )
 
             await self.repository.save_operation(operation)
 
@@ -274,7 +278,7 @@ class TradingService:
                 if ticket_str in broker_positions:
                     broker_pos = broker_positions[ticket_str]
                     broker_status = broker_pos.get("status", "active")
-                    
+
                     # Verificar si el broker la marcó como TP_HIT
                     if broker_status == "tp_hit":
                         raw_close_price = broker_pos.get("actual_close_price") or broker_pos.get("close_price")
@@ -329,7 +333,37 @@ class TradingService:
                         op.metadata["sync_error"] = "vanished"
                         op.metadata["sync_time"] = datetime.now().isoformat()
                         await self.repository.save_operation(op)
-            
+
+            # 5. FIX-CLOSE-06: Limpiar posiciones zombie (tp_hit en broker pero sin cerrar)
+            # Buscar operaciones TP_HIT en el repo que aún tienen posiciones abiertas en el broker
+            all_ops = await self.repository.get_all_operations()
+            tp_hit_ops = [op for op in all_ops if op.status == OperationStatus.TP_HIT]
+            if pair:
+                tp_hit_ops = [op for op in tp_hit_ops if op.pair == pair]
+
+            for op in tp_hit_ops:
+                    if not op.broker_ticket:
+                        continue
+
+                    ticket_str = str(op.broker_ticket)
+
+                    # Si la posición sigue en el broker con status tp_hit, cerrarla
+                    if ticket_str in broker_positions:
+                        broker_pos = broker_positions[ticket_str]
+                        broker_status = broker_pos.get("status", "active")
+
+                        if broker_status == "tp_hit":
+                            logger.warning("Found zombie TP_HIT position, closing in broker",
+                                          op_id=op.id, ticket=ticket_str)
+
+                            close_result = await self.broker.close_position(op.broker_ticket)
+                            if close_result.success:
+                                sync_count += 1
+                                logger.info("Zombie position closed successfully", op_id=op.id)
+                            else:
+                                logger.error("Failed to close zombie position",
+                                           op_id=op.id, error=close_result.error)
+
             if sync_count > 0:
                 logger.info("Trading sync completed", sync_count=sync_count, pair=pair)
             

@@ -128,10 +128,10 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO"):
                 
                 total_pips = sum(c.total_pips for c in auditor.cycles.values())
                 
-                # Print header every 10k ticks
-                if tick_count % 10000 == 0:
+                # Print header every 5k ticks
+                if tick_count % 5000 == 0:
                     print(f"\n{'TICK':>10} | {'Balance':>10} | {'Equity':>10} | {'DD%':>5} | {'Act':>4} | {'Hdg':>4} | {'InR':>4} | {'Clo':>4} | {'RecA':>5} | {'RecC':>5} | {'MTP':>5} | {'RTP':>5}", flush=True)
-                    print("-"*115)
+                    print("-" * 115)
                 
                 print(f"{tick_count:>10,} | {balance:>10.2f} | {equity:>10.2f} | {dd_pct:>4.1f}% | {c_active:>4} | {c_hedged:>4} | {c_in_rec:>4} | {c_closed:>4} | {active_rec:>5} | {closed_rec:>5} | {main_tps:>5} | {rec_tps:>5}", flush=True)
                 
