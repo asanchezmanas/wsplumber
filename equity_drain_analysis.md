@@ -70,3 +70,4 @@ El cierre automático del ciclo debe basarse en el **Equity real del ciclo** (ca
 2. **Modificar `CycleAccounting.add_recovery_failure_unit`** para aceptar la pérdida real.
 3. **Modificar `CycleOrchestrator`** para inyectar los pips reales al cerrar operaciones.
 4. **Validar** con un test de 20k ticks antes de lanzar el de 500k.
+
