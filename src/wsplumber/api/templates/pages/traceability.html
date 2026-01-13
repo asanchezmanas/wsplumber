@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect" />
+    <link as="style"
+        href="https://fonts.googleapis.com/css2?display=swap&family=Inter%3Awght%40400%3B500%3B600%3B700%3B900"
+        onload="this.rel='stylesheet'" rel="stylesheet" />
+    <title>WSPlumber - Trazabilidad</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+    <style>
+        .tree-node {
+            position: relative;
+            padding-left: 24px;
+        }
+
+        .tree-node::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: #e2e8f0;
+        }
+
+        .tree-node:last-child::before {
+            height: 20px;
+        }
+
+        .tree-node::after {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 20px;
+            width: 12px;
+            height: 1px;
+            background: #e2e8f0;
+        }
+
+        .tree-root>.tree-node::before,
+        .tree-root>.tree-node::after {
+            display: none;
+        }
+
+        .tree-root>.tree-node {
+            padding-left: 0;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-[#f8f9fa] text-slate-600 font-sans antialiased">
+    <div class="flex min-h-screen">
+        <!-- Sidebar (same as dashboard) -->
+        <aside class="w-64 bg-white border-r border-slate-200 fixed h-screen z-20 flex flex-col overflow-y-auto">
+            <div class="p-6 flex items-center gap-3">
+                <div class="flex items-center justify-center rounded-full bg-indigo-600 w-8 h-8 text-white font-bold">🔧
+                </div>
+                <h1 class="text-xl font-bold text-slate-900">WSPlumber</h1>
+            </div>
+            <div class="px-4 py-2 flex flex-col gap-1">
+                <p class="px-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Principal</p>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="/dashboard">
+                    <span class="material-symbols-outlined text-[20px]">dashboard</span> Dashboard
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-indigo-50 text-indigo-600 font-medium text-sm"
+                    href="/traceability">
+                    <span class="material-symbols-outlined text-[20px]">account_tree</span> Trazabilidad
+                </a>
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="#">
+                    <span class="material-symbols-outlined text-[20px]">cycle</span> Ciclos
+                </a>
+            </div>
+            <div class="mt-auto p-4 border-t border-slate-100">
+                <a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm"
+                    href="/">
+                    <span class="material-symbols-outlined text-[20px]">home</span> Volver al Inicio
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 ml-64 p-8">
+            <header class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-900">🌳 Trazabilidad de Flujos</h2>
+                    <p class="text-slate-500 text-sm">Verificación de flujos de ciclos y operaciones</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button id="btn-refresh"
+                        class="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">refresh</span> Actualizar
+                    </button>
+                    <button id="btn-run-all"
+                        class="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[18px]">play_arrow</span> Ejecutar Todos
+                    </button>
+                </div>
+            </header>
+
+            <!-- Trees Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Available Trees -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h3 class="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-indigo-600 text-[20px]">folder_open</span>
+                        Árboles Disponibles
+                    </h3>
+                    <div id="trees-list" class="space-y-2 max-h-[400px] overflow-y-auto">
+                        <div class="text-sm text-slate-400 py-8 text-center">
+                            <span class="material-symbols-outlined text-3xl mb-2 block">hourglass_empty</span>
+                            Cargando árboles...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cycles -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h3 class="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-green-600 text-[20px]">cycle</span>
+                        Ciclos Activos
+                    </h3>
+                    <div id="cycles-list" class="space-y-2 max-h-[400px] overflow-y-auto">
+                        <div class="text-sm text-slate-400 py-8 text-center">
+                            <span class="material-symbols-outlined text-3xl mb-2 block">hourglass_empty</span>
+                            Cargando ciclos...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary Stats -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <h3 class="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-amber-600 text-[20px]">analytics</span>
+                        Resumen
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                            <span class="text-sm text-green-700 font-medium">Checks Pasados</span>
+                            <span id="stat-passed" class="text-xl font-bold text-green-600">-</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                            <span class="text-sm text-red-700 font-medium">Checks Fallados</span>
+                            <span id="stat-failed" class="text-xl font-bold text-red-600">-</span>
+                        </div>
+                        <div class="flex justify-between items-center p-3 bg-amber-50 rounded-lg">
+                            <span class="text-sm text-amber-700 font-medium">Pendientes</span>
+                            <span id="stat-pending" class="text-xl font-bold text-amber-600">-</span>
+                        </div>
+                        <div
+                            class="flex justify-between items-center p-3 bg-slate-50 rounded-lg border border-slate-200">
+                            <span class="text-sm text-slate-700 font-medium">Total Ciclos</span>
+                            <span id="stat-cycles" class="text-xl font-bold text-slate-900">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trace Viewer -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-indigo-600 text-[20px]">account_tree</span>
+                        Visualización del Árbol
+                    </h3>
+                    <div class="flex items-center gap-4 text-xs">
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-500"></span>
+                            Pasado</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-500"></span>
+                            Fallado</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                            Condición</span>
+                        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                            Pendiente</span>
+                    </div>
+                </div>
+
+                <div id="tree-viewer" class="min-h-[300px] border border-slate-100 rounded-lg p-4 bg-slate-50">
+                    <div class="text-center text-slate-400 py-12">
+                        <span class="material-symbols-outlined text-5xl mb-3 block">account_tree</span>
+                        <p class="text-sm">Selecciona un árbol o ciclo para ver la traza</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Log -->
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mt-6">
+                <h3 class="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-slate-600 text-[20px]">list_alt</span>
+                    Log de Eventos
+                </h3>
+                <div id="event-log" class="max-h-[300px] overflow-y-auto">
+                    <table class="min-w-full text-xs">
+                        <thead class="bg-slate-50 text-slate-500 font-medium sticky top-0">
+                            <tr>
+                                <th class="px-3 py-2 text-left">Timestamp</th>
+                                <th class="px-3 py-2 text-left">Evento</th>
+                                <th class="px-3 py-2 text-left">Detalles</th>
+                                <th class="px-3 py-2 text-left">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="event-log-body" class="divide-y divide-slate-100">
+                            <tr>
+                                <td colspan="4" class="text-center py-8 text-slate-400">
+                                    No hay eventos para mostrar
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Traceability Client
+        class TraceabilityClient {
+            constructor() {
+                this.trees = [];
+                this.cycles = [];
+                this.selectedTree = null;
+                this.selectedCycle = null;
+            }
+
+            async init() {
+                await this.loadTrees();
+                await this.loadCycles();
+                this.bindEvents();
+            }
+
+            async loadTrees() {
+                try {
+                    const resp = await fetch('/api/traceability/trees');
+                    this.trees = await resp.json();
+                    this.renderTreesList();
+                } catch (e) {
+                    console.error('Error loading trees:', e);
+                    this.showError('trees-list', 'Error cargando árboles');
+                }
+            }
+
+            async loadCycles() {
+                try {
+                    const resp = await fetch('/api/traceability/cycles');
+                    const data = await resp.json();
+                    this.cycles = data.cycles || [];
+                    this.renderCyclesList();
+                    document.getElementById('stat-cycles').textContent = this.cycles.length;
+                } catch (e) {
+                    console.error('Error loading cycles:', e);
+                    this.showError('cycles-list', 'Error cargando ciclos');
+                }
+            }
+
+            renderTreesList() {
+                const container = document.getElementById('trees-list');
+                if (!this.trees.length) {
+                    container.innerHTML = `<div class="text-sm text-slate-400 py-4 text-center">No hay árboles disponibles</div>`;
+                    return;
+                }
+
+                container.innerHTML = this.trees.map(tree => `
+                    <div class="p-3 border border-slate-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50/50 cursor-pointer transition-colors tree-item"
+                         data-tree="${tree.name}">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium text-slate-800 text-sm">${tree.name}</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded ${this.getPriorityClass(tree.priority)}">${tree.priority}</span>
+                        </div>
+                        <p class="text-[11px] text-slate-500 mt-1 line-clamp-2">${tree.description}</p>
+                        <p class="text-[10px] text-slate-400 mt-1">${tree.checks_count} checks</p>
+                    </div>
+                `).join('');
+            }
+
+            renderCyclesList() {
+                const container = document.getElementById('cycles-list');
+                if (!this.cycles.length) {
+                    container.innerHTML = `<div class="text-sm text-slate-400 py-4 text-center">No hay ciclos activos</div>`;
+                    return;
+                }
+
+                container.innerHTML = this.cycles.map(cycle => `
+                    <div class="p-3 border border-slate-200 rounded-lg hover:border-green-300 hover:bg-green-50/50 cursor-pointer transition-colors cycle-item"
+                         data-cycle="${cycle.id}">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium text-slate-800 text-sm">${cycle.pair}</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded ${this.getStatusClass(cycle.status)}">${cycle.status}</span>
+                        </div>
+                        <p class="text-[10px] text-slate-500 mt-1">${cycle.id}</p>
+                        <div class="flex justify-between text-[10px] text-slate-400 mt-1">
+                            <span>${cycle.operations_count} operaciones</span>
+                            <span>${cycle.in_recovery ? '🔄 Recovery' : '✨ Normal'}</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            async loadCycleTrace(cycleId) {
+                try {
+                    const resp = await fetch(`/api/traceability/cycles/${cycleId}/trace`);
+                    const trace = await resp.json();
+                    this.renderTrace(trace);
+                    this.renderEventLog(trace.trace || []);
+                } catch (e) {
+                    console.error('Error loading trace:', e);
+                }
+            }
+
+            async loadTreeDefinition(treeName) {
+                try {
+                    const resp = await fetch(`/api/traceability/trees/${treeName}`);
+                    const treeDef = await resp.json();
+                    this.renderTreeDefinition(treeDef);
+                } catch (e) {
+                    console.error('Error loading tree:', e);
+                }
+            }
+
+            renderTrace(trace) {
+                const container = document.getElementById('tree-viewer');
+                container.innerHTML = `
+                    <div class="fade-in">
+                        <div class="flex items-center gap-3 mb-4 pb-4 border-b border-slate-200">
+                            <span class="text-2xl">🔄</span>
+                            <div>
+                                <h4 class="font-bold text-slate-900">${trace.pair} - ${trace.cycle_id}</h4>
+                                <p class="text-xs text-slate-500">Estado: ${trace.status}</p>
+                            </div>
+                        </div>
+                        <div class="tree-root">
+                            ${trace.trace.map((event, i) => this.renderTraceNode(event, i)).join('')}
+                        </div>
+                        <div class="mt-4 pt-4 border-t border-slate-200 bg-green-50 p-3 rounded-lg">
+                            <p class="text-sm text-green-700">${trace.summary.current_state}</p>
+                            <p class="text-xs text-green-600 mt-1">
+                                ✅ ${trace.summary.checks_passed} pasados | ❌ ${trace.summary.checks_failed} fallados
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderTraceNode(event, index) {
+                const passed = event.check?.passed !== false;
+                const icon = passed ? '✅' : '❌';
+                const bgClass = passed ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+
+                return `
+                    <div class="tree-node mb-2">
+                        <div class="flex items-start gap-2 p-2 rounded border ${bgClass}">
+                            <span class="text-lg">${icon}</span>
+                            <div class="flex-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-medium text-sm text-slate-800">${event.check?.name || event.event}</span>
+                                    <span class="text-[10px] text-slate-400">${event.timestamp}</span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-0.5">${JSON.stringify(event.details)}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderTreeDefinition(treeDef) {
+                const container = document.getElementById('tree-viewer');
+                const checks = treeDef.checks || treeDef.tree || [];
+
+                container.innerHTML = `
+                    <div class="fade-in">
+                        <div class="flex items-center gap-3 mb-4 pb-4 border-b border-slate-200">
+                            <span class="text-2xl">🌳</span>
+                            <div>
+                                <h4 class="font-bold text-slate-900">${treeDef.scenario}</h4>
+                                <p class="text-xs text-slate-500">${treeDef.description}</p>
+                            </div>
+                        </div>
+                        <div class="tree-root">
+                            ${checks.map((check, i) => this.renderCheckNode(check, i)).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderCheckNode(check, index, depth = 0) {
+                const typeIcon = check.type === 'condition' ? '🔀' : '📋';
+                const bgClass = 'bg-blue-50 border-blue-200';
+
+                return `
+                    <div class="tree-node mb-2" style="padding-left: ${depth * 20}px">
+                        <div class="flex items-start gap-2 p-2 rounded border ${bgClass}">
+                            <span class="text-lg">${typeIcon}</span>
+                            <div class="flex-1">
+                                <span class="font-medium text-sm text-slate-800">${check.name}</span>
+                                <p class="text-[11px] text-slate-500 mt-0.5">
+                                    Tipo: ${check.type || 'check'} | Expect: ${JSON.stringify(check.expect || {})}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            renderEventLog(events) {
+                const tbody = document.getElementById('event-log-body');
+
+                if (!events.length) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-slate-400">No hay eventos</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = events.map(event => `
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-3 py-2 text-slate-500">${event.timestamp}</td>
+                        <td class="px-3 py-2 font-medium text-slate-800">${event.event}</td>
+                        <td class="px-3 py-2 text-slate-600">${JSON.stringify(event.details)}</td>
+                        <td class="px-3 py-2">
+                            <span class="px-2 py-0.5 rounded text-[10px] ${event.check?.passed !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                ${event.check?.passed !== false ? 'PASS' : 'FAIL'}
+                            </span>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            bindEvents() {
+                // Tree selection
+                document.getElementById('trees-list').addEventListener('click', (e) => {
+                    const item = e.target.closest('.tree-item');
+                    if (item) {
+                        const treeName = item.dataset.tree;
+                        this.loadTreeDefinition(treeName);
+                    }
+                });
+
+                // Cycle selection
+                document.getElementById('cycles-list').addEventListener('click', (e) => {
+                    const item = e.target.closest('.cycle-item');
+                    if (item) {
+                        const cycleId = item.dataset.cycle;
+                        this.loadCycleTrace(cycleId);
+                    }
+                });
+
+                // Refresh
+                document.getElementById('btn-refresh').addEventListener('click', () => {
+                    this.loadTrees();
+                    this.loadCycles();
+                });
+            }
+
+            getPriorityClass(priority) {
+                const classes = {
+                    'CRITICAL': 'bg-red-100 text-red-700',
+                    'HIGH': 'bg-orange-100 text-orange-700',
+                    'NORMAL': 'bg-blue-100 text-blue-700',
+                    'LOW': 'bg-slate-100 text-slate-700'
+                };
+                return classes[priority] || classes['NORMAL'];
+            }
+
+            getStatusClass(status) {
+                const classes = {
+                    'ACTIVE': 'bg-green-100 text-green-700',
+                    'HEDGED': 'bg-amber-100 text-amber-700',
+                    'IN_RECOVERY': 'bg-orange-100 text-orange-700',
+                    'COMPLETED': 'bg-slate-100 text-slate-700'
+                };
+                return classes[status] || classes['ACTIVE'];
+            }
+
+            showError(containerId, message) {
+                document.getElementById(containerId).innerHTML = `
+                    <div class="text-sm text-red-500 py-4 text-center">
+                        <span class="material-symbols-outlined text-2xl mb-2 block">error</span>
+                        ${message}
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            window.traceClient = new TraceabilityClient();
+            window.traceClient.init();
+        });
+    </script>
+</body>
+
+</html>

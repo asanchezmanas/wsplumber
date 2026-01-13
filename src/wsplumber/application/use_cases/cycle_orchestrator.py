@@ -459,9 +459,17 @@ class CycleOrchestrator:
 
                     # RECOVERY TP: FIX-003 aplicado en _handle_recovery_tp
                     if op.is_recovery:
-                        recovery_cycle_res = await self.repository.get_cycle(op.cycle_id)
-                        if recovery_cycle_res.success and recovery_cycle_res.value:
-                            await self._handle_recovery_tp(recovery_cycle_res.value, tick)
+                        # ═══════════════════════════════════════════════════════════
+                        # LAYER 1: Trailing Stop Handling
+                        # When recovery was closed by trailing, apply partial profit
+                        # ═══════════════════════════════════════════════════════════
+                        if op.metadata.get("trailing_closed"):
+                            await self._handle_trailing_profit(op, tick)
+                        else:
+                            # Normal TP hit - full profit
+                            recovery_cycle_res = await self.repository.get_cycle(op.cycle_id)
+                            if recovery_cycle_res.success and recovery_cycle_res.value:
+                                await self._handle_recovery_tp(recovery_cycle_res.value, tick)
 
                     # Procesar señal adicional si la hay
                     if signal.signal_type != SignalType.NO_ACTION:
@@ -713,6 +721,174 @@ class CycleOrchestrator:
         if cancelled_count > 0:
             logger.info("Recovery counterparts cancelled", 
                        recovery_id=recovery_cycle.id, count=cancelled_count)
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # LAYER 1: TRAILING STOP PROFIT HANDLING
+    # ═══════════════════════════════════════════════════════════════════════
+
+    async def _handle_trailing_profit(self, op: Operation, tick: TickData) -> None:
+        """
+        Handle recovery operation closed by trailing stop.
+        
+        Applies proportional debt reduction based on the captured profit,
+        and optionally opens a replacement recovery from current price.
+        
+        BUGS FIXED:
+        - BUG7: Call FIX-MAIN-OPERATIONS if pips_remaining reaches 0
+        - BUG8: Use Decimal consistently for debt_units
+        - BUG9: Check parent status before reposition
+        - BUG10: Use Decimal for comparison
+        """
+        trailing_profit = op.metadata.get("trailing_profit_pips", 0.0)
+        needs_reposition = op.metadata.get("needs_reposition", False)
+        reposition_price = op.metadata.get("reposition_price")
+        
+        logger.info("LAYER1: Processing trailing stop profit",
+                   op_id=op.id,
+                   trailing_profit=trailing_profit,
+                   needs_reposition=needs_reposition)
+        
+        # Get the parent cycle to apply debt reduction
+        recovery_cycle_res = await self.repository.get_cycle(op.cycle_id)
+        if not recovery_cycle_res.success or not recovery_cycle_res.value:
+            logger.error("LAYER1: Could not get recovery cycle for trailing", op_id=op.id)
+            return
+        
+        recovery_cycle = recovery_cycle_res.value
+        parent_id = recovery_cycle.metadata.get("parent_cycle_id")
+        
+        if not parent_id:
+            logger.warning("LAYER1: Recovery has no parent cycle", recovery_id=recovery_cycle.id)
+            return
+        
+        parent_cycle_res = await self.repository.get_cycle(parent_id)
+        if not parent_cycle_res.success or not parent_cycle_res.value:
+            logger.error("LAYER1: Could not get parent cycle", parent_id=parent_id)
+            return
+        
+        parent_cycle = parent_cycle_res.value
+        pair = parent_cycle.pair
+        
+        # Apply proportional debt reduction
+        # Recovery TP = 80 pips, so if we captured 25 pips, that's 25/80 = 31.25% of a debt unit
+        # BUG10 FIX: Use Decimal for comparison
+        if trailing_profit > 0 and parent_cycle.accounting.pips_remaining > Decimal("0"):
+            # Calculate reduction as proportion of full TP
+            full_tp = Decimal("80.0")  # RECOVERY_TP_PIPS
+            trailing_profit_dec = Decimal(str(trailing_profit))
+            reduction_ratio = min(trailing_profit_dec / full_tp, Decimal("1.0"))
+            
+            # Apply to the first debt unit (FIFO)
+            if parent_cycle.accounting.debt_units:
+                # BUG8 FIX: Ensure debt_units are Decimal
+                first_debt = Decimal(str(parent_cycle.accounting.debt_units[0]))
+                debt_reduction = first_debt * reduction_ratio
+                
+                # Reduce the debt unit
+                new_debt = first_debt - debt_reduction
+                if new_debt <= Decimal("0"):
+                    # Full unit paid off
+                    parent_cycle.accounting.debt_units.pop(0)
+                else:
+                    # BUG8 FIX: Store as float for consistency with existing code
+                    parent_cycle.accounting.debt_units[0] = float(new_debt)
+                
+                # Recalculate totals
+                parent_cycle.accounting.pips_recovered += trailing_profit_dec
+                parent_cycle.accounting.pips_remaining = Decimal(
+                    str(sum(float(d) for d in parent_cycle.accounting.debt_units))
+                )
+                
+                await self.repository.save_cycle(parent_cycle)
+                
+                logger.info("LAYER1: Partial debt reduction applied",
+                           parent_id=parent_cycle.id,
+                           trailing_profit=trailing_profit,
+                           reduction_ratio=round(float(reduction_ratio), 2),
+                           debt_reduced=round(float(debt_reduction), 1),
+                           remaining_debt=float(parent_cycle.accounting.pips_remaining),
+                           debt_units_count=len(parent_cycle.accounting.debt_units),
+                           total_recovered=float(parent_cycle.accounting.pips_recovered))
+                
+                # BUG7 FIX: If debt is fully paid, close main operations
+                if parent_cycle.accounting.pips_remaining == Decimal("0"):
+                    logger.info("LAYER1: Debt fully paid via trailing, closing main operations",
+                               parent_id=parent_cycle.id)
+                    
+                    parent_ops_result = await self.repository.get_operations_by_cycle(parent_cycle.id)
+                    if parent_ops_result.success:
+                        main_closed = 0
+                        for p_op in parent_ops_result.value:
+                            if not p_op.is_recovery and p_op.broker_ticket:
+                                if p_op.status not in (OperationStatus.CLOSED, OperationStatus.CANCELLED):
+                                    close_result = await self.trading_service.close_operation(p_op)
+                                    if close_result.success:
+                                        main_closed += 1
+                        
+                        logger.info("LAYER1: Main operations closed after trailing paid debt",
+                                   parent_id=parent_cycle.id,
+                                   closed_count=main_closed)
+        
+        # Cancel counterpart recovery operations (same as normal TP)
+        await self._cancel_recovery_counterpart(recovery_cycle)
+        
+        # Mark recovery cycle as closed
+        recovery_cycle.status = CycleStatus.CLOSED
+        recovery_cycle.closed_at = datetime.now()
+        recovery_cycle.metadata["close_reason"] = "trailing_stop"
+        recovery_cycle.metadata["trailing_profit_pips"] = trailing_profit
+        await self.repository.save_cycle(recovery_cycle)
+        
+        # Close all recovery operations in broker (FIX-RECOVERY-CLOSURE)
+        recovery_ops_result = await self.repository.get_operations_by_cycle(recovery_cycle.id)
+        if recovery_ops_result.success:
+            for r_op in recovery_ops_result.value:
+                if r_op.broker_ticket and r_op.status not in (OperationStatus.CLOSED, OperationStatus.CANCELLED):
+                    if r_op.id != op.id:  # Don't close the one that already closed by trailing
+                        close_result = await self.trading_service.close_operation(r_op)
+                        if close_result.success:
+                            logger.info("LAYER1: Closed counterpart recovery in broker", op_id=r_op.id)
+        
+        # Reposition: Open new recovery from current price if configured
+        # BUG9 FIX: Only reposition if parent cycle is still active and has debt
+        if needs_reposition and reposition_price:
+            # Refresh parent cycle to get latest state
+            parent_cycle_res = await self.repository.get_cycle(parent_id)
+            if parent_cycle_res.success:
+                parent_cycle = parent_cycle_res.value
+                
+                if (parent_cycle.status not in (CycleStatus.CLOSED, CycleStatus.CANCELLED) and
+                    parent_cycle.accounting.pips_remaining > Decimal("0")):
+                    
+                    logger.info("LAYER1: Opening replacement recovery",
+                               parent_id=parent_cycle.id,
+                               reposition_price=reposition_price,
+                               remaining_debt=float(parent_cycle.accounting.pips_remaining))
+                    
+                    signal = StrategySignal(
+                        signal_type=SignalType.OPEN_RECOVERY,
+                        pair=pair,
+                        metadata={
+                            "reason": "trailing_reposition",
+                            "parent_cycle": parent_cycle.id,
+                            "original_profit": trailing_profit
+                        }
+                    )
+                    await self._open_recovery_cycle(signal, tick, reference_price=Price(Decimal(str(reposition_price))))
+                else:
+                    logger.info("LAYER1: Skipping reposition - parent closed or no debt",
+                               parent_id=parent_cycle.id,
+                               parent_status=parent_cycle.status.value,
+                               remaining_debt=float(parent_cycle.accounting.pips_remaining))
+        
+        # Mark as processed
+        op.metadata["trailing_processed"] = True
+        await self.repository.save_operation(op)
+        
+        logger.info("LAYER1: Trailing profit handling complete",
+                   op_id=op.id,
+                   parent_id=parent_cycle.id,
+                   needs_reposition=needs_reposition)
 
     # ═══════════════════════════════════════════════════════════════════════
     # FIX-003: MÉTODO ACTUALIZADO - FIFO con cierre atómico Main+Hedge
