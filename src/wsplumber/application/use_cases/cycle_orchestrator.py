@@ -541,9 +541,10 @@ class CycleOrchestrator:
         existing_ops = [op for op in cycle.operations if op.lot_size]
         lot = existing_ops[0].lot_size if existing_ops else LotSize(0.01)
         
-        # Calcular precios de entrada a 5 pips de distancia (BUY_STOP / SELL_STOP)
-        buy_entry_price = Price(tick.ask + entry_distance)
-        sell_entry_price = Price(tick.bid - entry_distance)
+        # Calcular precios de entrada a 5 pips de distancia desde el MID
+        # FIX: Usar MID como referencia, no ASK/BID, para mantener la distancia exacta
+        buy_entry_price = Price(tick.mid + entry_distance)
+        sell_entry_price = Price(tick.mid - entry_distance)
         
         # Operación BUY_STOP: entry a ask+5pips, TP a entry+10pips
         op_buy = Operation(
@@ -938,14 +939,18 @@ class CycleOrchestrator:
         # Almacenamos el estado previo de la primera unidad para saber si se liquidó
         had_initial_debt = len(parent_cycle.accounting.debt_units) > 0 and parent_cycle.accounting.debt_units[0] == 20.0
         
-        surplus = parent_cycle.accounting.process_recovery_tp(float(RECOVERY_TP_PIPS))
-        
         # PHASE 4: Shadow tracking with REAL profit value
         # Get the actual profit pips from the recovery operation that hit TP
+        real_profit = float(RECOVERY_TP_PIPS) # Default
         recovery_ops = [op for op in (await self.repository.get_operations_by_cycle(recovery_cycle.id)).value 
                        if op.status == OperationStatus.TP_HIT]
         if recovery_ops:
             real_profit = float(recovery_ops[0].realized_pips)
+            
+        # DYNAMIC DEBT: Use real profit instead of hardcoded 80.0
+        surplus = parent_cycle.accounting.process_recovery_tp(real_profit)
+        
+        if recovery_ops:
             shadow_result = parent_cycle.accounting.shadow_process_recovery(real_profit)
             logger.debug("Shadow accounting: recovery processed", 
                         real_profit=real_profit,
@@ -969,10 +974,11 @@ class CycleOrchestrator:
 
         # FIX-MAIN-OPERATIONS-CLOSURE: Cerrar operaciones main cuando la deuda se paga completamente
         # Este es el fix CRÍTICO para las posiciones zombie de main cycles
-        if parent_cycle.accounting.pips_remaining == 0:
-            logger.info("FIX-MAIN-OPERATIONS: Debt fully paid, closing parent cycle main operations",
+        # Usamos is_fully_recovered que ya incluye un margen epsilon para errores de punto flotante
+        if parent_cycle.accounting.is_fully_recovered:
+            logger.info("FIX-MAIN-OPERATIONS: Debt fully paid (fuzzy), closing parent cycle main operations",
                        parent_id=parent_cycle.id,
-                       debt_remaining=parent_cycle.accounting.pips_remaining)
+                       debt_remaining=float(parent_cycle.accounting.pips_remaining))
 
             parent_ops_result = await self.repository.get_operations_by_cycle(parent_cycle.id)
             if parent_ops_result.success:
@@ -1020,8 +1026,9 @@ class CycleOrchestrator:
                             error=parent_ops_result.error)
 
         # 4. Condición de Cierre Atómico
-        # El ciclo se cierra si NO hay deuda pendiente Y el excedente es >= 20 pips
-        if parent_cycle.accounting.is_fully_recovered and surplus >= 20.0:
+        # FIX: Ahora cerramos si la deuda es 0, sin importar el excedente
+        # (El excedente ya es profit extra)
+        if parent_cycle.accounting.is_fully_recovered:
             logger.info("🎉 Cycle FULLY RESOLVED with surplus >= 20. Closing cycle.", 
                       cycle_id=parent_cycle.id, surplus=surplus)
             
@@ -1349,8 +1356,9 @@ class CycleOrchestrator:
         entry_distance = Decimal(str(MAIN_DISTANCE_PIPS)) * multiplier  # 5 pips
         tp_distance = Decimal(str(MAIN_TP_PIPS)) * multiplier  # 10 pips
         
-        # BUY_STOP: entry a ask+5pips, TP a entry+10pips
-        buy_entry_price = Price(tick.ask + entry_distance)
+        # BUY_STOP: entry a mid+5pips, TP a entry+10pips
+        # FIX: Usar MID como referencia para mantener distancia exacta de 5 pips
+        buy_entry_price = Price(tick.mid + entry_distance)
         op_buy = Operation(
             id=OperationId(f"{cycle_id}_B"),
             cycle_id=cycle.id,
@@ -1362,8 +1370,8 @@ class CycleOrchestrator:
             lot_size=lot
         )
         
-        # SELL_STOP: entry a bid-5pips, TP a entry-10pips
-        sell_entry_price = Price(tick.bid - entry_distance)
+        # SELL_STOP: entry a mid-5pips, TP a entry-10pips
+        sell_entry_price = Price(tick.mid - entry_distance)
         op_sell = Operation(
             id=OperationId(f"{cycle_id}_S"),
             cycle_id=cycle.id,
@@ -1569,12 +1577,31 @@ class CycleOrchestrator:
         """
         logger.info("Closing all remaining operations for cycle resolution", cycle_id=cycle.id)
         
+        # 1. Cerrar operaciones propias del ciclo
         ops_res = await self.repository.get_operations_by_cycle(cycle.id)
         if not ops_res.success:
             return
             
         tasks = []
-        for op in ops_res.value:
+        all_ops = ops_res.value
+        
+        # 2. LOCALIZAR Y CERRAR SUB-CICLOS DE RECOVERY (Recursividad)
+        # Buscamos todos los ciclos en el repositorio que tengan a este como padre
+        # Esto soluciona las "Zombie Operations"
+        all_cycles_res = await self.repository.get_active_cycles()
+        if all_cycles_res.success:
+            child_cycles = [c for c in all_cycles_res.value if c.parent_cycle_id == cycle.id]
+            for child in child_cycles:
+                logger.info("Closing orphaned child recovery cycle", 
+                           child_id=child.id, 
+                           parent_id=cycle.id)
+                # Llamada recursiva para cerrar el hijo (y sus posibles nietos)
+                await self._close_cycle_operations_final(child)
+                child.status = CycleStatus.CLOSED
+                await self.repository.save_cycle(child)
+
+        # 3. Cerrar operaciones del ciclo actual
+        for op in all_ops:
             if op.status in (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED, OperationStatus.PENDING):
                 logger.debug("Closing op during final resolution", op_id=op.id, status=op.status.value)
                 
@@ -1597,7 +1624,7 @@ class CycleOrchestrator:
         
         if tasks:
             await asyncio.gather(*tasks)
-            logger.info(f"Closed {len(tasks)} active positions in broker")
+            logger.info(f"Closed {len(tasks)} active positions in broker for cycle {cycle.id}")
 
     async def _handle_recovery_failure(self, failed_cycle: Cycle, blocking_op: Operation, tick: TickData):
         """
@@ -1619,12 +1646,25 @@ class CycleOrchestrator:
             
         parent_cycle = parent_res.value
         
-        # 1. Registrar unidad de deuda de 40 pips (hardcoded)
-        parent_cycle.accounting.add_recovery_failure_unit()
+        # 1. Registrar unidad de deuda con PIPS REALES (distancia entre entradas)
+        real_loss = 40.0 # Default
+        failed_ops_res = await self.repository.get_operations_by_cycle(failed_cycle.id)
+        if failed_ops_res.success:
+            active_ops = [op for op in failed_ops_res.value if op.status == OperationStatus.ACTIVE]
+            if len(active_ops) >= 2:
+                buy_op = next((op for op in active_ops if op.is_buy), None)
+                sell_op = next((op for op in active_ops if op.is_sell), None)
+                if buy_op and sell_op:
+                    # Calcular distancia real entre entradas
+                    buy_entry = buy_op.actual_entry_price or buy_op.entry_price
+                    sell_entry = sell_op.actual_entry_price or sell_op.entry_price
+                    multiplier = 100 if "JPY" in str(parent_cycle.pair) else 10000
+                    real_loss = abs(float(buy_entry) - float(sell_entry)) * multiplier
+        
+        # DYNAMIC DEBT: Pass real pips to accounting
+        parent_cycle.accounting.add_recovery_failure_unit(real_loss)
         
         # PHASE 4: Shadow tracking with REAL calculated value
-        # Get both recovery operations that caused the failure
-        failed_ops_res = await self.repository.get_operations_by_cycle(failed_cycle.id)
         if failed_ops_res.success:
             active_ops = [op for op in failed_ops_res.value if op.status == OperationStatus.ACTIVE]
             if len(active_ops) >= 2:
@@ -1645,9 +1685,48 @@ class CycleOrchestrator:
                                 theoretical=40.0,
                                 difference=float(debt.pips_owed) - 40.0)
         
-        logger.info("Added 40 pips debt unit due to recovery failure", 
+        logger.info(f"Added {real_loss:.1f} pips debt unit due to recovery failure", 
                    parent_id=parent_cycle.id, failed_id=failed_cycle.id)
         await self.repository.save_cycle(parent_cycle)
+        
+        # ═══════════════════════════════════════════════════════════════════════
+        # FIX-RECOVERY-BLOCK: Eliminar TPs y marcar NEUTRALIZED
+        # Esto CONGELA el P&L flotante y evita que una operación toque TP
+        # mientras la otra queda huérfana con pérdida infinita.
+        # ═══════════════════════════════════════════════════════════════════════
+        if failed_ops_res.success:
+            active_ops = [op for op in failed_ops_res.value if op.status == OperationStatus.ACTIVE]
+            for op in active_ops:
+                logger.info("FIX-RECOVERY-BLOCK: Neutralizing blocked recovery operation",
+                           op_id=op.id, ticket=op.broker_ticket)
+                
+                # 1. Eliminar TP del broker para evitar cierre automático
+                if op.broker_ticket:
+                    try:
+                        await self.trading_service.broker.modify_order(
+                            op.broker_ticket, 
+                            new_tp=None
+                        )
+                        logger.info("Removed TP from blocked recovery", op_id=op.id)
+                    except Exception as e:
+                        logger.warning("Could not remove TP from blocked recovery", 
+                                      op_id=op.id, error=str(e))
+                    
+                    # 2. Actualizar status en broker para congelar P&L
+                    try:
+                        await self.trading_service.broker.update_position_status(
+                            op.broker_ticket, 
+                            OperationStatus.NEUTRALIZED
+                        )
+                    except Exception as e:
+                        logger.warning("Could not update broker position status",
+                                      op_id=op.id, error=str(e))
+                
+                # 3. Marcar como NEUTRALIZED en el repositorio
+                op.status = OperationStatus.NEUTRALIZED
+                op.metadata["neutralized_reason"] = "recovery_block"
+                op.metadata["neutralized_at_tick"] = tick.timestamp.isoformat() if tick.timestamp else None
+                await self.repository.save_operation(op)
         
         # 2. Abrir nuevo ciclo recovery (renovación por fallo)
         # La posición es ±20 pips del ENTRY de la operación que bloqueó (blocking_op)

@@ -228,7 +228,12 @@ class TradingService:
                         sync_count += 1
                         logger.info("Synced pending->TP_HIT (P&L realized)", op_id=op.id, close_price=float(close_price))
                     else:
-                        fill_price = Price(Decimal(str(broker_pos.get("entry_price") or broker_pos.get("fill_price") or op.entry_price)))
+                        # FIX-SYNC-NULLENTRY: Skip if no entry price available
+                        raw_fill_price = broker_pos.get("entry_price") or broker_pos.get("fill_price") or op.entry_price
+                        if raw_fill_price is None:
+                            logger.warning("Cannot sync pending->active: no entry price", op_id=op.id)
+                            continue
+                        fill_price = Price(Decimal(str(raw_fill_price)))
                         # Orden activada normalmente
                         op.activate(
                             fill_price=fill_price,

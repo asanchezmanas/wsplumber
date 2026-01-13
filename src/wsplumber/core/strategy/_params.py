@@ -33,12 +33,9 @@ MAX_SPREAD_PIPS = 3.0    # No operar si el spread es superior
 # =========================================
 
 # When True, uses dynamic debt calculation based on real execution prices
-# When False (default), uses hardcoded 20/40/80 pip values
-USE_DYNAMIC_DEBT = False  # Set to True to enable dynamic mode
-
-# When True, logs comparison between hardcoded and dynamic systems
-# Useful for validation before switching to dynamic mode
+USE_DYNAMIC_DEBT = True
 LOG_DEBT_COMPARISON = True
+PRODUCE_AUDIT_LOGS = True
 
 # =========================================
 # IMMUNE SYSTEM: LAYER 1 - ADAPTIVE TRAILING

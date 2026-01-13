@@ -81,15 +81,46 @@ PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
 ```
 **Log esperado**: `[RECOVERY_TP_HIT] profit=80 debt_remaining=X`
 
-### Flujo 4: Recovery en Cascada (Fallo)
+### Flujo 4: Recovery en Cascada (Fallo/Bloqueo)
 ```
-1. Recovery N1 activado, precio se gira.
-2. Segundo recovery de N1 se activa → Fallo bloqueado a 40 pips.
-3. Deuda acumulada: 20 (Main+Hedge) + 40 (R1) = 60 pips.
-4. Nuevo Recovery (N2) a ±20 pips del ENTRY de la orden que bloqueó.
-5. Repetir (R3, R4...) hasta que un Recovery alcance TP.
+1. Recovery N1 abierto: BUY_STOP @ +20 pips, SELL_STOP @ -20 pips
+2. Se activa primero el recovery_buy (precio sube)
+3. Precio se gira y activa el recovery_sell → BLOQUEO
+
+   ┌─────────────────────────────────────────────────────────────┐
+   │ ACCIONES CRÍTICAS AL DETECTAR BLOQUEO (ambas activas):     │
+   │                                                             │
+   │ 4a. ELIMINAR TPs de AMBAS operaciones del recovery         │
+   │     → broker.modify_order(ticket, new_tp=None)              │
+   │                                                             │
+   │ 4b. MARCAR ambas como NEUTRALIZED                          │
+   │     → op.status = OperationStatus.NEUTRALIZED               │
+   │     → broker.update_position_status(ticket, NEUTRALIZED)    │
+   │                                                             │
+   │ Esto CONGELA el P&L flotante y evita que el broker cierre  │
+   │ una dejando la otra huérfana con pérdida infinita.         │
+   └─────────────────────────────────────────────────────────────┘
+
+5. Registrar unidad de deuda: +40 pips al ciclo padre
+   → Deuda = 20 (Main+Hedge) + 40 (R1) = 60 pips
+
+6. Abrir nuevo Recovery (N2) a ±20 pips del ENTRY del recovery 
+   que causó el bloqueo (recovery_sell en este ejemplo)
+
+7. Repetir hasta que un Recovery alcance TP sin bloqueo
 ```
 **Log esperado**: `[RECOVERY_CASCADE] level=N debt_total=X`
+
+### Estados de Operación Relevantes
+| Estado | Significado | P&L Flotante |
+|--------|-------------|--------------|
+| `ACTIVE` | Posición abierta en broker | Se recalcula cada tick |
+| `NEUTRALIZED` | Bloqueada por contraparte | **CONGELADO** al momento del bloqueo |
+| `TP_HIT` | Take Profit alcanzado | Realizado, ya no flota |
+| `CLOSED` | Cerrada manualmente | Realizado |
+
+> **⚠️ CRÍTICO**: Si una operación NEUTRALIZED mantiene su P&L recalculándose,
+> el equity se disparará negativamente cuando el precio se aleje.
 
 ---
 

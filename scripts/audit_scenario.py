@@ -1,12 +1,14 @@
 """
-WSPlumber - Scenario Auditor
-Usage: python scripts/audit_scenario.py tests/scenarios/r07_cascade_n1_n2_n3.csv
+WSPlumber - Scenario Auditor (Streaming Version)
+Usage: python scripts/audit_scenario.py tests/scenarios/r07.csv --log-level INFO --log-suffix "_v1"
 """
 import asyncio
 import sys
 import os
+import logging
 from pathlib import Path
 from decimal import Decimal
+from datetime import datetime
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -20,164 +22,154 @@ from wsplumber.infrastructure.persistence.in_memory_repo import InMemoryReposito
 from tests.fixtures.simulated_broker import SimulatedBroker
 from scripts.audit_by_cycle import CycleAuditor
 
-async def audit_scenario(csv_path_str: str, log_level: str = "INFO"):
-    import logging
-    from pathlib import Path as LogPath
-    
+async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pair: str = "EURUSD", log_suffix: str = ""):
     csv_path = Path(csv_path_str)
-    log_file = f"audit_logs_{csv_path.stem}.log"
+    log_name = f"audit_logs_{csv_path.stem}{log_suffix}.log"
     
-    # Configure file handler to save ALL logs
-    file_handler = logging.FileHandler(log_file, mode='w', encoding='utf-8')
+    # Configure logging
+    numeric_level = getattr(logging, log_level.upper(), logging.INFO)
+    
+    # File handler (Always DEBUG for the file)
+    file_handler = logging.FileHandler(log_name, mode='w', encoding='utf-8')
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(logging.Formatter('%(asctime)s | %(levelname)s | %(name)s | %(message)s'))
     
-    # Root logger writes to file
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
     root_logger.addHandler(file_handler)
     
-    # Enable wsplumber loggers
-    logging.getLogger("wsplumber").setLevel(logging.DEBUG)
-    logging.getLogger("wsplumber.core").setLevel(logging.DEBUG)
-    logging.getLogger("wsplumber.application").setLevel(logging.DEBUG)
-    logging.getLogger("tests.fixtures.simulated_broker").setLevel(logging.DEBUG)
-    
-    print(f"[INFO] Logs will be saved to: {log_file}")
+    # Console handler - CRITICAL only (suppress JSON logs, only print() shows)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.CRITICAL)  # Only show critical errors
+    root_logger.addHandler(console_handler)
 
-    
-    csv_path = Path(csv_path_str)
+    print(f"[INFO] Logs will be saved to: {log_name}")
+
     if not csv_path.exists():
         print(f"Error: {csv_path} not found")
         return
 
-    # Detect pair
-    pair_str = "EURUSD"
-    if "JPY" in csv_path_str.upper(): pair_str = "USDJPY"
-    if "GBP" in csv_path_str.upper(): pair_str = "GBPUSD"
-    pair = CurrencyPair(pair_str)
-
     # Setup
     broker = SimulatedBroker(initial_balance=10000.0)
-    broker.load_csv(str(csv_path))
+    broker.load_csv(str(csv_path), default_pair=default_pair)
     await broker.connect()
 
     repo = InMemoryRepository()
     trading_service = TradingService(broker, repo)
     risk_manager = RiskManager()
     strategy = WallStreetPlumberStrategy()
+    pair = CurrencyPair(default_pair)
     
-    # Mock settings for risk manager/strategy
-    from unittest.mock import MagicMock, patch
-    mock = MagicMock()
-    mock.trading.default_lot_size = 0.01
-    mock.trading.max_lot_size = 1.0
-    mock.strategy.main_tp_pips = 10
-    mock.strategy.main_step_pips = 10
-    mock.strategy.recovery_tp_pips = 80
-    mock.strategy.recovery_step_pips = 40
-    mock.risk.max_exposure_per_pair = 1000.0
+    orchestrator = CycleOrchestrator(
+        trading_service=trading_service,
+        strategy=strategy,
+        risk_manager=risk_manager,
+        repository=repo
+    )
+
+    auditor = CycleAuditor()
+    tick_count = 0
     
-    with patch('wsplumber.core.risk.risk_manager.get_settings', return_value=mock):
-        risk_manager.settings = mock
-        orchestrator = CycleOrchestrator(
-            trading_service=trading_service,
-            strategy=strategy,
-            risk_manager=risk_manager,
-            repository=repo
-        )
+    from wsplumber.core.strategy import _params
+    print(f"\n[AUDIT] Starting processing: {csv_path.name}")
+    print(f"[CONFIG] Layer 1 Mode: {getattr(_params, 'LAYER1_MODE', 'UNKNOWN')}")
+    print(f"[CONFIG] Dynamic Debt: {getattr(_params, 'USE_DYNAMIC_DEBT', 'FALSE')}")
+    print("-" * 140)
+    print(f"{'TICK':>12} | {'Balance':>10} | {'Equity':>10} | {'DD%':>5} | {'Act':>4} | {'Hdg':>4} | {'InR':>4} | {'Clo':>4} | {'RecA':>5} | {'RecC':>5} | {'MTP':>5} | {'RTP':>5}")
+    print("-" * 140)
 
-        auditor = CycleAuditor()
-        tick_count = 0
+    # RE-START GENERATOR TO BE SURE
+    broker._tick_generator = broker._create_tick_generator()
+
+    while True:
+        tick = await broker.advance_tick()
+        if not tick:
+            break
         
-        while True:
-            tick = await broker.advance_tick()
-            if not tick:
-                break
+        await orchestrator._process_tick_for_pair(pair)
+        tick_count += 1
+        
+        # Periodic status update (every 1k ticks, or 100k for massive TICK files)
+        interval = 100000 if "TICK" in csv_path_str.upper() else 1000
+        if tick_count % interval == 0 or tick_count == 1:
+            acc_info = await broker.get_account_info()
+            balance = acc_info.value["balance"]
+            equity = acc_info.value["equity"]
             
-            await orchestrator._process_tick_for_pair(pair)
-            tick_count += 1
+            # Stats from repo
+            all_cycles = repo.cycles.values()
+            main_cycles = [c for c in all_cycles if c.cycle_type.value == "main"]
+            rec_cycles = [c for c in all_cycles if c.cycle_type.value == "recovery"]
             
-            acc = await broker.get_account_info()
-            balance = float(acc.value["balance"])
-            auditor.check(tick_count, repo, broker, balance)
+            c_active = sum(1 for c in main_cycles if c.status.value == "active")
+            c_hedged = sum(1 for c in main_cycles if c.status.value == "hedged")
+            c_in_rec = sum(1 for c in main_cycles if c.status.value == "in_recovery")
+            c_closed = sum(1 for c in main_cycles if c.status.value == "closed")
             
-            # PROGRESS LOGGING
-            if tick_count % 1000 == 0:
-                acc = await broker.get_account_info()
-                equity = float(acc.value["equity"])
-                
-                # Count cycles by status (detailed)
-                main_cycles = [c for c in repo.cycles.values() if c.cycle_type.value == "main"]
-                rec_cycles = [c for c in repo.cycles.values() if c.cycle_type.value == "recovery"]
-                
-                c_active = sum(1 for c in main_cycles if c.status.value == "active")
-                c_hedged = sum(1 for c in main_cycles if c.status.value == "hedged")
-                c_in_rec = sum(1 for c in main_cycles if c.status.value == "in_recovery")
-                c_closed = sum(1 for c in main_cycles if c.status.value == "closed")
-                
-                active_rec = sum(1 for c in rec_cycles if c.status.value != "closed")
-                closed_rec = sum(1 for c in rec_cycles if c.status.value == "closed")
-                
-                # Count TPs by type
-                main_tps = sum(1 for o in repo.operations.values() if o.is_main and o.status.value == "tp_hit")
-                rec_tps = sum(1 for o in repo.operations.values() if o.is_recovery and o.status.value == "tp_hit")
-                
-                # Calculate DD
-                dd_pct = ((balance - equity) / balance * 100) if balance > 0 else 0
-                
-                total_pips = sum(c.total_pips for c in auditor.cycles.values())
-                
-                # Print header every 5k ticks
-                if tick_count % 5000 == 0:
-                    print(f"\n{'TICK':>10} | {'Balance':>10} | {'Equity':>10} | {'DD%':>5} | {'Act':>4} | {'Hdg':>4} | {'InR':>4} | {'Clo':>4} | {'RecA':>5} | {'RecC':>5} | {'MTP':>5} | {'RTP':>5}", flush=True)
-                    print("-" * 115)
-                
-                print(f"{tick_count:>10,} | {balance:>10.2f} | {equity:>10.2f} | {dd_pct:>4.1f}% | {c_active:>4} | {c_hedged:>4} | {c_in_rec:>4} | {c_closed:>4} | {active_rec:>5} | {closed_rec:>5} | {main_tps:>5} | {rec_tps:>5}", flush=True)
-                
-                # Detailed analysis every 25k ticks
-                if tick_count % 25000 == 0 and c_active > 1:
-                    print(f"\n--- ANÁLISIS DE CICLOS ACTIVE ({c_active}) ---")
-                    active_mains = [c for c in main_cycles if c.status.value == "active"]
-                    for i, c in enumerate(active_mains[:5]):
-                        ops = [o for o in repo.operations.values() if o.cycle_id == c.id]
-                        pending = sum(1 for o in ops if o.status.value == "pending")
-                        act = sum(1 for o in ops if o.status.value == "active")
-                        tp_hit = sum(1 for o in ops if o.status.value == "tp_hit")
-                        print(f"  C{i+1}: {c.id[:25]}... | Ops: {len(ops)} (P:{pending} A:{act} T:{tp_hit})")
-                    if len(active_mains) > 5:
-                        print(f"  ... y {len(active_mains)-5} más")
-                    print("---")
+            active_rec = sum(1 for c in rec_cycles if c.status.value != "closed")
+            closed_rec = sum(1 for c in rec_cycles if c.status.value == "closed")
+            
+            # Use repo.operations - count ops that closed (have close price)
+            main_tps = sum(1 for o in repo.operations.values() 
+                          if o.is_main and o.status.value in ("tp_hit", "closed") and o.actual_close_price is not None)
+            rec_tps = sum(1 for o in repo.operations.values() 
+                         if o.is_recovery and o.status.value in ("tp_hit", "closed") and o.actual_close_price is not None)
 
+            
+            dd_pct = ((balance - equity) / balance * 100) if balance > 0 else 0
+            
+            print(f"{tick_count:>12,} | {balance:>10.2f} | {equity:>10.2f} | {dd_pct:>4.1f}% | {c_active:>4} | {c_hedged:>4} | {c_in_rec:>4} | {c_closed:>4} | {active_rec:>5} | {closed_rec:>5} | {main_tps:>5} | {rec_tps:>5}", flush=True)
 
+    # FINAL LEAK DETECTION
+    active_ops = [op for op in repo.operations.values() if op.status.value in ("active", "neutralized")]
+    if active_ops:
+        print("\n[LEAK DETECTOR] Open operations found at end:")
+        for op in active_ops:
+            cycle = repo.cycles.get(op.cycle_id)
+            c_status = cycle.status.value if cycle else "Unknown"
+            print(f"  Op {op.id[:8]} | {op.op_type.value} {op.lot_size} | Cycle {op.cycle_id[:8]} ({c_status})")
 
-        acc = await broker.get_account_info()
-        
-        # Determine output file
-        report_name = f"audit_report_{csv_path.stem}.txt"
-        print(f"\n[INFO] Saving audit report to: {report_name}")
-        
-        # Redirect stdout to file for the report
-        with open(report_name, 'w', encoding='utf-8') as f:
-            original_stdout = sys.stdout
-            sys.stdout = f
-            try:
-                auditor.print_report(repo, float(acc.value["balance"]), float(acc.value["equity"]), repo)
-            finally:
-                sys.stdout = original_stdout
-        
-        print(f"[OK] Audit completed for {tick_count} ticks.")
+    # Final Summary
+    acc_info = await broker.get_account_info()
+    final_balance = acc_info.value["balance"]
+    final_equity = acc_info.value["equity"]
+    
+    report_name = f"audit_report_{csv_path.stem}{log_suffix}.txt"
+    print(f"\n[INFO] Saving final report to: {report_name}")
+    
+    with open(report_name, 'w', encoding='utf-8') as f:
+        original_stdout = sys.stdout
+        sys.stdout = f
+        try:
+            auditor.print_report(repo, float(final_balance), float(final_equity))
+        finally:
+            sys.stdout = original_stdout
+            
+    print(f"[OK] Audit completed for {tick_count:,} ticks.")
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="WSPlumber Scenario Auditor")
     parser.add_argument("csv_path", help="Path to scenario CSV")
-    parser.add_argument("--log-level", default="INFO", help="Logging level (DEBUG, INFO, WARNING, ERROR)")
+    parser.add_argument("--log-level", default="INFO", help="Logging level")
+    parser.add_argument("--log-suffix", default="", help="Suffix for output files")
     
     args = parser.parse_args()
     
+    default_pair = "EURUSD"
+    if "JPY" in args.csv_path.upper(): default_pair = "USDJPY"
+    if "GBP" in args.csv_path.upper(): default_pair = "GBPUSD"
+
+    async def run_now():
+        await audit_scenario(args.csv_path, args.log_level, default_pair, args.log_suffix)
+
     try:
-        asyncio.run(audit_scenario(args.csv_path, args.log_level))
+        asyncio.run(run_now())
     except KeyboardInterrupt:
         print("\n[INFO] Audit interrupted by user.")
         sys.exit(0)
+    except Exception as e:
+        print(f"\n[ERROR] Audit failed: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
