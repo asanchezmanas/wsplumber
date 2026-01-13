@@ -790,7 +790,59 @@ class CycleOrchestrator:
             pips_remaining_debt=float(parent_cycle.accounting.pips_remaining),
             surplus_pips=surplus
         )
-        
+
+        # FIX-MAIN-OPERATIONS-CLOSURE: Cerrar operaciones main cuando la deuda se paga completamente
+        # Este es el fix CRÍTICO para las posiciones zombie de main cycles
+        if parent_cycle.accounting.pips_remaining == 0:
+            logger.info("FIX-MAIN-OPERATIONS: Debt fully paid, closing parent cycle main operations",
+                       parent_id=parent_cycle.id,
+                       debt_remaining=parent_cycle.accounting.pips_remaining)
+
+            parent_ops_result = await self.repository.get_operations_by_cycle(parent_cycle.id)
+            if parent_ops_result.success:
+                parent_ops = parent_ops_result.value
+                logger.info("Parent operations fetched for closure",
+                           parent_id=parent_cycle.id,
+                           total_ops=len(parent_ops))
+
+                main_closed_count = 0
+                main_skipped_count = 0
+
+                for op in parent_ops:
+                    # Solo cerrar operaciones MAIN (no recovery) que estén activas
+                    if not op.is_recovery and op.broker_ticket:
+                        if op.status not in (OperationStatus.CLOSED, OperationStatus.CANCELLED):
+                            logger.info("Closing main operation after debt paid",
+                                       op_id=op.id,
+                                       ticket=op.broker_ticket,
+                                       status=op.status.value,
+                                       parent_id=parent_cycle.id)
+                            close_result = await self.trading_service.close_operation(op)
+                            if not close_result.success:
+                                logger.error("Failed to close main operation",
+                                           op_id=op.id,
+                                           ticket=op.broker_ticket,
+                                           error=close_result.error)
+                            else:
+                                main_closed_count += 1
+                                logger.info("Main operation closed successfully after debt paid",
+                                           op_id=op.id,
+                                           ticket=op.broker_ticket)
+                        else:
+                            main_skipped_count += 1
+                            logger.debug("Skipping main operation (already closed)",
+                                        op_id=op.id,
+                                        status=op.status.value)
+
+                logger.info("Main operations closure summary after debt paid",
+                           parent_id=parent_cycle.id,
+                           closed=main_closed_count,
+                           skipped=main_skipped_count)
+            else:
+                logger.error("Failed to get parent operations for closure",
+                            parent_id=parent_cycle.id,
+                            error=parent_ops_result.error)
+
         # 4. Condición de Cierre Atómico
         # El ciclo se cierra si NO hay deuda pendiente Y el excedente es >= 20 pips
         if parent_cycle.accounting.is_fully_recovered and surplus >= 20.0:
@@ -834,6 +886,60 @@ class CycleOrchestrator:
 
         # FIX-RECOVERY-CLOSURE: Cerrar el ciclo de recovery después de procesar su TP
         # Una vez que el recovery tocó TP y pagó la deuda al padre, debe cerrarse
+
+        # CRÍTICO: Cerrar todas las operaciones del recovery en el broker
+        logger.info("FIX-RECOVERY-CLOSURE: Attempting to close recovery operations",
+                   recovery_id=recovery_cycle.id,
+                   parent_id=parent_cycle.id)
+
+        recovery_ops_result = await self.repository.get_operations_by_cycle(recovery_cycle.id)
+
+        if not recovery_ops_result.success:
+            logger.error("Failed to get recovery operations",
+                        recovery_id=recovery_cycle.id,
+                        error=recovery_ops_result.error)
+        else:
+            recovery_ops = recovery_ops_result.value
+            logger.info("Recovery operations fetched",
+                       recovery_id=recovery_cycle.id,
+                       total_ops=len(recovery_ops),
+                       op_statuses=[f"{op.id}:{op.status.value}" for op in recovery_ops])
+
+            closed_count = 0
+            skipped_count = 0
+
+            for op in recovery_ops:
+                # Solo cerrar operaciones que tengan ticket y no estén ya cerradas
+                if op.broker_ticket and op.status not in (OperationStatus.CLOSED, OperationStatus.CANCELLED):
+                    logger.info("Closing recovery operation in broker",
+                               op_id=op.id,
+                               ticket=op.broker_ticket,
+                               status=op.status.value,
+                               recovery_id=recovery_cycle.id)
+                    close_result = await self.trading_service.close_operation(op)
+                    if not close_result.success:
+                        logger.error("Failed to close recovery operation",
+                                   op_id=op.id,
+                                   ticket=op.broker_ticket,
+                                   error=close_result.error)
+                    else:
+                        closed_count += 1
+                        logger.info("Recovery operation closed successfully",
+                                   op_id=op.id,
+                                   ticket=op.broker_ticket)
+                else:
+                    skipped_count += 1
+                    logger.debug("Skipping recovery operation (already closed or no ticket)",
+                                op_id=op.id,
+                                status=op.status.value if op.status else "None",
+                                has_ticket=bool(op.broker_ticket))
+
+            logger.info("Recovery operations closure summary",
+                       recovery_id=recovery_cycle.id,
+                       total=len(recovery_ops),
+                       closed=closed_count,
+                       skipped=skipped_count)
+
         recovery_cycle.status = CycleStatus.CLOSED
         recovery_cycle.closed_at = datetime.now()
         recovery_cycle.metadata["close_reason"] = "tp_hit"
