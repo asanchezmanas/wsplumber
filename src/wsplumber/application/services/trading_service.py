@@ -35,6 +35,9 @@ from wsplumber.domain.types import (
 from wsplumber.domain.entities.operation import Operation
 from wsplumber.domain.entities.cycle import Cycle
 from wsplumber.infrastructure.logging.safe_logger import get_logger
+from wsplumber.core.strategy._params import (
+    LAYER1_MODE, TRAILING_LEVELS, TRAILING_REPOSITION, TRAILING_MIN_LOCK
+)
 
 logger = get_logger(__name__)
 
@@ -225,7 +228,12 @@ class TradingService:
                         sync_count += 1
                         logger.info("Synced pending->TP_HIT (P&L realized)", op_id=op.id, close_price=float(close_price))
                     else:
-                        fill_price = Price(Decimal(str(broker_pos.get("entry_price") or broker_pos.get("fill_price") or op.entry_price)))
+                        # FIX-SYNC-NULLENTRY: Skip if no entry price available
+                        raw_fill_price = broker_pos.get("entry_price") or broker_pos.get("fill_price") or op.entry_price
+                        if raw_fill_price is None:
+                            logger.warning("Cannot sync pending->active: no entry price", op_id=op.id)
+                            continue
+                        fill_price = Price(Decimal(str(raw_fill_price)))
                         # Orden activada normalmente
                         op.activate(
                             fill_price=fill_price,
@@ -301,6 +309,15 @@ class TradingService:
                         await self.repository.save_operation(op)
                         sync_count += 1
                         logger.info("Synced active->TP_HIT (P&L realized)", op_id=op.id, close_price=float(close_price))
+                    
+                    # ══════════════════════════════════════════════════════════════
+                    # IMMUNE SYSTEM LAYER 1: ADAPTIVE TRAILING STOP
+                    # ══════════════════════════════════════════════════════════════
+                    elif broker_status == "active" and LAYER1_MODE == "ADAPTIVE_TRAILING":
+                        # Only apply to recovery operations
+                        if op.is_recovery:
+                            if await self._process_adaptive_trailing(op, broker_pos):
+                                sync_count += 1
                 
                 # Caso B: Ya no está en abiertas - buscar en historial
                 elif ticket_str not in broker_positions:
@@ -373,3 +390,147 @@ class TradingService:
             # FIX-TS-03: Capturar errores de conexión
             logger.error("Sync failed with exception", _exception=e, pair=pair)
             return Result.fail(str(e), "SYNC_EXCEPTION")
+
+    async def _process_adaptive_trailing(self, op: Operation, broker_pos: Dict[str, Any]) -> bool:
+        """
+        IMMUNE SYSTEM LAYER 1: Adaptive Trailing Stop
+        
+        Tracks maximum profit and applies progressive trailing stops
+        to capture partial profits instead of letting them evaporate.
+        
+        Returns True if position was closed (for sync_count tracking).
+        
+        BUGS FIXED:
+        - BUG1: Correct BID/ASK for BUY/SELL
+        - BUG2: Returns bool for sync_count
+        - BUG3: Checks status before close_v2
+        - BUG4: Sets metadata for orchestrator to reduce debt proportionally
+        - BUG5: REPOSITION handled by orchestrator via metadata
+        """
+        try:
+            # BUG3 FIX: Skip if already closed
+            if op.status in (OperationStatus.CLOSED, OperationStatus.TP_HIT, OperationStatus.CANCELLED):
+                return False
+            
+            # 1. Calculate current floating pips with correct price
+            # BUG1 FIX: Use ASK for closing BUY, BID for closing SELL
+            if op.is_buy:
+                current_price = broker_pos.get("bid") or broker_pos.get("current_price")
+            else:
+                current_price = broker_pos.get("ask") or broker_pos.get("current_price")
+            
+            if not current_price:
+                return False
+            
+            multiplier = 100 if "JPY" in str(op.pair) else 10000
+            entry = float(op.actual_entry_price or op.entry_price)
+            curr = float(current_price)
+            
+            if op.is_buy:
+                floating_pips = (curr - entry) * multiplier
+            else:
+                floating_pips = (entry - curr) * multiplier
+            
+            # 2. Track maximum profit reached
+            max_profit = op.metadata.get("max_profit_pips", 0.0)
+            prev_max = max_profit
+            if floating_pips > max_profit:
+                op.metadata["max_profit_pips"] = floating_pips
+                max_profit = floating_pips
+                await self.repository.save_operation(op)
+                
+                # Log significant profit increases (every 10 pips)
+                if int(max_profit / 10) > int(prev_max / 10):
+                    logger.info("LAYER1-TRAILING: New max profit milestone",
+                               op_id=op.id,
+                               max_profit=round(max_profit, 1),
+                               prev_max=round(prev_max, 1))
+            
+            # 3. Determine current trailing stop level based on max_profit
+            trailing_stop = 0.0
+            active_level = 0
+            for i, (threshold, lock) in enumerate(TRAILING_LEVELS):
+                if max_profit >= threshold:
+                    trailing_stop = lock
+                    active_level = i + 1
+            
+            # 4. If no trailing level reached, nothing to do
+            if trailing_stop <= 0:
+                return False
+            
+            # 5. Update trailing metadata if level changed
+            if op.metadata.get("trailing_level", 0) != active_level:
+                op.metadata["trailing_level"] = active_level
+                op.metadata["trailing_stop_pips"] = trailing_stop
+                op.metadata["trailing_active"] = True
+                await self.repository.save_operation(op)
+                logger.info("LAYER1-TRAILING: Level activated",
+                           op_id=op.id,
+                           level=active_level,
+                           max_profit=round(max_profit, 1),
+                           trailing_stop=trailing_stop)
+            
+            # 6. Check if price hit trailing stop
+            if floating_pips <= trailing_stop and op.metadata.get("trailing_active"):
+                # Ensure minimum profit threshold
+                if floating_pips < TRAILING_MIN_LOCK:
+                    logger.debug("LAYER1-TRAILING: Below minimum lock, waiting",
+                               op_id=op.id,
+                               floating_pips=round(floating_pips, 1),
+                               min_lock=TRAILING_MIN_LOCK)
+                    return False
+                
+                logger.info("LAYER1-TRAILING: Stop hit, closing with partial profit",
+                           op_id=op.id,
+                           max_profit=round(max_profit, 1),
+                           close_at=round(floating_pips, 1),
+                           captured_pct=round(floating_pips / max_profit * 100, 0) if max_profit > 0 else 0,
+                           level=active_level,
+                           entry_price=entry,
+                           exit_price=curr,
+                           distance_to_tp=round(80.0 - max_profit, 1))
+                
+                # Close position
+                close_result = await self.broker.close_position(op.broker_ticket)
+                if close_result.success:
+                    close_price = Price(Decimal(str(current_price)))
+                    
+                    # BUG4 FIX: Set metadata for orchestrator to process partial profit
+                    # The orchestrator will read this and apply proportional debt reduction
+                    op.metadata["trailing_closed"] = True
+                    op.metadata["trailing_profit_pips"] = floating_pips
+                    op.metadata["close_reason"] = "trailing_stop"
+                    
+                    # BUG5 FIX: Signal orchestrator to open replacement recovery
+                    if TRAILING_REPOSITION:
+                        op.metadata["needs_reposition"] = True
+                        op.metadata["reposition_price"] = float(current_price)
+                    
+                    # BUG3 FIX: Check status before close_v2
+                    if op.status not in (OperationStatus.CLOSED, OperationStatus.TP_HIT):
+                        op.close_v2(price=close_price, timestamp=datetime.now())
+                    
+                    await self.repository.save_operation(op)
+                    
+                    logger.info("LAYER1-TRAILING: Position closed successfully",
+                               op_id=op.id,
+                               profit_pips=round(floating_pips, 1),
+                               close_price=float(close_price),
+                               needs_reposition=op.metadata.get("needs_reposition", False))
+                    
+                    return True  # BUG2 FIX: Return True for sync_count
+                else:
+                    logger.error("LAYER1-TRAILING: Failed to close position",
+                                op_id=op.id,
+                                error=close_result.error)
+                    return False
+            
+            return False
+        
+        except Exception as e:
+            logger.error("LAYER1-TRAILING: Error in adaptive trailing",
+                        op_id=op.id,
+                        exception=str(e))
+            return False
+
+

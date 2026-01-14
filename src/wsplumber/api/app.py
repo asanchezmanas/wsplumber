@@ -14,6 +14,7 @@ from fastapi.responses import HTMLResponse
 
 from wsplumber.config.settings import get_settings
 from wsplumber.api.routers import websocket
+from wsplumber.api.routers.traceability import router as traceability_router
 from wsplumber.api.routers.state_broadcaster import state_broadcaster
 
 
@@ -39,6 +40,7 @@ app = FastAPI(
 
 # Registrar Routers
 app.include_router(websocket.router)
+app.include_router(traceability_router)
 
 # Rutas de Archivos
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -61,10 +63,26 @@ async def read_landing(request: Request):
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def read_dashboard(request: Request):
-    """Ruta del Dashboard V2."""
+    """Ruta del Dashboard V3."""
+    return templates.TemplateResponse(
+        "pages/dashboard_v3.html",
+        {"request": request, "title": "WS Plumber - Dashboard"}
+    )
+
+@app.get("/dashboard/legacy", response_class=HTMLResponse)
+async def read_dashboard_legacy(request: Request):
+    """Ruta del Dashboard antiguo (fallback)."""
     return templates.TemplateResponse(
         "pages/dashboard.html",
-        {"request": request, "title": "WS Plumber - Dashboard"}
+        {"request": request, "title": "WS Plumber - Dashboard Legacy"}
+    )
+
+@app.get("/traceability", response_class=HTMLResponse)
+async def read_traceability(request: Request):
+    """Página de Trazabilidad de Flujos."""
+    return templates.TemplateResponse(
+        "pages/traceability.html",
+        {"request": request, "title": "WS Plumber - Trazabilidad"}
     )
 
 @app.get("/health")

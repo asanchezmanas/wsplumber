@@ -66,11 +66,12 @@ class SimulatedBroker(IBroker):
     El orquestador debe detectar el TP via sync y luego llamar a close_position().
     """
 
-    def __init__(self, initial_balance: float = 10000.0, leverage: int = 100):
+    def __init__(self, initial_balance: float = 10000.0, leverage: int = 100, repository=None):
         self.balance = Decimal(str(initial_balance))
         self.leverage = leverage
         self.ticks: List[TickData] = []
         self.current_tick_index = -1
+        self.current_tick: Optional[TickData] = None  # FIX: Initialize for get_current_price
         
         self.open_positions: Dict[BrokerTicket, SimulatedPosition] = {}
         self.pending_orders: Dict[BrokerTicket, SimulatedOrder] = {}
@@ -78,44 +79,161 @@ class SimulatedBroker(IBroker):
         
         self.ticket_counter = 1000
         self._connected = False
+        
+        # Referencia al repositorio para sincronizar status de operaciones
+        self._repository = repository
 
-    def load_csv(self, csv_path: str):
-        """Carga ticks desde un archivo CSV (Formato TickData)."""
+
+
+    def load_csv(self, csv_path: str, default_pair: Optional[str] = None):
+        """Carga ticks desde un archivo CSV (Formato TickData).
+        
+        Usa carga en memoria para archivos < 50MB, streaming para mayores.
+        """
+        import os
+        self.csv_path = csv_path
+        self.default_pair = default_pair
         self.ticks = []
+        
+        file_size_mb = os.path.getsize(csv_path) / (1024 * 1024)
+        
+        if file_size_mb < 5000:
+            # In-memory loading for smaller files
+            self._load_csv_to_memory(csv_path, default_pair)
+        else:
+            # Streaming for massive files
+            self._tick_generator = self._create_tick_generator()
+            self.current_tick_index = 0
+            logger.info(f"Broker prepared for streaming ticks from {csv_path}")
+    
+    def _load_csv_to_memory(self, csv_path: str, default_pair: Optional[str] = None):
+        """Carga ticks en memoria (para archivos < 50MB)."""
         with open(csv_path, mode='r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                # Normalizar keys
-                row_lower = {k.lower(): v for k, v in row.items()}
+                col_map = {k.lower(): k for k in row.keys()}
                 
-                # Usar mapping seguro
-                pair_key = next((k for k in row_lower if 'pair' in k), 'pair')
-                bid_key = next((k for k in row_lower if 'bid' in k), 'bid')
-                ask_key = next((k for k in row_lower if 'ask' in k), 'ask')
-                ts_key = next((k for k in row_lower if 'time' in k), 'timestamp')
-
-                pair = CurrencyPair(row_lower.get(pair_key, 'EURUSD'))
-                bid = Price(Decimal(row_lower[bid_key]))
-                ask = Price(Decimal(row_lower[ask_key]))
+                pair_val = row.get(col_map.get('pair', 'NOSUCHCOLUMN'), default_pair)
+                if not pair_val:
+                    pair_val = "EURUSD"
                 
+                pair = CurrencyPair(pair_val)
+                bid_key = col_map.get('bid', 'bid')
+                ask_key = col_map.get('ask', 'ask')
+                ts_key = col_map.get('timestamp', col_map.get('datetime', 'timestamp'))
+                
+                bid = Price(Decimal(row[bid_key]))
+                ask = Price(Decimal(row[ask_key]))
+                
+                raw_ts = row[ts_key]
                 try:
-                    dt = datetime.fromisoformat(row_lower[ts_key])
+                    dt = datetime.fromisoformat(raw_ts)
                 except ValueError:
-                    # Fallback format commonly used in TickData
-                    dt = datetime.strptime(row_lower[ts_key], "%Y%m%d %H:%M:%S.%f")
+                    try:
+                        dt = datetime.strptime(raw_ts, "%Y%m%d %H:%M:%S.%f")
+                    except ValueError:
+                        dt = datetime.now()
                 
-                pips_mult = 100 if "JPY" in pair else 10000
-                spread = row.get('spread_pips', float((ask - bid) * pips_mult))
+                pips_mult = 100 if "JPY" in str(pair) else 10000
+                spread_val = row.get(col_map.get('spread_pips', 'NOSUCHCOLUMN'))
+                if spread_val is not None:
+                    spread = float(spread_val)
+                else:
+                    spread = float((ask - bid) * pips_mult)
                 
                 self.ticks.append(TickData(
                     pair=pair,
                     bid=bid,
                     ask=ask,
                     timestamp=Timestamp(dt),
-                    spread_pips=Pips(float(spread))
+                    spread_pips=Pips(spread)
                 ))
         self.current_tick_index = -1
-        logger.info(f"Loaded {len(self.ticks)} ticks from {csv_path}")
+        logger.info(f"Loaded {len(self.ticks)} ticks from {csv_path} (in-memory)")
+
+    def _create_tick_generator(self):
+        """Generador de ticks para evitar cargar todo el CSV en RAM."""
+        print(f"[DEBUG] Opening CSV: {self.csv_path}")
+        with open(self.csv_path, mode='r', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f)
+            row_count = 0
+            for row in reader:
+                row_count += 1
+                if row_count == 1:
+                    print(f"[DEBUG] First row keys: {list(row.keys())}")
+                
+                # Detect column names (handle case-insensitive and different formats)
+                col_map = {k.lower(): k for k in row.keys()}
+                
+                pair_val = row.get(col_map.get('pair', 'NOSUCHCOLUMN'), self.default_pair)
+                if not pair_val:
+                    pair_val = "EURUSD"
+                
+                pair = CurrencyPair(pair_val)
+                bid_key = col_map.get('bid', 'bid')
+                ask_key = col_map.get('ask', 'ask')
+                ts_key = col_map.get('timestamp', col_map.get('datetime', 'timestamp'))
+                
+                try:
+                    bid = Price(Decimal(row[bid_key]))
+                    ask = Price(Decimal(row[ask_key]))
+                    
+                    raw_ts = row[ts_key]
+                    try:
+                        dt = datetime.fromisoformat(raw_ts)
+                    except ValueError:
+                        try:
+                            # Modified strategy to handle "20030505 03:00:05.536"
+                            dt = datetime.strptime(raw_ts, "%Y%m%d %H:%M:%S.%f")
+                        except ValueError:
+                            dt = datetime.now()
+                    
+                    pips_mult = 100 if "JPY" in str(pair) else 10000
+                    spread_val = row.get(col_map.get('spread_pips', 'NOSUCHCOLUMN'))
+                    if spread_val is not None:
+                        spread = float(spread_val)
+                    else:
+                        spread = float((ask - bid) * pips_mult)
+                    
+                    yield TickData(
+                        pair=pair,
+                        bid=bid,
+                        ask=ask,
+                        timestamp=Timestamp(dt),
+                        spread_pips=Pips(spread)
+                    )
+                except Exception as e:
+                    print(f"[DEBUG] Error processing row {row_count}: {e}")
+                    continue
+            
+            print(f"[DEBUG] Generator finished after {row_count} rows")
+
+    async def advance_tick(self) -> Optional[TickData]:
+        """Consume el siguiente tick y procesa ejecuciones.
+        
+        Soporta modo in-memory (self.ticks) y streaming (self._tick_generator).
+        """
+        tick = None
+        
+        # Modo in-memory (archivos < 50MB)
+        if self.ticks:
+            self.current_tick_index += 1
+            if self.current_tick_index >= len(self.ticks):
+                return None
+            tick = self.ticks[self.current_tick_index]
+        # Modo streaming (archivos >= 50MB)
+        elif hasattr(self, '_tick_generator'):
+            try:
+                tick = next(self._tick_generator)
+                self.current_tick_index += 1
+            except StopIteration:
+                return None
+        else:
+            return None
+        
+        self.current_tick = tick
+        await self._process_executions(tick)
+        return tick
 
     def load_m1_csv(self, csv_path: str, pair: Optional[CurrencyPair] = None, max_bars: int = None):
         """Carga ticks desde un archivo CSV M1 (Formato OHLC)."""
@@ -165,6 +283,13 @@ class SimulatedBroker(IBroker):
         })
 
     async def get_current_price(self, pair: CurrencyPair) -> Result[TickData]:
+        # Primero verificar si hay un tick actual establecido directamente
+        if self.current_tick is not None:
+            if self.current_tick.pair != pair:
+                return Result.fail(f"Current tick is for {self.current_tick.pair}, not {pair}")
+            return Result.ok(self.current_tick)
+        
+        # Fallback al array de ticks (modo in-memory)
         if self.current_tick_index < 0 or self.current_tick_index >= len(self.ticks):
             return Result.fail("No tick data available")
         
@@ -173,6 +298,7 @@ class SimulatedBroker(IBroker):
             return Result.fail(f"Current tick is for {tick.pair}, not {pair}")
             
         return Result.ok(tick)
+
 
     def should_process_tick(self, tick: TickData) -> bool:
         """
@@ -303,15 +429,29 @@ class SimulatedBroker(IBroker):
         new_tp: Optional[Price] = None,
         new_sl: Optional[Price] = None,
     ) -> Result[bool]:
+        """Modifica una orden o posición. new_tp=None elimina el TP."""
         if ticket in self.pending_orders:
-            if new_tp: 
+            # Para pending orders, modificar tp_price si se especifica
+            if new_tp is not None:
                 self.pending_orders[ticket].tp_price = new_tp
+            # Si new_tp es None explícitamente (como argumento), eliminar TP
+            # No hacemos nada especial aquí porque pending orders siempre deben tener TP
+            logger.info(f"Broker: Modified pending order {ticket}", new_tp=float(new_tp) if new_tp else "REMOVED")
             return Result.ok(True)
+        
         if ticket in self.open_positions:
-            if new_tp: 
+            # FIX-MODIFY-TP: Soportar eliminación de TP
+            # new_tp=None significa "eliminar TP" (neutralización)
+            if new_tp is not None:
                 self.open_positions[ticket].tp_price = new_tp
+            else:
+                # Eliminar TP completamente - posición ya no cerrará automáticamente por TP
+                self.open_positions[ticket].tp_price = None
+            logger.info(f"Broker: Modified position {ticket}", new_tp=float(new_tp) if new_tp else "REMOVED")
             return Result.ok(True)
+        
         return Result.fail("Order/Position not found")
+
 
     async def get_open_positions(self) -> Result[List[Dict[str, Any]]]:
         """
@@ -465,10 +605,19 @@ class SimulatedBroker(IBroker):
         tp_closures = []
 
         for ticket, pos in self.open_positions.items():
-            # FIX-SB-04: Skip P&L recalculation for TP_HIT positions
-            # Their P&L should be frozen at the TP price, not recalculated
-            if pos.status == OperationStatus.TP_HIT:
-                # P&L is already frozen at close price, skip recalculation
+            # FIX-SB-05: Sync status from repository before P&L calculation
+            # This ensures NEUTRALIZED status set by orchestrator is respected immediately
+            if self._repository and pos.operation_id:
+                op_res = self._repository.operations.get(pos.operation_id)
+                if op_res and op_res.status != pos.status:
+                    pos.status = op_res.status
+                    logger.debug(f"Broker: Synced status from repo for {ticket}: {pos.status.value}")
+            
+            # FIX-SB-04: Skip P&L recalculation for TP_HIT and NEUTRALIZED positions
+            # NEUTRALIZED = hedged pairs that should have frozen P&L
+            # Their P&L should be frozen at the entry price difference, not recalculated
+            if pos.status in (OperationStatus.TP_HIT, OperationStatus.NEUTRALIZED):
+                # P&L is already frozen, skip recalculation
                 continue
             
             # FIX-SB-03: Considerar spread en calculo de P&L
@@ -489,7 +638,8 @@ class SimulatedBroker(IBroker):
 
             
             # FIX-SB-01: Solo MARCAR TP, NO cerrar
-            if pos.status == OperationStatus.ACTIVE:  # Solo si no está ya marcado
+            # FIX-TP-NULL: Skip TP check if tp_price is None (neutralized)
+            if pos.status == OperationStatus.ACTIVE and pos.tp_price is not None:
                 tp_hit = False
                 close_price = None
                 

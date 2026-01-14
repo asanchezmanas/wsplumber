@@ -70,6 +70,12 @@ class CycleAccounting:
     # Acumulado de deuda generada para cálculo de beneficio neto real
     total_debt_incurred: float = 20.0
     
+    # REAL-PIPS ACCOUNTING FIELDS (Phase 5)
+    total_debt_pips: float = 20.0 # Starts with initial 20 pips unit
+    pips_remaining: float = 20.0 # Starts with initial 20 pips unit
+    total_recovered_pips: float = 0.0
+    surplus_pips: float = 0.0
+    
     # ID de los recoverys asociados a la deuda (opcional, para trazabilidad)
     recovery_queue: List[RecoveryId] = field(default_factory=list)
     
@@ -86,42 +92,63 @@ class CycleAccounting:
 
     def add_locked_pips(self, pips: Pips) -> None:
         """Añade pips bloqueados (usado para ajustes manuales o inicialización)."""
-        self.pips_locked = Pips(float(self.pips_locked) + float(pips))
-        self.total_debt_incurred += float(pips)
+        pips_val = float(pips)
+        self.pips_locked = Pips(float(self.pips_locked) + pips_val)
+        self.total_debt_pips += pips_val 
+        self.pips_remaining += pips_val 
 
-    def add_recovery_failure_unit(self) -> None:
-        """Añade una unidad de deuda de 40 pips por fallo de recovery."""
-        self.debt_units.append(40.0)
-        self.total_debt_incurred += 40.0
-        self.pips_locked = Pips(sum(self.debt_units))
-
-    def process_recovery_tp(self, tp_pips: float = 80.0) -> float:
+    def add_recovery_failure_unit(self, real_loss_pips: Optional[float] = None) -> None:
         """
-        Procesa un TP de recovery (+80 pips) contra la cola FIFO de deudas.
+        Añade una unidad de deuda por fallo de recovery (ambas activas).
         
+        Args:
+            real_loss_pips: Pérdida real calculada entre las entradas (opcional).
+                           Si no se provee, usa el valor teórico de 40.0.
+        """
+        pips = float(real_loss_pips) if real_loss_pips is not None else 40.0
+        self.debt_units.append(pips)
+        self.total_debt_pips += pips
+        self.pips_remaining += pips
+        self.pips_locked = Pips(sum(self.debt_units)) # Keep pips_locked updated
+
+    def process_recovery_tp(self, realized_profit: float) -> float:
+        """
+        Procesa el beneficio de un recovery y lo aplica a la deuda (FIFO).
+        
+        Args:
+            realized_profit: El beneficio real obtenido (aprox 80 pips).
+            
         Returns:
-            float: El excedente (surplus) de pips después de liquidar deudas.
+            Excedente (surplus) si se cubrió toda la deuda.
         """
-        self.pips_recovered = Pips(float(self.pips_recovered) + tp_pips)
-        self.total_recovery_tps += 1
-        
-        remaining_tp = tp_pips
-        
-        while remaining_tp > 0 and self.debt_units:
-            unit_cost = self.debt_units[0]
-            if remaining_tp >= unit_cost:
-                remaining_tp -= unit_cost
+        profit = float(realized_profit)
+        self.total_recovered_pips += profit
+        self.pips_recovered = Pips(self.total_recovered_pips) # Keep legacy field in sync
+        self.total_recovery_tps += 1 
+
+        # Aplicar profit a las unidades de deuda (FIFO)
+        while profit > 0 and self.debt_units:
+            unit = self.debt_units[0]
+            if profit >= unit:
+                # Unidad completamente pagada
+                profit -= unit
                 self.debt_units.pop(0)
+                self.pips_remaining -= unit
             else:
-                # Pago parcial de unidad (aunque en teoría son unidades enteras,
-                # para robustez permitimos parciales)
-                self.debt_units[0] -= remaining_tp
-                remaining_tp = 0
-        
-        # Actualizar pips_locked para reflejar lo que queda en la cola
+                # Unidad parcialmente pagada
+                self.debt_units[0] -= profit
+                self.pips_remaining -= profit
+                profit = 0
+                
+        # Si sobra profit y no hay más deuda, es excedente
+        if profit > 0 and not self.debt_units:
+            self.surplus_pips += profit
+            self.pips_remaining = 0.0 # Ensure it's zero if all debt cleared
+            
+        # Update pips_locked to reflect what remains in the queue
         self.pips_locked = Pips(sum(self.debt_units))
         
-        return remaining_tp
+        return self.surplus_pips
 
     # =========================================
     # SHADOW ACCOUNTING METHODS (Phase 3)
@@ -196,20 +223,17 @@ class CycleAccounting:
             }
         }
 
-    @property
-    def pips_remaining(self) -> Pips:
-        """Pips que faltan por recuperar para limpiar la deuda."""
-        return Pips(sum(self.debt_units))
+    # Property removed to favor the dynamic field 'pips_remaining' (float)
 
     @property
     def net_pips(self) -> Pips:
         """Pips netos totales del ciclo (recuperados - costo de todas las deudas)."""
-        return Pips(float(self.pips_recovered) - self.total_debt_incurred)
+        return Pips(self.total_recovered_pips - self.total_debt_pips)
 
     @property
     def is_fully_recovered(self) -> bool:
-        """True si la cola de deudas está vacía."""
-        return len(self.debt_units) == 0 or sum(self.debt_units) <= 0
+        """True si la deuda ha sido saldada."""
+        return self.pips_remaining <= 0.0001 # Small epsilon for float safety
 
 
 
@@ -438,8 +462,22 @@ class Cycle:
         self.status = CycleStatus.HEDGED
         self.metadata["hedged_at"] = datetime.now().isoformat()
         
-        # Al activar hedge, bloqueamos la deuda inicial de las mains (20 pips)
+        # Al activar hedge, bloqueamos la deuda inicial de las mains.
+        # FIX-DYNAMIC: Usamos 20 pips como base, pero el orquestador 
+        # puede sobreescribirlo con el shadow_debt si se activa USE_DYNAMIC_DEBT.
         self.accounting.add_locked_pips(Pips(20.0))
+
+    def get_all_linked_operation_ids(self) -> List[OperationId]:
+        """
+        Obtiene todos los IDs de operaciones vinculadas a este ciclo,
+        incluyendo las de sub-ciclos de recovery.
+        """
+        all_ids = [op.id for op in self.operations]
+        
+        # El ciclo mismo no conoce a sus hijos si no se le inyectan,
+        # pero para eso tenemos el repositorio. Este método es para 
+        # operaciones que YA están en la lista self.operations.
+        return all_ids
 
     def start_recovery(self) -> None:
         """

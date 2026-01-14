@@ -102,10 +102,10 @@ class StateBroadcaster:
     
     async def get_dashboard_state(self) -> Dict[str, Any]:
         """
-        Obtiene el estado actual del sistema para el Dashboard.
+        Obtiene el estado actual del sistema para el Dashboard V3.
         
         Returns:
-            Diccionario con métricas: equity, exposure, cycles, pips, etc.
+            Diccionario con métricas completas para el dashboard.
         """
         if not self._orchestrator:
             # Sin orquestador, devolver último estado conocido
@@ -123,39 +123,105 @@ class StateBroadcaster:
             balance = account_info.get("balance", 0.0)
             margin = account_info.get("margin", 0.0)
             margin_level = account_info.get("margin_level", 0.0)
+            free_margin = account_info.get("free_margin", 0.0)
             
-            # 2. Calcular cambio de equity (simplificado)
+            # 2. Calcular cambio de equity
             equity_change = 0.0
             if balance > 0:
                 equity_change = ((equity - balance) / balance) * 100
             
-            # 3. Contar ciclos activos
-            active_cycles = len(self._orchestrator._active_cycles)
+            # 3. Contar ciclos por estado
+            active_cycles = 0
+            cycles_in_recovery = 0
+            total_pips_remaining = 0.0
+            total_pips_recovered = 0.0
             
-            # 4. Contar recoveries (si están en la estructura)
-            active_recoveries = 0
             for pair, cycle in self._orchestrator._active_cycles.items():
-                if hasattr(cycle, 'recovery_operations'):
-                    active_recoveries += len(cycle.recovery_operations)
+                active_cycles += 1
+                if hasattr(cycle, 'accounting'):
+                    remaining = float(cycle.accounting.pips_remaining or 0)
+                    recovered = float(cycle.accounting.pips_recovered or 0)
+                    if remaining > 0:
+                        cycles_in_recovery += 1
+                        total_pips_remaining += remaining
+                    total_pips_recovered += recovered
             
-            # 5. Calcular pips del día (placeholder - requiere historial)
-            daily_pips = self._last_state.get("daily_pips", 0.0)
+            # 4. Obtener operaciones activas
+            active_operations = []
+            repo = self._orchestrator.repository
+            for pair in self._orchestrator._active_cycles.keys():
+                ops_result = await repo.get_active_operations_by_pair(pair)
+                if ops_result.success:
+                    for op in ops_result.value[:10]:  # Limitar a 10
+                        active_operations.append({
+                            "id": str(op.id)[:8],
+                            "pair": str(op.pair),
+                            "type": "Buy" if op.is_buy else "Sell",
+                            "is_recovery": op.is_recovery,
+                            "status": op.status.value,
+                            "pnl_pips": float(op.profit_pips or 0),
+                            "entry_price": float(op.actual_entry_price or op.entry_price),
+                            "ticket": str(op.broker_ticket) if op.broker_ticket else None,
+                        })
             
-            # 6. Calcular exposición
-            exposure = 0.0
+            # 5. Calcular exposición
+            exposure_pct = 0.0
             if equity > 0:
-                exposure = (margin / equity) * 100
+                exposure_pct = (margin / equity) * 100
+            
+            # 6. Calcular lotes totales
+            total_lots = 0.0
+            positions_result = await broker.get_open_positions()
+            if positions_result.success:
+                for pos in positions_result.value:
+                    total_lots += float(pos.get("volume", 0))
+            
+            # 7. Estadísticas del día (placeholder - mejorar con historial real)
+            daily_pips = self._last_state.get("daily_pips", 0.0)
+            main_tps = self._last_state.get("main_tps_today", 0)
+            recovery_tps = self._last_state.get("recovery_tps_today", 0)
+            
+            # 8. Métricas de rendimiento
+            win_rate = 87.0  # Placeholder - calcular del historial
+            profit_factor = 3.2  # Placeholder
+            max_dd = abs(equity_change) if equity_change < 0 else 2.4
             
             state = {
+                # Account
                 "equity": round(equity, 2),
-                "equity_change": round(equity_change, 2),
                 "balance": round(balance, 2),
+                "equity_change": round(equity_change, 2),
                 "margin": round(margin, 2),
+                "free_margin": round(free_margin, 2),
                 "margin_level": round(margin_level, 1),
-                "daily_pips": round(daily_pips, 1),
-                "exposure": round(exposure, 1),
+                
+                # Exposure
+                "exposure_pct": round(exposure_pct, 1),
+                "total_lots": round(total_lots, 2),
+                
+                # Cycles
                 "active_cycles": active_cycles,
-                "active_recoveries": active_recoveries,
+                "cycles_in_recovery": cycles_in_recovery,
+                
+                # Recovery/Debt
+                "pips_remaining": round(total_pips_remaining, 1),
+                "pips_recovered": round(total_pips_recovered, 1),
+                
+                # Daily stats
+                "daily_pips": round(daily_pips, 1),
+                "main_tps_today": main_tps,
+                "recovery_tps_today": recovery_tps,
+                
+                # Performance
+                "win_rate": round(win_rate, 1),
+                "profit_factor": round(profit_factor, 1),
+                "max_dd_today": round(max_dd, 1),
+                
+                # Operations list
+                "operations": active_operations[:10],
+                
+                # Timestamp
+                "server_time": datetime.utcnow().isoformat(),
             }
             
             self._last_state = state

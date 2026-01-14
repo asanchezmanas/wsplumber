@@ -33,9 +33,30 @@ MAX_SPREAD_PIPS = 3.0    # No operar si el spread es superior
 # =========================================
 
 # When True, uses dynamic debt calculation based on real execution prices
-# When False (default), uses hardcoded 20/40/80 pip values
-USE_DYNAMIC_DEBT = False  # Set to True to enable dynamic mode
-
-# When True, logs comparison between hardcoded and dynamic systems
-# Useful for validation before switching to dynamic mode
+USE_DYNAMIC_DEBT = True
 LOG_DEBT_COMPARISON = True
+PRODUCE_AUDIT_LOGS = True
+
+# =========================================
+# IMMUNE SYSTEM: LAYER 1 - ADAPTIVE TRAILING
+# =========================================
+
+# Layer 1 Mode: "OFF" | "BREAKEVEN" | "ADAPTIVE_TRAILING"
+# OFF = No trailing (baseline), ADAPTIVE_TRAILING = Progressive trailing
+LAYER1_MODE = "OFF"  # Change to "ADAPTIVE_TRAILING" to enable
+
+# Trailing Levels: (threshold_pips, lock_pips)
+# When recovery reaches threshold, lock at lock_pips
+# Example: At +30 pips reached, trail at +10 pips (33% captured)
+TRAILING_LEVELS = [
+    (30, 10),   # Level 1: +30 pips → Lock +10 pips (33%)
+    (50, 25),   # Level 2: +50 pips → Lock +25 pips (50%)
+    (70, 50),   # Level 3: +70 pips → Lock +50 pips (71%)
+]
+
+# Re-positioning: When trailing stop is hit, open new recovery from current price
+TRAILING_REPOSITION = True
+
+# Minimum profit to consider trailing hit (avoids noise)
+TRAILING_MIN_LOCK = 5.0
+
