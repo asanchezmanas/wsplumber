@@ -103,7 +103,7 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO"):
             auditor.check(tick_count, repo, broker, balance)
             
             # PROGRESS LOGGING
-            if tick_count % 1000 == 0:
+            if tick_count % 100 == 0:
                 acc = await broker.get_account_info()
                 equity = float(acc.value["equity"])
                 
@@ -128,8 +128,8 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO"):
                 
                 total_pips = sum(c.total_pips for c in auditor.cycles.values())
                 
-                # Print header every 5k ticks
-                if tick_count % 5000 == 0:
+                # Print header every 1k ticks
+                if tick_count % 1000 == 0:
                     print(f"\n{'TICK':>10} | {'Balance':>10} | {'Equity':>10} | {'DD%':>5} | {'Act':>4} | {'Hdg':>4} | {'InR':>4} | {'Clo':>4} | {'RecA':>5} | {'RecC':>5} | {'MTP':>5} | {'RTP':>5}", flush=True)
                     print("-" * 115)
                 

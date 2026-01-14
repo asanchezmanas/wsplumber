@@ -82,13 +82,27 @@ class SimulatedBroker(IBroker):
     def load_csv(self, csv_path: str):
         """Carga ticks desde un archivo CSV (Formato TickData)."""
         self.ticks = []
-        with open(csv_path, mode='r', encoding='utf-8') as f:
+        with open(csv_path, mode='r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                pair = CurrencyPair(row['pair'])
-                bid = Price(Decimal(row['bid']))
-                ask = Price(Decimal(row['ask']))
-                dt = datetime.fromisoformat(row['timestamp'])
+                # Normalizar keys
+                row_lower = {k.lower(): v for k, v in row.items()}
+                
+                # Usar mapping seguro
+                pair_key = next((k for k in row_lower if 'pair' in k), 'pair')
+                bid_key = next((k for k in row_lower if 'bid' in k), 'bid')
+                ask_key = next((k for k in row_lower if 'ask' in k), 'ask')
+                ts_key = next((k for k in row_lower if 'time' in k), 'timestamp')
+
+                pair = CurrencyPair(row_lower.get(pair_key, 'EURUSD'))
+                bid = Price(Decimal(row_lower[bid_key]))
+                ask = Price(Decimal(row_lower[ask_key]))
+                
+                try:
+                    dt = datetime.fromisoformat(row_lower[ts_key])
+                except ValueError:
+                    # Fallback format commonly used in TickData
+                    dt = datetime.strptime(row_lower[ts_key], "%Y%m%d %H:%M:%S.%f")
                 
                 pips_mult = 100 if "JPY" in pair else 10000
                 spread = row.get('spread_pips', float((ask - bid) * pips_mult))
@@ -479,12 +493,14 @@ class SimulatedBroker(IBroker):
                 tp_hit = False
                 close_price = None
                 
-                if pos.order_type.is_buy and tick.bid >= pos.tp_price:
-                    tp_hit = True
-                    close_price = tick.bid
-                elif pos.order_type.is_sell and tick.ask <= pos.tp_price:
-                    tp_hit = True
-                    close_price = tick.ask
+                # FIX-TP-ZERO: Ignore TP check if TP is 0 (meaning no TP)
+                if pos.tp_price and float(pos.tp_price) > 0:
+                    if pos.order_type.is_buy and tick.bid >= pos.tp_price:
+                        tp_hit = True
+                        close_price = tick.bid
+                    elif pos.order_type.is_sell and tick.ask <= pos.tp_price:
+                        tp_hit = True
+                        close_price = tick.ask
                     
                 if tp_hit:
                     # Recolectar datos para cerrar después del loop

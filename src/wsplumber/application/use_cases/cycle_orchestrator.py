@@ -1468,6 +1468,32 @@ class CycleOrchestrator:
                                 real_debt=float(debt.pips_owed),
                                 theoretical=40.0,
                                 difference=float(debt.pips_owed) - 40.0)
+
+                    # FIX: Remove TP from BOTH active recovery operations to prevent premature closure
+                    # This "locks" the loss and prevents the market from hitting one TP
+                    # and leaving the other side exposed to infinite loss.
+                    logger.info("Removing TP from collided recovery operations to prevent equity drain", 
+                                cycle_id=failed_cycle.id)
+                    
+                    for op in active_ops:
+                        if op.broker_ticket:
+                            # 1. Update in Broker
+                            mod_res = await self.trading_service.broker.modify_position(
+                                op.broker_ticket, 
+                                new_tp=None, 
+                                new_sl=op.sl_price
+                            )
+                            if mod_res.success:
+                                logger.info("Removed TP from blocked recovery op", 
+                                           ticket=op.broker_ticket, op_id=op.id)
+                            else:
+                                logger.error("Failed to remove TP from blocked recovery op", 
+                                            ticket=op.broker_ticket, error=mod_res.error)
+                        
+                        # 2. Update in Repo
+                        op.tp_price = None
+                        op.metadata["tp_removed_on_collision"] = True
+                        await self.repository.save_operation(op)
         
         logger.info("Added 40 pips debt unit due to recovery failure", 
                    parent_id=parent_cycle.id, failed_id=failed_cycle.id)
