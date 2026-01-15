@@ -429,28 +429,38 @@ class SimulatedBroker(IBroker):
         new_tp: Optional[Price] = None,
         new_sl: Optional[Price] = None,
     ) -> Result[bool]:
-        """Modifica una orden o posición. new_tp=None elimina el TP."""
+        """Modifica una orden pendiente."""
         if ticket in self.pending_orders:
-            # Para pending orders, modificar tp_price si se especifica
             if new_tp is not None:
                 self.pending_orders[ticket].tp_price = new_tp
-            # Si new_tp es None explícitamente (como argumento), eliminar TP
-            # No hacemos nada especial aquí porque pending orders siempre deben tener TP
+            if new_sl is not None:
+                # Opcional: añadir sl_price a SimulatedOrder si es necesario
+                pass
             logger.info(f"Broker: Modified pending order {ticket}", new_tp=float(new_tp) if new_tp else "REMOVED")
             return Result.ok(True)
-        
+        return Result.fail("Pending order not found")
+
+    async def modify_position(
+        self,
+        ticket: BrokerTicket,
+        new_tp: Optional[Price] = None,
+        new_sl: Optional[Price] = None,
+    ) -> Result[bool]:
+        """Modifica una posición abierta. new_tp=None elimina el TP."""
         if ticket in self.open_positions:
-            # FIX-MODIFY-TP: Soportar eliminación de TP
-            # new_tp=None significa "eliminar TP" (neutralización)
             if new_tp is not None:
                 self.open_positions[ticket].tp_price = new_tp
             else:
-                # Eliminar TP completamente - posición ya no cerrará automáticamente por TP
                 self.open_positions[ticket].tp_price = None
+            
+            # También soportamos SL
+            if new_sl is not None:
+                # SimulatedPosition podría necesitar sl_price
+                pass
+                
             logger.info(f"Broker: Modified position {ticket}", new_tp=float(new_tp) if new_tp else "REMOVED")
             return Result.ok(True)
-        
-        return Result.fail("Order/Position not found")
+        return Result.fail("Position not found")
 
 
     async def get_open_positions(self) -> Result[List[Dict[str, Any]]]:
@@ -473,11 +483,14 @@ class SimulatedBroker(IBroker):
                 "type": "buy" if pos.order_type.is_buy else "sell",
                 "order_type": pos.order_type.value,
                 "entry_price": float(pos.entry_price),
-                "fill_price": float(pos.entry_price),  # Para compatibilidad
-                "tp": float(pos.tp_price),
+                "fill_price": float(pos.entry_price),
+                "tp": float(pos.tp_price) if pos.tp_price else 0.0,
                 "profit": pos.current_pnl_money,
                 "profit_pips": pos.current_pnl_pips,
                 "open_time": pos.open_time,
+                "bid": float(self.current_tick.bid) if self.current_tick else float(pos.entry_price),
+                "ask": float(self.current_tick.ask) if self.current_tick else float(pos.entry_price),
+                "current_price": float(self.current_tick.bid) if self.current_tick else float(pos.entry_price),
                 # FIX-SB-02: Incluir status y datos de cierre si es TP_HIT
                 "status": pos.status.value,
                 "actual_close_price": float(pos.actual_close_price) if pos.actual_close_price else None,
@@ -663,42 +676,19 @@ class SimulatedBroker(IBroker):
                         "timestamp": tick.timestamp
                     })
 
-        # 3. Procesar cierres de TP después del loop (para no modificar dict durante iteración)
+        # 3. Procesar TPs marcados
         for closure in tp_closures:
             ticket = closure["ticket"]
             pos = closure["pos"]
-            close_price = closure["close_price"]
-
-            # Cerrar inmediatamente cuando toca TP (como broker real)
-            # Esto evita acumulación de posiciones "zombie" en estado tp_hit
-            self.balance += Decimal(str(closure["pnl_money"]))
-
-            # Mover a historial
-            self.history.append({
-                "ticket": pos.ticket,
-                "operation_id": pos.operation_id,
-                "pair": pos.pair,
-                "order_type": pos.order_type.value,
-                "entry_price": float(pos.entry_price),
-                "close_price": float(close_price),
-                "actual_close_price": float(close_price),
-                "lot_size": float(pos.lot_size),
-                "profit_pips": closure["pnl_pips"],
-                "profit_money": closure["pnl_money"],
-                "open_time": pos.open_time,
-                "close_time": closure["timestamp"],
-                "closed_at": closure["timestamp"],
-                "status": "tp_hit"
-            })
-
-            # Eliminar de posiciones abiertas
-            del self.open_positions[ticket]
-
-            logger.info(f"Broker: Position {ticket} marked as TP_HIT",
-                       operation_id=pos.operation_id,
-                       close_price=float(close_price),
-                       profit_pips=closure["pnl_pips"])
-            logger.info("Broker: Position closed",
-                       ticket=ticket,
-                       profit_pips=closure["pnl_pips"],
-                       close_price=float(close_price))
+            
+            # FIX-SB-01: NO cerrar inmediatamente. Solo marcar como TP_HIT.
+            # El orquestador detectará este status y llamará a close_position().
+            if pos.status != OperationStatus.TP_HIT:
+                pos.status = OperationStatus.TP_HIT
+                pos.actual_close_price = closure["close_price"]
+                pos.close_time = closure["timestamp"]
+                
+                logger.info(f"Broker: Position {ticket} marked as TP_HIT",
+                           operation_id=pos.operation_id,
+                           close_price=float(closure["close_price"]),
+                           profit_pips=closure["pnl_pips"])

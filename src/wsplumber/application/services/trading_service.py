@@ -109,9 +109,22 @@ class TradingService:
             broker_result = await self.broker.close_position(operation.broker_ticket)
 
             if not broker_result.success:
-                return broker_result
-
-            order_res = broker_result.value
+                # FIX-CLOSE-07: Idempotencia para "Position not found"
+                # Si el broker dice que no existe, es que ya se cerró (probablemente por sync o TP real)
+                if "not found" in str(broker_result.error).lower():
+                    logger.warning("Position not found in broker (already closed?), continuing", 
+                                 op_id=operation.id, ticket=operation.broker_ticket)
+                    # Forjamos un OrderResult básico para continuar el flujo local
+                    order_res = OrderResult(
+                        success=True, 
+                        broker_ticket=operation.broker_ticket,
+                        fill_price=operation.tp_price or operation.entry_price, # Fallback
+                        timestamp=datetime.now()
+                    )
+                else:
+                    return broker_result
+            else:
+                order_res = broker_result.value
 
             # FIX-CLOSE-05: Verificar si ya está CLOSED (race condition)
             # Si está en TP_HIT, es normal - el orchestrator lo marcó así antes de llamarnos

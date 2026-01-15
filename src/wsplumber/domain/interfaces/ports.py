@@ -156,6 +156,44 @@ class IBroker(ABC):
         pass
 
     @abstractmethod
+    async def modify_position(
+        self,
+        ticket: BrokerTicket,
+        new_tp: Optional[Price] = None,
+        new_sl: Optional[Price] = None,
+    ) -> Result[bool]:
+        """
+        Modifica una posición existente (SL/TP).
+
+        Args:
+            ticket: Ticket de la posición
+            new_tp: Nuevo take profit (opcional)
+            new_sl: Nuevo stop loss (opcional)
+
+        Returns:
+            True si se modificó exitosamente.
+        """
+        pass
+
+    @abstractmethod
+    async def update_position_status(
+        self, 
+        ticket: BrokerTicket, 
+        status: OperationStatus
+    ) -> Result[bool]:
+        """
+        Actualiza el estado de una posición en el broker.
+
+        Args:
+            ticket: Ticket de la posición
+            status: Nuevo estado
+
+        Returns:
+            True si se actualizó.
+        """
+        pass
+
+    @abstractmethod
     async def get_open_positions(self) -> Result[List[Dict[str, Any]]]:
         """
         Obtiene todas las posiciones abiertas.

@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 from datetime import datetime
 from typing import AsyncGenerator, Optional
-import logging
+from wsplumber.infrastructure.logging.safe_logger import get_logger
 
 from wsplumber.application.use_cases.cycle_orchestrator import CycleOrchestrator
 from wsplumber.application.services.trading_service import TradingService
@@ -21,7 +21,7 @@ from wsplumber.domain.types import CurrencyPair
 from wsplumber.infrastructure.persistence.in_memory_repo import InMemoryRepository
 from tests.fixtures.simulated_broker import SimulatedBroker
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BacktestProgress:
@@ -217,6 +217,10 @@ class BacktestService:
                 break
             
             await orchestrator._process_tick_for_pair(currency_pair)
+            
+            # FIX-LAYER1: Call sync to process adaptive trailing stops
+            await trading_service.sync_all_active_positions(pair)
+            
             tick_count += 1
             
             # Reportar progreso
@@ -245,6 +249,11 @@ class BacktestService:
                                     if o.is_recovery and o.status.value == "tp_hit"),
                     status="running"
                 )
+                
+                # FIX-LOG: Log progress to server logs
+                if tick_count % 10000 == 0 or tick_count == 1:
+                    logger.critical(f"PROGRESS|{tick_count}|{total_ticks}|{balance:.2f}|{equity:.2f}")
+                
                 yield progress
                 
                 # Small delay to not overwhelm
@@ -259,7 +268,7 @@ class BacktestService:
         all_cycles = list(repo.cycles.values())
         main_cycles = [c for c in all_cycles if c.cycle_type.value == "main"]
         
-        yield BacktestProgress(
+        progress = BacktestProgress(
             tick=tick_count,
             total_ticks=total_ticks,
             balance=final_balance,
@@ -273,6 +282,12 @@ class BacktestService:
             status="complete",
             message=f"Backtest completado en {duration:.1f}s. P/L: {final_balance - initial_balance:+.2f} EUR"
         )
+        
+        # FIX-LOG: Log final result
+        logger.info(f"Backtest Completed! Final Balance: {final_balance:.2f} | P/L: {final_balance - initial_balance:+.2f} EUR")
+        print(f"===RESULT=== Final Balance: {final_balance:.2f} | P/L: {final_balance - initial_balance:+.2f} EUR")
+        
+        yield progress
 
 
 # Singleton para uso desde la API

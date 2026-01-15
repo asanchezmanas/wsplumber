@@ -252,28 +252,47 @@ class MT5Broker(IBroker):
         new_tp: Optional[Price] = None,
         new_sl: Optional[Price] = None,
     ) -> Result[bool]:
-        """Modifica SL/TP de una posición u orden."""
-        # Determinar si es posición u orden
-        position = mt5.positions_get(ticket=int(str(ticket)))
-        if position:
-            request = {
-                "action": mt5.TRADE_ACTION_SLTP,
-                "position": int(str(ticket)),
-                "tp": float(new_tp) if new_tp else 0.0,
-                "sl": float(new_sl) if new_sl else 0.0,
-            }
-        else:
-            request = {
-                "action": mt5.TRADE_ACTION_MODIFY,
-                "order": int(str(ticket)),
-                "tp": float(new_tp) if new_tp else 0.0,
-                "sl": float(new_sl) if new_sl else 0.0,
-            }
-            
+        """Modifica SL/TP de una orden pendiente."""
+        request = {
+            "action": mt5.TRADE_ACTION_MODIFY,
+            "order": int(str(ticket)),
+            "tp": float(new_tp) if new_tp else 0.0,
+            "sl": float(new_sl) if new_sl else 0.0,
+        }
         result = mt5.order_send(request)
         if result.retcode == mt5.TRADE_RETCODE_DONE:
             return Result.ok(True)
-        return Result.fail(f"Modify failed: {result.comment}", "MODIFY_ERROR")
+        return Result.fail(f"Modify order failed: {result.comment}", "MODIFY_ERROR")
+
+    async def modify_position(
+        self,
+        ticket: BrokerTicket,
+        new_tp: Optional[Price] = None,
+        new_sl: Optional[Price] = None,
+    ) -> Result[bool]:
+        """Modifica SL/TP de una posición abierta."""
+        request = {
+            "action": mt5.TRADE_ACTION_SLTP,
+            "position": int(str(ticket)),
+            "tp": float(new_tp) if new_tp else 0.0,
+            "sl": float(new_sl) if new_sl else 0.0,
+        }
+        result = mt5.order_send(request)
+        if result.retcode == mt5.TRADE_RETCODE_DONE:
+            return Result.ok(True)
+        return Result.fail(f"Modify position failed: {result.comment}", "MODIFY_ERROR")
+
+    async def update_position_status(
+        self, 
+        ticket: BrokerTicket, 
+        status: OperationStatus
+    ) -> Result[bool]:
+        """
+        No aplicable directamente en MT5 real de la misma forma que en simulación,
+        pero se implementa para cumplir interfaz.
+        """
+        logger.debug("MT5Broker: update_position_status called (info only)", ticket=ticket, status=status.value)
+        return Result.ok(True)
 
     async def get_open_positions(self) -> Result[List[Dict[str, Any]]]:
         """Lista todas las posiciones abiertas."""

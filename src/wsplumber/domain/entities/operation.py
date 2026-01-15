@@ -65,6 +65,7 @@ class Operation:
     # Precios
     entry_price: Price = Price(Decimal("0"))
     tp_price: Price = Price(Decimal("0"))
+    sl_price: Optional[Price] = None
     actual_entry_price: Optional[Price] = None
     actual_close_price: Optional[Price] = None
 
@@ -458,6 +459,7 @@ class Operation:
             "status": self.status.value,
             "entry_price": str(self.entry_price),
             "tp_price": str(self.tp_price),
+            "sl_price": str(self.sl_price) if self.sl_price else None,
             "actual_entry_price": str(self.actual_entry_price) if self.actual_entry_price else None,
             "actual_close_price": str(self.actual_close_price) if self.actual_close_price else None,
             "lot_size": self.lot_size,
@@ -488,6 +490,7 @@ class Operation:
             status=OperationStatus(data["status"]),
             entry_price=Price(Decimal(data["entry_price"])),
             tp_price=Price(Decimal(data["tp_price"])),
+            sl_price=Price(Decimal(data["sl_price"])) if data.get("sl_price") else None,
             actual_entry_price=Price(Decimal(data["actual_entry_price"]))
             if data.get("actual_entry_price")
             else None,
