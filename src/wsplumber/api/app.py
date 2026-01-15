@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse
 from wsplumber.config.settings import get_settings
 from wsplumber.api.routers import websocket
 from wsplumber.api.routers.traceability import router as traceability_router
+from wsplumber.api.routers.backtest import router as backtest_router
 from wsplumber.api.routers.state_broadcaster import state_broadcaster
 
 
@@ -41,6 +42,7 @@ app = FastAPI(
 # Registrar Routers
 app.include_router(websocket.router)
 app.include_router(traceability_router)
+app.include_router(backtest_router)
 
 # Rutas de Archivos
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

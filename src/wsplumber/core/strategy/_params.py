@@ -43,7 +43,7 @@ PRODUCE_AUDIT_LOGS = True
 
 # Layer 1 Mode: "OFF" | "BREAKEVEN" | "ADAPTIVE_TRAILING"
 # OFF = No trailing (baseline), ADAPTIVE_TRAILING = Progressive trailing
-LAYER1_MODE = "OFF"  # Change to "ADAPTIVE_TRAILING" to enable
+LAYER1_MODE = "ADAPTIVE_TRAILING"  # Change to "ADAPTIVE_TRAILING" to enable
 
 # Trailing Levels: (threshold_pips, lock_pips)
 # When recovery reaches threshold, lock at lock_pips

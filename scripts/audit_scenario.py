@@ -5,6 +5,7 @@ Usage: python scripts/audit_scenario.py tests/scenarios/r07.csv --log-level INFO
 import asyncio
 import sys
 import os
+import csv
 import logging
 from pathlib import Path
 from decimal import Decimal
@@ -22,7 +23,7 @@ from wsplumber.infrastructure.persistence.in_memory_repo import InMemoryReposito
 from tests.fixtures.simulated_broker import SimulatedBroker
 from scripts.audit_by_cycle import CycleAuditor
 
-async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pair: str = "EURUSD", log_suffix: str = ""):
+async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pair: str = "EURUSD", log_suffix: str = "", csv_interval: int = 100):
     csv_path = Path(csv_path_str)
     log_name = f"audit_logs_{csv_path.stem}{log_suffix}.log"
     
@@ -70,6 +71,13 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pai
     auditor = CycleAuditor()
     tick_count = 0
     
+    # CSV for dashboard visualization
+    metrics_csv_path = f"audit_metrics_{csv_path.stem}{log_suffix}.csv"
+    metrics_file = open(metrics_csv_path, 'w', newline='', encoding='utf-8')
+    metrics_writer = csv.writer(metrics_file)
+    metrics_writer.writerow(['tick', 'timestamp', 'balance', 'equity', 'dd_pct', 'active', 'hedged', 'in_recovery', 'closed', 'rec_active', 'rec_closed', 'mtp', 'rtp'])
+    print(f"[INFO] Metrics CSV: {metrics_csv_path}")
+    
     from wsplumber.core.strategy import _params
     print(f"\n[AUDIT] Starting processing: {csv_path.name}")
     print(f"[CONFIG] Layer 1 Mode: {getattr(_params, 'LAYER1_MODE', 'UNKNOWN')}")
@@ -89,6 +97,30 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pai
         await orchestrator._process_tick_for_pair(pair)
         tick_count += 1
         
+        # CSV metrics capture (configurable interval via --csv-interval)
+        if tick_count % csv_interval == 0 or tick_count == 1:
+            acc = await broker.get_account_info()
+            bal = acc.value["balance"]
+            eq = acc.value["equity"]
+            dd = ((bal - eq) / bal * 100) if bal > 0 else 0
+            all_c = repo.cycles.values()
+            mc = [c for c in all_c if c.cycle_type.value == "main"]
+            rc = [c for c in all_c if c.cycle_type.value == "recovery"]
+            ts = tick.timestamp.isoformat() if hasattr(tick, 'timestamp') else datetime.now().isoformat()
+            metrics_writer.writerow([
+                tick_count, ts, f'{bal:.2f}', f'{eq:.2f}', f'{dd:.2f}',
+                sum(1 for c in mc if c.status.value == "active"),
+                sum(1 for c in mc if c.status.value == "hedged"),
+                sum(1 for c in mc if c.status.value == "in_recovery"),
+                sum(1 for c in mc if c.status.value == "closed"),
+                sum(1 for c in rc if c.status.value != "closed"),
+                sum(1 for c in rc if c.status.value == "closed"),
+                sum(1 for o in repo.operations.values() if o.is_main and o.status.value == "tp_hit"),
+                sum(1 for o in repo.operations.values() if o.is_recovery and o.status.value == "tp_hit")
+            ])
+            if tick_count % 1000 == 0:  # Flush every 1000 ticks for performance
+                metrics_file.flush()
+        
         # Periodic status update (every 1k ticks, or 100k for massive TICK files)
         interval = 100000 if "TICK" in csv_path_str.upper() else 1000
         if tick_count % interval == 0 or tick_count == 1:
@@ -106,52 +138,6 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pai
             c_in_rec = sum(1 for c in main_cycles if c.status.value == "in_recovery")
             c_closed = sum(1 for c in main_cycles if c.status.value == "closed")
             
-            # PROGRESS LOGGING
-            if tick_count % 100 == 0:
-                acc = await broker.get_account_info()
-                equity = float(acc.value["equity"])
-                
-                # Count cycles by status (detailed)
-                main_cycles = [c for c in repo.cycles.values() if c.cycle_type.value == "main"]
-                rec_cycles = [c for c in repo.cycles.values() if c.cycle_type.value == "recovery"]
-                
-                c_active = sum(1 for c in main_cycles if c.status.value == "active")
-                c_hedged = sum(1 for c in main_cycles if c.status.value == "hedged")
-                c_in_rec = sum(1 for c in main_cycles if c.status.value == "in_recovery")
-                c_closed = sum(1 for c in main_cycles if c.status.value == "closed")
-                
-                active_rec = sum(1 for c in rec_cycles if c.status.value != "closed")
-                closed_rec = sum(1 for c in rec_cycles if c.status.value == "closed")
-                
-                # Count TPs by type
-                main_tps = sum(1 for o in repo.operations.values() if o.is_main and o.status.value == "tp_hit")
-                rec_tps = sum(1 for o in repo.operations.values() if o.is_recovery and o.status.value == "tp_hit")
-                
-                # Calculate DD
-                dd_pct = ((balance - equity) / balance * 100) if balance > 0 else 0
-                
-                total_pips = sum(c.total_pips for c in auditor.cycles.values())
-                
-                # Print header every 1k ticks
-                if tick_count % 1000 == 0:
-                    print(f"\n{'TICK':>10} | {'Balance':>10} | {'Equity':>10} | {'DD%':>5} | {'Act':>4} | {'Hdg':>4} | {'InR':>4} | {'Clo':>4} | {'RecA':>5} | {'RecC':>5} | {'MTP':>5} | {'RTP':>5}", flush=True)
-                    print("-" * 115)
-                
-                print(f"{tick_count:>10,} | {balance:>10.2f} | {equity:>10.2f} | {dd_pct:>4.1f}% | {c_active:>4} | {c_hedged:>4} | {c_in_rec:>4} | {c_closed:>4} | {active_rec:>5} | {closed_rec:>5} | {main_tps:>5} | {rec_tps:>5}", flush=True)
-                
-                # Detailed analysis every 25k ticks
-                if tick_count % 25000 == 0 and c_active > 1:
-                    print(f"\n--- ANÁLISIS DE CICLOS ACTIVE ({c_active}) ---")
-                    active_mains = [c for c in main_cycles if c.status.value == "active"]
-                    for i, c in enumerate(active_mains[:5]):
-                        ops = [o for o in repo.operations.values() if o.cycle_id == c.id]
-                        pending = sum(1 for o in ops if o.status.value == "pending")
-                        act = sum(1 for o in ops if o.status.value == "active")
-                        tp_hit = sum(1 for o in ops if o.status.value == "tp_hit")
-                        print(f"  C{i+1}: {c.id[:25]}... | Ops: {len(ops)} (P:{pending} A:{act} T:{tp_hit})")
-                    if len(active_mains) > 5:
-                        print(f"  ... y {len(active_mains)-5} más")
-                    print("---")
             active_rec = sum(1 for c in rec_cycles if c.status.value != "closed")
             closed_rec = sum(1 for c in rec_cycles if c.status.value == "closed")
             
@@ -165,6 +151,10 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pai
             dd_pct = ((balance - equity) / balance * 100) if balance > 0 else 0
             
             print(f"{tick_count:>12,} | {balance:>10.2f} | {equity:>10.2f} | {dd_pct:>4.1f}% | {c_active:>4} | {c_hedged:>4} | {c_in_rec:>4} | {c_closed:>4} | {active_rec:>5} | {closed_rec:>5} | {main_tps:>5} | {rec_tps:>5}", flush=True)
+
+    # Close metrics CSV
+    metrics_file.close()
+    print(f"[INFO] Metrics saved to: {metrics_csv_path}")
 
     # FINAL LEAK DETECTION
     active_ops = [op for op in repo.operations.values() if op.status.value in ("active", "neutralized")]
@@ -199,6 +189,7 @@ if __name__ == "__main__":
     parser.add_argument("csv_path", help="Path to scenario CSV")
     parser.add_argument("--log-level", default="INFO", help="Logging level")
     parser.add_argument("--log-suffix", default="", help="Suffix for output files")
+    parser.add_argument("--csv-interval", type=int, default=100, help="Write to CSV every N ticks (default: 100)")
     
     args = parser.parse_args()
     
@@ -207,7 +198,7 @@ if __name__ == "__main__":
     if "GBP" in args.csv_path.upper(): default_pair = "GBPUSD"
 
     async def run_now():
-        await audit_scenario(args.csv_path, args.log_level, default_pair, args.log_suffix)
+        await audit_scenario(args.csv_path, args.log_level, default_pair, args.log_suffix, args.csv_interval)
 
     try:
         asyncio.run(run_now())
