@@ -31,7 +31,8 @@ def partition_by_year(
     input_path: str,
     output_dir: str = None,
     date_column: str = None,
-    output_format: str = "parquet"  # parquet o csv
+    output_format: str = "parquet",  # parquet o csv
+    convert_to_tick: bool = True  # Convertir OHLC a formato tick (timestamp,bid,ask)
 ) -> list[Path]:
     """
     Particiona un CSV por año.
@@ -41,6 +42,7 @@ def partition_by_year(
         output_dir: Directorio de salida (por defecto: data/partitions/)
         date_column: Nombre de columna de fecha (autodetecta)
         output_format: 'parquet' (recomendado) o 'csv'
+        convert_to_tick: Si True, convierte OHLC a formato tick (timestamp,bid,ask)
     
     Returns:
         Lista de archivos creados
@@ -68,14 +70,47 @@ def partition_by_year(
     first_col = df.columns[0]
     print(f"   Primera columna (fecha): {first_col}")
     
-    # Extraer año de la primera columna
-    # Formato esperado: "2014.12.01" o "2014.12.01,02:00"
-    df = df.with_columns(
-        pl.col(first_col)
-        .str.slice(0, 4)
-        .cast(pl.Int32)
-        .alias("_year")
-    )
+    # Detectar si es formato OHLC sin headers (fecha como nombre de columna tipo "2014.12.01")
+    is_ohlc_no_header = first_col[0:4].isdigit() and "." in first_col[:10]
+    
+    if is_ohlc_no_header and convert_to_tick:
+        print(f"\n🔄 Detectado OHLC sin headers - Convirtiendo a formato tick...")
+        # Columnas OHLC: fecha, hora, open, high, low, close, volume
+        # Crear columnas con nombres correctos
+        col_names = df.columns
+        df = df.rename({
+            col_names[0]: "date_str",
+            col_names[1]: "time_str", 
+            col_names[2]: "open",
+            col_names[3]: "high",
+            col_names[4]: "low",
+            col_names[5]: "close",
+            col_names[6]: "volume" if len(col_names) > 6 else "vol"
+        })
+        
+        # Crear timestamp combinando fecha y hora (formato: 2014.12.01 02:00)
+        df = df.with_columns([
+            (pl.col("date_str") + " " + pl.col("time_str")).alias("timestamp"),
+            # Usar close como bid (aproximación para datos M1)
+            pl.col("close").cast(pl.Float64).alias("bid"),
+            # Ask = bid + spread (1 pip = 0.0001)
+            (pl.col("close").cast(pl.Float64) + 0.0001).alias("ask")
+        ])
+        
+        # Seleccionar solo columnas necesarias para el broker
+        df = df.select(["timestamp", "bid", "ask"])
+        print(f"   Convertido a formato tick: {df.columns}")
+    
+    # Extraer año
+    if is_ohlc_no_header:
+        # El formato es YYYY.MM.DD
+        df = df.with_columns(
+            pl.col("timestamp").str.slice(0, 4).cast(pl.Int32).alias("_year")
+        )
+    else:
+        df = df.with_columns(
+            pl.col(first_col).str.slice(0, 4).cast(pl.Int32).alias("_year")
+        )
     
     # Ver años disponibles
     years = sorted(df["_year"].unique().to_list())

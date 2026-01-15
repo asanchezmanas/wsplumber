@@ -159,22 +159,21 @@ class BacktestService:
         # Setup
         broker = SimulatedBroker(initial_balance=initial_balance)
         
-        # Cargar datos
+        # Cargar datos - Parquets están en formato tick (timestamp,bid,ask)
         if csv_path.endswith(".parquet"):
-            # Para Parquet OHLC, convertir a CSV temporal y usar load_m1_csv
+            # Convertir Parquet a CSV temporal para compatibilidad con broker
             import polars as pl
             import tempfile
             import os
             df = pl.read_parquet(csv_path)
             if max_ticks:
                 df = df.head(max_ticks)
-            # Crear CSV temporal
             temp_dir = tempfile.gettempdir()
             temp_csv = os.path.join(temp_dir, f"{csv_file.stem}_temp.csv")
             df.write_csv(temp_csv)
-            broker.load_m1_csv(temp_csv, CurrencyPair(pair), max_bars=max_ticks)
+            broker.load_csv(temp_csv, default_pair=pair)
         else:
-            # CSV normal - detectar si es OHLC o TickData
+            # CSV directo
             broker.load_csv(csv_path, default_pair=pair)
         
         await broker.connect()
