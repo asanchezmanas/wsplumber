@@ -88,6 +88,14 @@ def partition_by_year(
             col_names[6]: "volume" if len(col_names) > 6 else "vol"
         })
         
+        # Extraer año de date_str (formato YYYY.MM.DD) ANTES de crear timestamp
+        df = df.with_columns(
+            pl.col("date_str").str.slice(0, 4).cast(pl.Int32).alias("_year")
+        )
+        
+        # Filtrar filas donde el año no es válido (header row o datos corruptos)
+        df = df.filter(pl.col("_year") > 1990)
+        
         # Crear timestamp combinando fecha y hora (formato: 2014.12.01 02:00)
         df = df.with_columns([
             (pl.col("date_str") + " " + pl.col("time_str")).alias("timestamp"),
@@ -98,16 +106,10 @@ def partition_by_year(
         ])
         
         # Seleccionar solo columnas necesarias para el broker
-        df = df.select(["timestamp", "bid", "ask"])
+        df = df.select(["timestamp", "bid", "ask", "_year"])
         print(f"   Convertido a formato tick: {df.columns}")
-    
-    # Extraer año
-    if is_ohlc_no_header:
-        # El formato es YYYY.MM.DD
-        df = df.with_columns(
-            pl.col("timestamp").str.slice(0, 4).cast(pl.Int32).alias("_year")
-        )
     else:
+        # Otros formatos - extraer año de la primera columna
         df = df.with_columns(
             pl.col(first_col).str.slice(0, 4).cast(pl.Int32).alias("_year")
         )
