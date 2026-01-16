@@ -48,7 +48,9 @@ from wsplumber.domain.entities.debt import DebtUnit  # PHASE 4: Shadow tracking
 from wsplumber.application.services.trading_service import TradingService
 from wsplumber.core.strategy._params import (
     MAIN_TP_PIPS, MAIN_DISTANCE_PIPS, RECOVERY_TP_PIPS, RECOVERY_DISTANCE_PIPS, RECOVERY_LEVEL_STEP,
-    LAYER1_MODE, TRAILING_LEVELS, TRAILING_MIN_LOCK, TRAILING_REPOSITION
+    LAYER1_MODE, TRAILING_LEVELS, TRAILING_MIN_LOCK, TRAILING_REPOSITION,
+    LAYER2_MODE, EVENT_PROTECTION_WINDOW_PRE, EVENT_PROTECTION_WINDOW_POST, EVENT_CALENDAR,
+    LAYER3_MODE, GAP_FREEZE_THRESHOLD_PIPS, GAP_FREEZE_DURATION_MINUTES
 )
 from wsplumber.infrastructure.logging.safe_logger import get_logger
 
@@ -74,6 +76,10 @@ class CycleOrchestrator:
         
         self._running = False
         self._active_cycles: Dict[CurrencyPair, Cycle] = {}
+        
+        # State for Immune System L3 (Blind Gap Guard)
+        self._last_prices: Dict[CurrencyPair, float] = {}
+        self._freeze_until: Dict[CurrencyPair, datetime] = {}
 
     async def start(self, pairs: List[CurrencyPair]):
         """Inicia la orquestación para los pares indicados."""
@@ -105,6 +111,11 @@ class CycleOrchestrator:
     async def process_tick(self, tick: TickData):
         """Procesa un tick inyectado directamente (útil para backtesting)."""
         pair = tick.pair
+        
+        # PHASE 5: Immune System Guard
+        if not await self._check_immune_system(pair, tick):
+            return
+
         try:
             # 1. Monitorear estado de operaciones activas
             await self._check_operations_status(pair, tick)
@@ -132,6 +143,95 @@ class CycleOrchestrator:
         if not tick_res.success:
             return
         await self.process_tick(tick_res.value)
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # IMMUNE SYSTEM METHODS (PHASE 5)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    async def _check_immune_system(self, pair: CurrencyPair, tick: TickData) -> bool:
+        """
+        Verifica Layer 2 (Eventos) y Layer 3 (Gaps Ciegos).
+        Retorna True si el procesamiento puede continuar, False si está congelado.
+        """
+        now = tick.timestamp or datetime.now()
+        mid_price = float(tick.bid + tick.ask) / 2.0
+
+        # 1. Verificar si hay un congelamiento activo (L3)
+        if pair in self._freeze_until:
+            if now < self._freeze_until[pair]:
+                # logger.debug("Pair frozen by immune system", pair=pair, until=self._freeze_until[pair])
+                return False
+            else:
+                logger.info("Emergency freeze lifted", pair=pair)
+                del self._freeze_until[pair]
+
+        # 2. Detectar Gap Ciego (L3)
+        if LAYER3_MODE == "ON" and pair in self._last_prices:
+            last_price = self._last_prices[pair]
+            diff_pips = abs(mid_price - last_price) / (0.01 if "JPY" in pair else 0.0001)
+            
+            if diff_pips > GAP_FREEZE_THRESHOLD_PIPS:
+                logger.warning(
+                    "BLIND GAP DETECTED! Triggering emergency freeze",
+                    pair=pair, jump_pips=diff_pips, threshold=GAP_FREEZE_THRESHOLD_PIPS
+                )
+                from datetime import timedelta
+                self._freeze_until[pair] = now + timedelta(minutes=GAP_FREEZE_DURATION_MINUTES)
+                self._last_prices[pair] = mid_price
+                return False
+
+        self._last_prices[pair] = mid_price
+
+        # 3. Verificar Eventos Programados (L2)
+        if LAYER2_MODE == "ON":
+            for event_time, importance, desc in EVENT_CALENDAR:
+                # Convertir event_time si es string
+                if isinstance(event_time, str):
+                    try:
+                        event_dt = datetime.fromisoformat(event_time.replace("Z", "+00:00"))
+                    except: continue
+                else:
+                    event_dt = event_time
+
+                from datetime import timedelta
+                pre_window = event_dt - timedelta(minutes=EVENT_PROTECTION_WINDOW_PRE)
+                post_window = event_dt + timedelta(minutes=EVENT_PROTECTION_WINDOW_POST)
+
+                if now >= pre_window and now <= post_window:
+                    logger.info("Scheduled event active, applying shield", event=desc, importance=importance)
+                    await self._apply_event_shield(pair, tick)
+                    # En L2 permitimos seguir procesando pero con el escudo aplicado
+                    # (el escudo cancela pendientes y pone en BE)
+
+        return True
+
+    async def _apply_event_shield(self, pair: CurrencyPair, tick: TickData):
+        """
+        Aplica protección de Layer 2:
+        1. Cancela todas las órdenes pendientes.
+        2. Mueve posiciones activas huérfanas a Break Even.
+        """
+        # 1. Cancelar pendientes
+        pending_res = await self.repository.get_pending_operations(pair)
+        if pending_res.success:
+            for op in pending_res.value:
+                if op.broker_ticket:
+                    logger.info("Cancelling pending op due to event shield", op_id=op.id)
+                    await self.trading_service.broker.cancel_order(op.broker_ticket)
+                    op.status = OperationStatus.CANCELLED
+                    op.metadata["cancel_reason"] = "event_shield"
+                    await self.repository.save_operation(op)
+
+        # 2. Forzar Break Even en activas
+        active_res = await self.repository.get_active_operations(pair)
+        if active_res.success:
+            for op in active_res.value:
+                # Aquí aplicaríamos una lógica de modificación de SL/TP para BE
+                # Por ahora logueamos la intención (Fase 6 requiere modify_order robusto)
+                if "event_shield_be" not in op.metadata:
+                    logger.info("Position flagged for Event BE protection", op_id=op.id)
+                    op.metadata["event_shield_be"] = True
+                    await self.repository.save_operation(op)
 
     async def _check_operations_status(self, pair: CurrencyPair, tick: TickData):
         """
