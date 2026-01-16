@@ -299,6 +299,9 @@ class TradingService:
                 if ticket_str in broker_positions:
                     broker_pos = broker_positions[ticket_str]
                     broker_status = broker_pos.get("status", "active")
+                    
+                    # DEBUG: Log all ops reaching sync with their broker status
+                    logger.info(f"SYNC-DEBUG: op={op.id}, broker_status={broker_status}, op.is_recovery={op.is_recovery}, op.op_type={op.op_type.value}")
 
                     # Verificar si el broker la marcó como TP_HIT
                     if broker_status == "tp_hit":
@@ -327,6 +330,9 @@ class TradingService:
                     # IMMUNE SYSTEM LAYER 1: ADAPTIVE TRAILING STOP
                     # ══════════════════════════════════════════════════════════════
                     elif broker_status == "active" and LAYER1_MODE == "ADAPTIVE_TRAILING":
+                        # DEBUG: Log all ops reaching this point
+                        logger.info(f"LAYER1-DEBUG: Checking op {op.id}, is_recovery={op.is_recovery}, op_type={op.op_type.value}")
+                        
                         # Only apply to recovery operations
                         if op.is_recovery:
                             if await self._process_adaptive_trailing(op, broker_pos):

@@ -23,6 +23,9 @@ from wsplumber.domain.types import (
 )
 from wsplumber.infrastructure.data.m1_data_loader import M1DataLoader
 from wsplumber.infrastructure.logging.safe_logger import get_logger
+from wsplumber.core.strategy._params import (
+    LAYER1_MODE, TRAILING_LEVELS, TRAILING_MIN_LOCK
+)
 
 logger = get_logger(__name__, environment="development")
 
@@ -541,8 +544,92 @@ class SimulatedBroker(IBroker):
             return None
         
         tick = self.ticks[self.current_tick_index]
+        self.current_tick = tick  # Store for Layer 1 access
         await self._process_executions(tick)
         return tick
+
+    async def update_pnl_only(self) -> None:
+        """
+        PHASE 1: Update P&L for all open positions WITHOUT checking TPs.
+        
+        This allows the orchestrator to run Layer 1 trailing stops
+        before TPs are evaluated and marked.
+        """
+        if not self.current_tick:
+            return
+        
+        tick = self.current_tick
+        
+        for ticket, pos in self.open_positions.items():
+            # Sync status from repository
+            if self._repository and pos.operation_id:
+                op_res = self._repository.operations.get(pos.operation_id)
+                if op_res and op_res.status != pos.status:
+                    pos.status = op_res.status
+            
+            # Skip frozen positions
+            if pos.status in (OperationStatus.TP_HIT, OperationStatus.NEUTRALIZED):
+                continue
+            
+            # Calculate P&L
+            mult = 100 if "JPY" in pos.pair else 10000
+            if pos.order_type.is_buy:
+                pips = float((tick.bid - pos.entry_price) * mult)
+            else:
+                pips = float((pos.entry_price - tick.ask) * mult)
+            
+            pos.current_pnl_pips = pips
+            pip_value_per_lot = 10.0
+            pos.current_pnl_money = pips * float(pos.lot_size) * pip_value_per_lot
+
+    async def check_and_mark_tps(self) -> None:
+        """
+        PHASE 2: Check and mark TPs for positions that weren't closed by Layer 1.
+        
+        Only call this AFTER orchestrator has run Layer 1 trailing stops.
+        """
+        if not self.current_tick:
+            return
+        
+        tick = self.current_tick
+        tp_closures = []
+        
+        for ticket, pos in self.open_positions.items():
+            if pos.status == OperationStatus.ACTIVE and pos.tp_price is not None:
+                tp_hit = False
+                close_price = None
+                
+                if pos.tp_price and float(pos.tp_price) > 0:
+                    if pos.order_type.is_buy and tick.bid >= pos.tp_price:
+                        tp_hit = True
+                        close_price = tick.bid
+                    elif pos.order_type.is_sell and tick.ask <= pos.tp_price:
+                        tp_hit = True
+                        close_price = tick.ask
+                
+                if tp_hit:
+                    tp_closures.append({
+                        "ticket": ticket,
+                        "pos": pos,
+                        "close_price": close_price,
+                        "pnl_pips": pos.current_pnl_pips,
+                        "pnl_money": pos.current_pnl_money,
+                        "timestamp": tick.timestamp
+                    })
+        
+        for closure in tp_closures:
+            ticket = closure["ticket"]
+            pos = closure["pos"]
+            
+            if pos.status != OperationStatus.TP_HIT:
+                pos.status = OperationStatus.TP_HIT
+                pos.actual_close_price = closure["close_price"]
+                pos.close_time = closure["timestamp"]
+                
+                logger.info(f"Broker: Position {ticket} marked as TP_HIT",
+                           operation_id=pos.operation_id,
+                           close_price=float(closure["close_price"]),
+                           profit_pips=closure["pnl_pips"])
 
     async def _process_executions(self, tick: TickData):
         """

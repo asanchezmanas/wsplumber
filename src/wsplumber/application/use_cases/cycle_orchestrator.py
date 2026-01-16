@@ -47,7 +47,8 @@ from wsplumber.domain.entities.operation import Operation
 from wsplumber.domain.entities.debt import DebtUnit  # PHASE 4: Shadow tracking
 from wsplumber.application.services.trading_service import TradingService
 from wsplumber.core.strategy._params import (
-    MAIN_TP_PIPS, MAIN_DISTANCE_PIPS, RECOVERY_TP_PIPS, RECOVERY_DISTANCE_PIPS, RECOVERY_LEVEL_STEP
+    MAIN_TP_PIPS, MAIN_DISTANCE_PIPS, RECOVERY_TP_PIPS, RECOVERY_DISTANCE_PIPS, RECOVERY_LEVEL_STEP,
+    LAYER1_MODE, TRAILING_LEVELS, TRAILING_MIN_LOCK, TRAILING_REPOSITION
 )
 from wsplumber.infrastructure.logging.safe_logger import get_logger
 
@@ -127,10 +128,14 @@ class CycleOrchestrator:
 
     async def _process_tick_for_pair(self, pair: CurrencyPair):
         """Procesa un tick para un par específico obteniéndolo del broker."""
+        logger.critical(f"ORCH DEBUG: _process_tick_for_pair START pair={pair}")
         tick_res = await self.trading_service.broker.get_current_price(pair)
+        logger.critical(f"ORCH DEBUG: tick_res.success={tick_res.success}")
         if not tick_res.success:
+            logger.critical(f"ORCH DEBUG: EARLY RETURN - get_current_price FAILED")
             return
         await self.process_tick(tick_res.value)
+        logger.critical(f"ORCH DEBUG: process_tick COMPLETE")
 
     async def _check_operations_status(self, pair: CurrencyPair, tick: TickData):
         """
@@ -139,13 +144,20 @@ class CycleOrchestrator:
         FIX-001 APLICADO: Ahora renueva operaciones main después de TP.
         FIX-002 APLICADO: Cancela hedges pendientes contrarios.
         """
+        # DEBUG: Entry point trace
+        logger.critical(f"ORCH DEBUG: _check_operations_status START pair={pair}")
+        
         # Sincronizar con el broker
         sync_res = await self.trading_service.sync_all_active_positions(pair)
+        logger.critical(f"ORCH DEBUG: sync_res.success={sync_res.success}")
         if not sync_res.success:
             return
 
         # FIX: Monitoreamos TODOS los ciclos activos para este par (Principal + Recoveries)
         cycles_res = await self.repository.get_active_cycles(pair)
+        
+        # DEBUG: Log cycles found
+        logger.critical(f"FLOW-DEBUG: get_active_cycles result pair={pair} success={cycles_res.success} count={len(cycles_res.value) if cycles_res.success and cycles_res.value else 0}")
         
         # FIX-OPEN-FIRST-CYCLE: Si no hay ciclos activos, abrir el primero
         if not cycles_res.success or not cycles_res.value:
@@ -169,10 +181,12 @@ class CycleOrchestrator:
                 self._active_cycles[pair] = cycle
 
             ops_res = await self.repository.get_operations_by_cycle(cycle.id)
+            logger.critical(f"OPS-DEBUG: cycle={cycle.id} ops_count={len(ops_res.value) if ops_res.success else 'FAILED'}")
             if not ops_res.success:
                 continue
             
             for op in ops_res.value:
+                logger.critical(f"OP-DEBUG: op={op.id} status={op.status.value} is_recovery={op.is_recovery}")
                 # ═══════════════════════════════════════════════════════════
                 # 1. MANEJO DE ACTIVACIÓN DE ÓRDENES
                 # ═══════════════════════════════════════════════════════════
@@ -187,6 +201,22 @@ class CycleOrchestrator:
                         )
                         op.metadata["activation_logged"] = True
                         await self.repository.save_operation(op)
+
+                    # ═══════════════════════════════════════════════════════════
+                    # LAYER 1: ADAPTIVE TRAILING STOP FOR RECOVERY OPERATIONS
+                    # ═══════════════════════════════════════════════════════════
+                    # DEBUG: Log all ACTIVE ops before Layer 1 check
+                    logger.info("ORCH-DEBUG: ACTIVE op in loop",
+                               op_id=op.id,
+                               is_recovery=op.is_recovery,
+                               op_type=op.op_type.value,
+                               layer1_mode=LAYER1_MODE)
+                    
+                    if op.is_recovery and LAYER1_MODE == "ADAPTIVE_TRAILING":
+                        trailing_result = await self._process_layer1_trailing(op, tick, cycle)
+                        if trailing_result:
+                            # Op was closed by trailing, skip further processing
+                            continue
 
                     # Si es primera activación del ciclo
                     if cycle.status == CycleStatus.PENDING:
@@ -1782,3 +1812,128 @@ class CycleOrchestrator:
             num_recoveries = sum(1 for c in cycles_res.value if c.cycle_type == CycleType.RECOVERY)
             
         return (exposure_pct, num_recoveries)
+
+    async def _process_layer1_trailing(self, op: Operation, tick: TickData, cycle: Cycle) -> bool:
+        """
+        LAYER 1: Adaptive Trailing Stop for Recovery Operations.
+        
+        Tracks maximum profit reached and applies progressive trailing stops
+        to capture partial profits instead of letting them evaporate.
+        
+        Returns True if position was closed by trailing stop.
+        """
+        try:
+            # DEBUG: Log every call to trace flow
+            logger.info("LAYER1-DEBUG: Entry",
+                       op_id=op.id,
+                       op_status=op.status.value,
+                       has_tp=op.tp_price is not None,
+                       is_recovery=op.is_recovery)
+            
+            # Skip if already in a terminal state
+            if op.status in (OperationStatus.CLOSED, OperationStatus.TP_HIT, OperationStatus.CANCELLED):
+                logger.info("LAYER1-DEBUG: Skip (terminal status)", op_id=op.id, status=op.status.value)
+                return False
+            
+            # Skip if TP was removed (neutralized collision)
+            if op.tp_price is None:
+                logger.info("LAYER1-DEBUG: Skip (no TP)", op_id=op.id)
+                return False
+            
+            # 1. Calculate current floating pips using correct BID/ASK
+            multiplier = 100 if "JPY" in str(op.pair) else 10000
+            entry = float(op.actual_entry_price or op.entry_price)
+            
+            if op.is_buy:
+                current_price = float(tick.bid)
+                floating_pips = (current_price - entry) * multiplier
+            else:
+                current_price = float(tick.ask)
+                floating_pips = (entry - current_price) * multiplier
+            
+            # 2. Track maximum profit reached
+            max_profit = op.metadata.get("max_profit_pips", 0.0)
+            prev_max = max_profit
+            
+            if floating_pips > max_profit:
+                op.metadata["max_profit_pips"] = floating_pips
+                max_profit = floating_pips
+                await self.repository.save_operation(op)
+                
+                # Log significant profit milestones (every 10 pips)
+                if int(max_profit / 10) > int(prev_max / 10):
+                    logger.info("LAYER1-TRAILING: New max profit milestone",
+                               op_id=op.id,
+                               max_profit=round(max_profit, 1),
+                               prev_max=round(prev_max, 1))
+            
+            # 3. Determine current trailing stop level based on max_profit
+            trailing_stop = 0.0
+            active_level = 0
+            for i, (threshold, lock) in enumerate(TRAILING_LEVELS):
+                if max_profit >= threshold:
+                    trailing_stop = lock
+                    active_level = i + 1
+            
+            # 4. If no trailing level reached, nothing to do
+            if trailing_stop <= 0:
+                return False
+            
+            # 5. Update trailing metadata if level changed
+            if op.metadata.get("trailing_level", 0) != active_level:
+                op.metadata["trailing_level"] = active_level
+                op.metadata["trailing_stop_pips"] = trailing_stop
+                op.metadata["trailing_active"] = True
+                await self.repository.save_operation(op)
+                logger.info("LAYER1-TRAILING: Level activated",
+                           op_id=op.id,
+                           level=active_level,
+                           max_profit=round(max_profit, 1),
+                           trailing_stop=trailing_stop)
+            
+            # 6. Check if price hit trailing stop
+            if floating_pips <= trailing_stop and op.metadata.get("trailing_active"):
+                # Ensure minimum profit threshold
+                if floating_pips < TRAILING_MIN_LOCK:
+                    return False
+                
+                logger.info("LAYER1-TRAILING: Stop hit, closing with partial profit",
+                           op_id=op.id,
+                           max_profit=round(max_profit, 1),
+                           close_at=round(floating_pips, 1),
+                           captured_pct=round(floating_pips / max_profit * 100, 0) if max_profit > 0 else 0,
+                           level=active_level)
+                
+                # Close position in broker
+                if op.broker_ticket:
+                    close_result = await self.trading_service.broker.close_position(op.broker_ticket)
+                    if close_result.success:
+                        from decimal import Decimal
+                        close_price = Price(Decimal(str(current_price)))
+                        
+                        # Mark as trailing-closed for proper handling
+                        op.metadata["trailing_closed"] = True
+                        op.metadata["trailing_profit_pips"] = floating_pips
+                        op.close_v2(price=close_price, timestamp=tick.timestamp)
+                        await self.repository.save_operation(op)
+                        
+                        logger.info("LAYER1-TRAILING: Position closed successfully",
+                                   op_id=op.id,
+                                   final_pips=round(floating_pips, 1))
+                        
+                        # Trigger partial debt reduction based on captured profit
+                        await self._handle_trailing_profit(op, tick)
+                        
+                        return True
+                    else:
+                        logger.error("LAYER1-TRAILING: Failed to close position",
+                                    op_id=op.id,
+                                    error=close_result.error)
+            
+            return False
+            
+        except Exception as e:
+            logger.error("LAYER1-TRAILING: Exception in trailing processing",
+                        op_id=op.id,
+                        _exception=e)
+            return False

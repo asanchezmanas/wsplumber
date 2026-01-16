@@ -209,6 +209,7 @@ class BacktestService:
         tick_count = 0
         
         while True:
+            # PHASE 1: Advance tick and activate pending orders only
             tick = await broker.advance_tick()
             if not tick:
                 break
@@ -216,12 +217,22 @@ class BacktestService:
             if max_ticks and tick_count >= max_ticks:
                 break
             
+            # PHASE 2: Update P&L for all positions WITHOUT checking TPs
+            # This gives Layer 1 a chance to see current profit levels
+            await broker.update_pnl_only()
+            
+            # PHASE 3: Run orchestrator which includes Layer 1 trailing stops
+            # Layer 1 can now see positions with updated P&L and close them if trailing is hit
             await orchestrator._process_tick_for_pair(currency_pair)
             
-            # FIX-LAYER1: Call sync to process adaptive trailing stops
+            # PHASE 4: Now check and mark TPs for positions NOT closed by Layer 1
+            await broker.check_and_mark_tps()
+            
+            # PHASE 5: Sync to process TP_HIT positions and other state changes
             await trading_service.sync_all_active_positions(pair)
             
             tick_count += 1
+
             
             # Reportar progreso
             if tick_count % report_interval == 0 or tick_count == 1:
