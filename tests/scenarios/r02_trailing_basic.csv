@@ -1,6 +1,3 @@
-# Synthetic scenario: Recovery advances, trailing should activate
-# REC_SELL activates at T1, price drops continuously
-# Test that the pending REC_BUY gets trailed closer
 timestamp,bid,ask
 2026-01-20 10:00:00,1.1000,1.1001
 2026-01-20 10:00:01,1.0980,1.0981

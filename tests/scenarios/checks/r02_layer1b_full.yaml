@@ -1,0 +1,15 @@
+# Layer 1B Full Test
+# Tests the complete flow: HEDGED → RECOVERY → Trailing Counter
+
+name: "Layer 1B - Full Trailing Test"
+
+required_logs:
+  - "TRAILING_REPOSITION"
+
+checks:
+  - name: "Recovery cycle was created"
+    type: "cycle_count"
+    filter:
+      type: "recovery"
+    expect:
+      count: ">= 1"
