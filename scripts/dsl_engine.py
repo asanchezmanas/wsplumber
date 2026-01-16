@@ -373,7 +373,7 @@ class DSLEngine:
         if result.checks:
             print("\nCHECKS:")
             for check in result.checks:
-                icon = "✅" if check.passed else "❌"
+                icon = "[OK]" if check.passed else "[FAIL]"
                 print(f"  {icon} {check.name}")
                 if not check.passed:
                     print(f"      Expected: {check.expected}")
@@ -382,7 +382,7 @@ class DSLEngine:
         if result.invariants:
             print("\nINVARIANTS:")
             for inv in result.invariants:
-                icon = "✅" if inv.passed else "❌"
+                icon = "[OK]" if inv.passed else "[FAIL]"
                 print(f"  {icon} {inv.name}")
                 if not inv.passed:
                     print(f"      Expected: {inv.expected}")

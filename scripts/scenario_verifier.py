@@ -55,7 +55,7 @@ class ScenarioVerifier:
         
         if verbose:
             print(f"\n{'='*60}")
-            print(f"🚀 Running: {scenario_name}")
+            print(f"RUNNING: {scenario_name}")
             print(f"{'='*60}")
         
         # Setup
