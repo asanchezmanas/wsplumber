@@ -23,9 +23,9 @@
 ```
 PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
    │           │          │            │
-   │           ▼          │            │
-   │      (TP simple)     │            │
-   │           │          │            │
+   │           ▼          │            └─► OVERLAPPED ─► CLOSED/RECOVERY
+   │      (TP simple)     │            
+   │           │          │            
    └───────────┴──────────┴────────────┴──► CLOSED
 ```
 
@@ -37,6 +37,7 @@ PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
 | `ACTIVE` | Al menos 1 orden ejecutada | Órdenes activas, monitoreando TP |
 | `HEDGED` | Ambas mains activadas | Cobertura abierta, deuda = 20 pips |
 | `IN_RECOVERY` | Main toca TP + hedge activo | Recovery abierto a ±20 pips |
+| `OVERLAPPED` | Ambas recovery activas dist < 10p | Cierre atómico del overlap |
 | `CLOSED` | Todo resuelto (TP o FIFO) | Sin operaciones abiertas |
 
 ---
@@ -110,6 +111,18 @@ PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
 7. Repetir hasta que un Recovery alcance TP sin bloqueo
 ```
 **Log esperado**: `[RECOVERY_CASCADE] level=N debt_total=X`
+
+### Flujo 5: Layer 1B (Trailing Overlap)
+```
+1. Recovery N1 activo (ej: SELL) está en profit > 10 pips
+2. Contraorden (BUY_STOP) se mueve automáticamente (trailing)
+3. Si el precio se gira y activa el BUY_STOP a poca distancia:
+   - Detección de OVERLAP (< 10 pips)
+   - Cierre MARKET de ambas operaciones
+   - Si profit >= 20 pips → Cierre ciclo
+   - Si profit < 20 pips → Abrir nuevo recovery N2
+```
+**Log esperado**: `OVERLAP detected - capturing profit: X pips`
 
 ### Estados de Operación Relevantes
 | Estado | Significado | P&L Flotante |
@@ -273,7 +286,12 @@ breakeven_rate = 1/3  # 33.3%
 
 ---
 
-## 🚨 Errores Comunes
+## 🚨 Errores Comunes de Terminal (Windows)
+
+| Síntoma | Solución |
+|---------|----------|
+| `UnicodeEncodeError: 'charmap' codec...` | Ejecutar `$env:PYTHONIOENCODING='utf-8'` en PowerShell antes del test. |
+| `grep` / `tail` no reconocido | Usar `Select-String` o `Select-Object -Last X`. |
 
 | Síntoma | Causa Probable | Verificar |
 |---------|---------------|-----------|

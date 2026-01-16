@@ -312,49 +312,40 @@ Cuando el sistema está saturado (>15 operaciones) y ocurre un nuevo fallo de Ma
 - **Resultado:** Si el mercado se gira, la operación cierra sin beneficio pero **sin generar nueva deuda de 40 pips**
 - Evita la acumulación infinita de niveles en mercados de "látigo"
 
-### Layer 1B: Trailing del Contrario Pendiente (Propuesta)
+### Layer 1B: Trailing del Contrario Pendiente (Implementado 2026-01-16)
 
 > *"Si el activo avanza, acerca al contrario para proteger las ganancias"*
 
 #### Problema que Resuelve
 El **"Fallo de Corrección Catastrófico"**: en un gap, ambos recoveries se activan a 40+ pips de distancia, añadiendo deuda real en vez de recuperarla.
 
-#### Lógica
+#### Lógica de Trailing
+Cuando un recovery está en profit (ej: SELL activo), el sistema "persigue" el precio con la contraorden pendiente (BUY STOP):
 
-**Setup inicial (sin cambios):**
-```
-REC_BUY_STOP  @ 1.1000
-REC_SELL_STOP @ 1.0960  (40 pips de distancia)
-```
+1. **Activación:** Se activa cuando el profit del recovery actual supera los `LAYER1B_ACTIVATION_PIPS` (default: 10 pips).
+2. **Buffer:** La contraorden se mantiene a una distancia fija (`LAYER1B_BUFFER_PIPS`, default: 5 pips) del precio actual.
+3. **Mecanismo:** Si el precio sigue bajando, el BUY STOP baja con él. Esto garantiza un **OVERLAP** (beneficio bloqueado) si el mercado se gira.
 
-**Precio baja → SELL se activa:**
-```
-REC_SELL activo @ 1.0960
-REC_BUY_STOP pendiente @ 1.1000  (todavía a 40 pips)
-```
+#### Gestión de OVERLAP (Cierre Atómico)
+Cuando la distancia entre el recovery activo y su contraorden es pequeña (< `LAYER1B_OVERLAP_THRESHOLD_PIPS`, default: 10 pips) y AMBAS se activan:
 
-**Precio sigue bajando → SELL en profit (+20 pips):**
-```
-Precio actual: 1.0940
-→ Mover REC_BUY_STOP de 1.1000 a 1.0945 (5 pips encima)
-```
-
-**Resultado:**
-| Escenario | Sin Layer 1B | Con Layer 1B |
-|-----------|--------------|--------------|
-| Gap UP de 50 pips | Ambos activos @ 40 pips = +40 deuda | BUY activa cerca = ~5 pips hedge |
-| Precio sigue bajando | SELL llega a TP +80 | SELL llega a TP +80 |
+1. **Detección:** El sistema identifica un estado de `OVERLAP` en lugar de un `CORRECTION_FAIL`.
+2. **Cierre Atómico:** Se cierran ambas posiciones inmediatamente a precio de mercado.
+3. **Cálculo de Beneficio:** El beneficio neto es exactamente la distancia de overlap (ej: si se activan a 5 pips de distancia, el beneficio neto es de 5 pips).
+4. **Continuidad:** 
+   - Si el beneficio cubre la deuda pendiente (20 pips), el ciclo se cierra.
+   - Si no la cubre, se abre un **NUEVO ciclo recovery** desde el precio actual.
 
 ---
 
-#### Parámetros Requeridos (`_params.py`)
+#### Parámetros Operativos (`_params.py`)
 
 ```python
-# Layer 1B: Trailing Counter-Order
-LAYER1B_MODE = "OFF"                    # "OFF" | "ON"
-LAYER1B_ACTIVATION_PIPS = 10            # Profit mínimo para empezar trailing
-LAYER1B_BUFFER_PIPS = 5                 # Distancia del contrario al precio actual
-LAYER1B_MIN_MOVE_PIPS = 3               # Movimiento mínimo para reposicionar (evita spam)
+LAYER1B_MODE = "ON"
+LAYER1B_ACTIVATION_PIPS = 10    # Profit para empezar trailing
+LAYER1B_BUFFER_PIPS = 5         # Distancia del contrario
+LAYER1B_MIN_MOVE_PIPS = 3       # Sensibilidad para evitar spam
+LAYER1B_OVERLAP_THRESHOLD = 10  # Límite para cierre atómico
 ```
 
 ---
