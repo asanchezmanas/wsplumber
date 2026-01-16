@@ -206,11 +206,7 @@ class CycleOrchestrator:
                     # LAYER 1: ADAPTIVE TRAILING STOP FOR RECOVERY OPERATIONS
                     # ═══════════════════════════════════════════════════════════
                     # DEBUG: Log all ACTIVE ops before Layer 1 check
-                    logger.info("ORCH-DEBUG: ACTIVE op in loop",
-                               op_id=op.id,
-                               is_recovery=op.is_recovery,
-                               op_type=op.op_type.value,
-                               layer1_mode=LAYER1_MODE)
+                    logger.critical(f"L1-CHECK: op={op.id} is_recovery={op.is_recovery} layer1_mode={LAYER1_MODE}")
                     
                     if op.is_recovery and LAYER1_MODE == "ADAPTIVE_TRAILING":
                         trailing_result = await self._process_layer1_trailing(op, tick, cycle)
@@ -1824,15 +1820,11 @@ class CycleOrchestrator:
         """
         try:
             # DEBUG: Log every call to trace flow
-            logger.info("LAYER1-DEBUG: Entry",
-                       op_id=op.id,
-                       op_status=op.status.value,
-                       has_tp=op.tp_price is not None,
-                       is_recovery=op.is_recovery)
+            logger.critical(f"LAYER1-DEBUG: Entry op={op.id} status={op.status.value} has_tp={op.tp_price is not None} is_recovery={op.is_recovery}")
             
             # Skip if already in a terminal state
             if op.status in (OperationStatus.CLOSED, OperationStatus.TP_HIT, OperationStatus.CANCELLED):
-                logger.info("LAYER1-DEBUG: Skip (terminal status)", op_id=op.id, status=op.status.value)
+                logger.critical(f"LAYER1-DEBUG: Skip (terminal status) op={op.id} status={op.status.value}")
                 return False
             
             # Skip if TP was removed (neutralized collision)
