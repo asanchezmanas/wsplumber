@@ -128,14 +128,10 @@ class CycleOrchestrator:
 
     async def _process_tick_for_pair(self, pair: CurrencyPair):
         """Procesa un tick para un par específico obteniéndolo del broker."""
-        logger.critical(f"ORCH DEBUG: _process_tick_for_pair START pair={pair}")
         tick_res = await self.trading_service.broker.get_current_price(pair)
-        logger.critical(f"ORCH DEBUG: tick_res.success={tick_res.success}")
         if not tick_res.success:
-            logger.critical(f"ORCH DEBUG: EARLY RETURN - get_current_price FAILED")
             return
         await self.process_tick(tick_res.value)
-        logger.critical(f"ORCH DEBUG: process_tick COMPLETE")
 
     async def _check_operations_status(self, pair: CurrencyPair, tick: TickData):
         """
@@ -144,20 +140,13 @@ class CycleOrchestrator:
         FIX-001 APLICADO: Ahora renueva operaciones main después de TP.
         FIX-002 APLICADO: Cancela hedges pendientes contrarios.
         """
-        # DEBUG: Entry point trace
-        logger.critical(f"ORCH DEBUG: _check_operations_status START pair={pair}")
-        
         # Sincronizar con el broker
         sync_res = await self.trading_service.sync_all_active_positions(pair)
-        logger.critical(f"ORCH DEBUG: sync_res.success={sync_res.success}")
         if not sync_res.success:
             return
 
         # FIX: Monitoreamos TODOS los ciclos activos para este par (Principal + Recoveries)
         cycles_res = await self.repository.get_active_cycles(pair)
-        
-        # DEBUG: Log cycles found
-        logger.critical(f"FLOW-DEBUG: get_active_cycles result pair={pair} success={cycles_res.success} count={len(cycles_res.value) if cycles_res.success and cycles_res.value else 0}")
         
         # FIX-OPEN-FIRST-CYCLE: Si no hay ciclos activos, abrir el primero
         if not cycles_res.success or not cycles_res.value:
@@ -181,12 +170,10 @@ class CycleOrchestrator:
                 self._active_cycles[pair] = cycle
 
             ops_res = await self.repository.get_operations_by_cycle(cycle.id)
-            logger.critical(f"OPS-DEBUG: cycle={cycle.id} ops_count={len(ops_res.value) if ops_res.success else 'FAILED'}")
             if not ops_res.success:
                 continue
             
             for op in ops_res.value:
-                logger.critical(f"OP-DEBUG: op={op.id} status={op.status.value} is_recovery={op.is_recovery}")
                 # ═══════════════════════════════════════════════════════════
                 # 1. MANEJO DE ACTIVACIÓN DE ÓRDENES
                 # ═══════════════════════════════════════════════════════════
@@ -202,12 +189,6 @@ class CycleOrchestrator:
                         op.metadata["activation_logged"] = True
                         await self.repository.save_operation(op)
 
-                    # ═══════════════════════════════════════════════════════════
-                    # LAYER 1: ADAPTIVE TRAILING STOP FOR RECOVERY OPERATIONS
-                    # ═══════════════════════════════════════════════════════════
-                    # DEBUG: Log all ACTIVE ops before Layer 1 check
-                    logger.critical(f"L1-CHECK: op={op.id} is_recovery={op.is_recovery} layer1_mode={LAYER1_MODE}")
-                    
                     if op.is_recovery and LAYER1_MODE == "ADAPTIVE_TRAILING":
                         trailing_result = await self._process_layer1_trailing(op, tick, cycle)
                         if trailing_result:
@@ -1820,11 +1801,15 @@ class CycleOrchestrator:
         """
         try:
             # DEBUG: Log every call to trace flow
-            logger.critical(f"LAYER1-DEBUG: Entry op={op.id} status={op.status.value} has_tp={op.tp_price is not None} is_recovery={op.is_recovery}")
+            logger.info("LAYER1-DEBUG: Entry",
+                       op_id=op.id,
+                       op_status=op.status.value,
+                       has_tp=op.tp_price is not None,
+                       is_recovery=op.is_recovery)
             
             # Skip if already in a terminal state
             if op.status in (OperationStatus.CLOSED, OperationStatus.TP_HIT, OperationStatus.CANCELLED):
-                logger.critical(f"LAYER1-DEBUG: Skip (terminal status) op={op.id} status={op.status.value}")
+                logger.info("LAYER1-DEBUG: Skip (terminal status)", op_id=op.id, status=op.status.value)
                 return False
             
             # Skip if TP was removed (neutralized collision)
@@ -1871,35 +1856,39 @@ class CycleOrchestrator:
             if trailing_stop <= 0:
                 return False
             
-            # 5. Update trailing metadata if level changed
-            if op.metadata.get("trailing_level", 0) != active_level:
-                op.metadata["trailing_level"] = active_level
-                op.metadata["trailing_stop_pips"] = trailing_stop
-                op.metadata["trailing_active"] = True
-                await self.repository.save_operation(op)
-                logger.info("LAYER1-TRAILING: Level activated",
-                           op_id=op.id,
-                           level=active_level,
-                           max_profit=round(max_profit, 1),
-                           trailing_stop=trailing_stop)
-            
-            # 6. Check if price hit trailing stop
-            if floating_pips <= trailing_stop and op.metadata.get("trailing_active"):
-                # Ensure minimum profit threshold
-                if floating_pips < TRAILING_MIN_LOCK:
-                    return False
-                
-                logger.info("LAYER1-TRAILING: Stop hit, closing with partial profit",
-                           op_id=op.id,
-                           max_profit=round(max_profit, 1),
-                           close_at=round(floating_pips, 1),
-                           captured_pct=round(floating_pips / max_profit * 100, 0) if max_profit > 0 else 0,
-                           level=active_level)
-                
-                # Close position in broker
-                if op.broker_ticket:
-                    close_result = await self.trading_service.broker.close_position(op.broker_ticket)
-                    if close_result.success:
+            # 5. Check if we hit the trailing stop
+            if trailing_stop > 0:
+                # Update trailing metadata if level changed
+                if op.metadata.get("trailing_level", 0) != active_level:
+                    op.metadata["trailing_level"] = active_level
+                    op.metadata["trailing_stop_pips"] = trailing_stop
+                    op.metadata["trailing_active"] = True
+                    await self.repository.save_operation(op)
+                    logger.info("LAYER1-TRAILING: Level activated",
+                               op_id=op.id,
+                               level=active_level,
+                               max_profit=round(max_profit, 1),
+                               trailing_stop=trailing_stop)
+
+                # Check if price hit trailing stop
+                if floating_pips <= trailing_stop:
+                    # Ensure minimum profit threshold (extra safety)
+                    if floating_pips < TRAILING_MIN_LOCK:
+                        return False
+
+                    logger.info("LAYER1-TRAILING: TRAILING STOP HIT",
+                               op_id=op.id,
+                               pips=round(floating_pips, 1),
+                               stop=trailing_stop,
+                               level=active_level)
+                    
+                    # Close position in broker
+                    if not op.broker_ticket:
+                        logger.error(f"LAYER1-TRAILING: Cannot close op={op.id}, no broker_ticket")
+                        return False
+
+                    close_res = await self.trading_service.broker.close_position(op.broker_ticket)
+                    if close_res.success:
                         from decimal import Decimal
                         close_price = Price(Decimal(str(current_price)))
                         
@@ -1918,9 +1907,7 @@ class CycleOrchestrator:
                         
                         return True
                     else:
-                        logger.error("LAYER1-TRAILING: Failed to close position",
-                                    op_id=op.id,
-                                    error=close_result.error)
+                        logger.error(f"LAYER1-TRAILING: Failed to close position op={op.id} error={close_res.error}")
             
             return False
             

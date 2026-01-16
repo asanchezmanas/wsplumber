@@ -114,19 +114,32 @@ class SimulatedBroker(IBroker):
         with open(csv_path, mode='r', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f)
             for row in reader:
-                col_map = {k.lower(): k for k in row.keys()}
+                # Normalizar keys: quitar espacios y pasar a minúsculas. Manejar claves None.
+                row = {str(k).strip().lower(): v for k, v in row.items() if k is not None}
                 
-                pair_val = row.get(col_map.get('pair', 'NOSUCHCOLUMN'), default_pair)
+                pair_val = row.get('pair', default_pair)
                 if not pair_val:
                     pair_val = "EURUSD"
                 
                 pair = CurrencyPair(pair_val)
-                bid_key = col_map.get('bid', 'bid')
-                ask_key = col_map.get('ask', 'ask')
-                ts_key = col_map.get('timestamp', col_map.get('datetime', 'timestamp'))
+                bid_key = 'bid'
+                ask_key = 'ask'
+                ts_key = 'timestamp' if 'timestamp' in row else ('datetime' if 'datetime' in row else None)
                 
-                bid = Price(Decimal(row[bid_key]))
-                ask = Price(Decimal(row[ask_key]))
+                if not ts_key or bid_key not in row or ask_key not in row:
+                    continue
+
+                if row[bid_key] is None or row[ask_key] is None or row[ts_key] is None:
+                    continue
+                
+                # Saltar filas donde bid/ask estén vacíos
+                if not str(row[bid_key]).strip() or not str(row[ask_key]).strip():
+                    continue
+
+                bid_val = str(row[bid_key]).strip()
+                ask_val = str(row[ask_key]).strip()
+                bid = Price(Decimal(bid_val))
+                ask = Price(Decimal(ask_val))
                 
                 raw_ts = row[ts_key]
                 try:
@@ -138,7 +151,7 @@ class SimulatedBroker(IBroker):
                         dt = datetime.now()
                 
                 pips_mult = 100 if "JPY" in str(pair) else 10000
-                spread_val = row.get(col_map.get('spread_pips', 'NOSUCHCOLUMN'))
+                spread_val = row.get('spread_pips')
                 if spread_val is not None:
                     spread = float(spread_val)
                 else:
