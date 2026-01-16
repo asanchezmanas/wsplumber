@@ -1,0 +1,22 @@
+# Layer 1B Test: Trailing Counter-Order
+# Tests that when a recovery advances, the pending counter-order is moved closer
+
+name: "Layer 1B - Trailing Counter Basic"
+
+# Expected behavior:
+# - REC_SELL activates and goes into profit
+# - REC_BUY_STOP should be repositioned closer to current price
+# - If price reverses, OVERLAP should be detected and both closed
+
+required_logs:
+  - "TRAILING_REPOSITION"
+
+checks:
+  - name: "Counter-order was repositioned"
+    type: "operation_metadata"
+    filter:
+      op_type: "REC_BUY"
+      status: "pending"
+    expect:
+      metadata:
+        trailing_repositions: "> 0"

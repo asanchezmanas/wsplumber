@@ -456,6 +456,36 @@ class SimulatedBroker(IBroker):
             return Result.ok(True)
         return Result.fail("Pending order not found")
 
+    async def modify_pending_order(
+        self,
+        ticket: BrokerTicket,
+        new_entry_price: Optional[Price] = None,
+        new_tp_price: Optional[Price] = None,
+    ) -> Result[bool]:
+        """
+        Modifica el precio de entrada de una orden pendiente (Layer 1B).
+        Equivalente a OrderModify() en MT4/MT5.
+        """
+        if ticket not in self.pending_orders:
+            return Result.fail("Pending order not found")
+        
+        order = self.pending_orders[ticket]
+        
+        if new_entry_price is not None:
+            old_entry = order.entry_price
+            order.entry_price = new_entry_price
+            logger.debug(
+                "Broker: Modified pending order entry",
+                ticket=ticket,
+                old_entry=float(old_entry),
+                new_entry=float(new_entry_price)
+            )
+        
+        if new_tp_price is not None:
+            order.tp_price = new_tp_price
+        
+        return Result.ok(True)
+
     async def modify_position(
         self,
         ticket: BrokerTicket,

@@ -1,0 +1,24 @@
+# Layer 1B Test: OVERLAP Detection and Atomic Close
+# Tests that when both recoveries activate close together, they're closed atomically
+
+name: "Layer 1B - Overlap Atomic Close"
+
+required_logs:
+  - "OVERLAP_DETECTED"
+  - "ATOMIC_CLOSE"
+
+checks:
+  - name: "Both recoveries closed"
+    type: "operation_status"
+    filter:
+      op_type_contains: "REC_"
+      status: "closed"
+    expect:
+      count: 2
+  
+  - name: "Net profit is positive (overlap captured)"
+    type: "cycle_pnl"
+    filter:
+      cycle_type: "recovery"
+    expect:
+      net_pips: "> 0"

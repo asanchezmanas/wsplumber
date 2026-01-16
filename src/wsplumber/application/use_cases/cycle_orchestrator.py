@@ -50,7 +50,8 @@ from wsplumber.core.strategy._params import (
     MAIN_TP_PIPS, MAIN_DISTANCE_PIPS, RECOVERY_TP_PIPS, RECOVERY_DISTANCE_PIPS, RECOVERY_LEVEL_STEP,
     LAYER1_MODE, TRAILING_LEVELS, TRAILING_MIN_LOCK, TRAILING_REPOSITION,
     LAYER2_MODE, EVENT_PROTECTION_WINDOW_PRE, EVENT_PROTECTION_WINDOW_POST, EVENT_CALENDAR,
-    LAYER3_MODE, GAP_FREEZE_THRESHOLD_PIPS, GAP_FREEZE_DURATION_MINUTES
+    LAYER3_MODE, GAP_FREEZE_THRESHOLD_PIPS, GAP_FREEZE_DURATION_MINUTES,
+    LAYER1B_MODE, LAYER1B_ACTIVATION_PIPS, LAYER1B_BUFFER_PIPS, LAYER1B_MIN_MOVE_PIPS, LAYER1B_OVERLAP_THRESHOLD_PIPS
 )
 from wsplumber.infrastructure.logging.safe_logger import get_logger
 
@@ -245,6 +246,186 @@ class CycleOrchestrator:
                     op.metadata["event_shield_be"] = True
                     await self.repository.save_operation(op)
 
+    async def _process_layer1b_trailing_counter(
+        self, 
+        active_op: Operation, 
+        tick: TickData, 
+        cycle: Cycle,
+        all_ops: list
+    ):
+        """
+        Layer 1B: Trail the pending counter-order when active recovery is in profit.
+        
+        When recovery is in profit > ACTIVATION threshold:
+        1. Find the pending counter-order
+        2. Calculate new entry price (current_price ± BUFFER)
+        3. Reposition if move distance > MIN_MOVE
+        4. If both active and close together (OVERLAP), close both atomically
+        """
+        # Only process active recoveries
+        if not active_op.is_active or not active_op.is_recovery:
+            return
+        
+        # Calculate current profit
+        mid_price = float(tick.mid)
+        entry_price = float(active_op.actual_entry_price or active_op.entry_price)
+        multiplier = 10000 if "JPY" not in str(tick.pair) else 100
+        
+        if active_op.is_buy:
+            profit_pips = (mid_price - entry_price) * multiplier
+        else:
+            profit_pips = (entry_price - mid_price) * multiplier
+        
+        # Only trail if profit >= activation threshold
+        if profit_pips < LAYER1B_ACTIVATION_PIPS:
+            return
+        
+        # Find pending counter-order in same cycle
+        pending_counter = None
+        for op in all_ops:
+            if op.is_recovery and op.is_pending:
+                # Counter must be opposite direction
+                if active_op.is_buy and op.is_sell:
+                    pending_counter = op
+                    break
+                elif active_op.is_sell and op.is_buy:
+                    pending_counter = op
+                    break
+        
+        if not pending_counter:
+            # Check if counter is already active (OVERLAP scenario)
+            for op in all_ops:
+                if op.is_recovery and op.is_active and op.id != active_op.id:
+                    await self._handle_layer1b_overlap(active_op, op, tick, cycle)
+                    return
+            return
+        
+        # Calculate new entry for pending counter
+        pip_value = 0.0001 if "JPY" not in str(tick.pair) else 0.01
+        buffer_distance = LAYER1B_BUFFER_PIPS * pip_value
+        
+        if pending_counter.is_buy:
+            new_entry = mid_price + buffer_distance
+        else:
+            new_entry = mid_price - buffer_distance
+        
+        # Check if move is significant enough
+        current_entry = float(pending_counter.entry_price)
+        move_pips = abs(new_entry - current_entry) * multiplier
+        
+        if move_pips < LAYER1B_MIN_MOVE_PIPS:
+            return
+        
+        # Reposition the pending order
+        logger.info(
+            "TRAILING_REPOSITION",
+            op_id=pending_counter.id,
+            from_price=current_entry,
+            to_price=new_entry,
+            active_profit_pips=profit_pips
+        )
+        
+        # Update operation entry price
+        pending_counter.metadata["original_entry_price"] = str(pending_counter.entry_price)
+        pending_counter.metadata["trailing_repositions"] = pending_counter.metadata.get("trailing_repositions", 0) + 1
+        pending_counter.entry_price = Price(Decimal(str(new_entry)))
+        
+        # Also update TP to maintain distance
+        tp_distance = RECOVERY_TP_PIPS * pip_value
+        if pending_counter.is_buy:
+            pending_counter.tp_price = Price(Decimal(str(new_entry + tp_distance)))
+        else:
+            pending_counter.tp_price = Price(Decimal(str(new_entry - tp_distance)))
+        
+        await self.repository.save_operation(pending_counter)
+        
+        # Notify broker to modify the order (if broker supports it)
+        if hasattr(self.trading_service.broker, 'modify_pending_order'):
+            await self.trading_service.broker.modify_pending_order(
+                pending_counter.broker_ticket,
+                new_entry_price=Decimal(str(new_entry)),
+                new_tp_price=pending_counter.tp_price
+            )
+
+    async def _handle_layer1b_overlap(
+        self,
+        op1: Operation,
+        op2: Operation,
+        tick: TickData,
+        cycle: Cycle
+    ):
+        """
+        Handle OVERLAP: both recoveries active with small distance.
+        Close both atomically and apply net profit to debt queue.
+        """
+        # Calculate overlap distance
+        entry1 = float(op1.actual_entry_price or op1.entry_price)
+        entry2 = float(op2.actual_entry_price or op2.entry_price)
+        multiplier = 10000 if "JPY" not in str(tick.pair) else 100
+        overlap_pips = abs(entry1 - entry2) * multiplier
+        
+        # Check if this is truly an OVERLAP (close distance) vs FAIL (far distance)
+        if overlap_pips >= LAYER1B_OVERLAP_THRESHOLD_PIPS:
+            # This is a regular correction fail, not overlap
+            return
+        
+        # Skip if already processed
+        if op1.metadata.get("overlap_closed") or op2.metadata.get("overlap_closed"):
+            return
+        
+        logger.info(
+            "OVERLAP_DETECTED",
+            buy_entry=entry1 if op1.is_buy else entry2,
+            sell_entry=entry1 if op1.is_sell else entry2,
+            overlap_pips=overlap_pips
+        )
+        
+        # Close both positions atomically
+        mid_price = float(tick.mid)
+        
+        # Calculate net PnL
+        if op1.is_buy:
+            op1_pnl = (mid_price - entry1) * multiplier
+            op2_pnl = (entry2 - mid_price) * multiplier
+        else:
+            op1_pnl = (entry1 - mid_price) * multiplier
+            op2_pnl = (mid_price - entry2) * multiplier
+        
+        net_pnl = overlap_pips  # Net is always the overlap
+        
+        logger.info(
+            "ATOMIC_CLOSE",
+            op1_id=op1.id,
+            op2_id=op2.id,
+            op1_pnl=op1_pnl,
+            op2_pnl=op2_pnl,
+            net_pnl=net_pnl
+        )
+        
+        # Mark as closed
+        op1.close_manually(Price(Decimal(str(mid_price))), "overlap_atomic")
+        op2.close_manually(Price(Decimal(str(mid_price))), "overlap_atomic")
+        op1.metadata["overlap_closed"] = True
+        op2.metadata["overlap_closed"] = True
+        
+        await self.repository.save_operation(op1)
+        await self.repository.save_operation(op2)
+        
+        # Close positions in broker
+        if op1.broker_ticket:
+            await self.trading_service.broker.close_position(op1.broker_ticket)
+        if op2.broker_ticket:
+            await self.trading_service.broker.close_position(op2.broker_ticket)
+        
+        # Apply net profit to debt (simplified - full FIFO in _handle_recovery_tp)
+        if cycle.accounting:
+            remaining = cycle.accounting.shadow_process_recovery(net_pnl)
+            if remaining.get("remaining_profit", 0) >= 20:
+                logger.info("OVERLAP resolved cycle debt", cycle_id=cycle.id)
+            else:
+                logger.info("OVERLAP partial resolution, may need new recovery", 
+                           remaining=remaining.get("remaining_profit", 0))
+
     async def _check_operations_status(self, pair: CurrencyPair, tick: TickData):
         """
         Detecta cierres y activaciones de operaciones.
@@ -306,6 +487,10 @@ class CycleOrchestrator:
                         if trailing_result:
                             # Op was closed by trailing, skip further processing
                             continue
+
+                    # Layer 1B: Trail the pending counter-order when recovery is in profit
+                    if op.is_recovery and LAYER1B_MODE == "ON":
+                        await self._process_layer1b_trailing_counter(op, tick, cycle, ops_res.value)
 
                     # Si es primera activación del ciclo
                     if cycle.status == CycleStatus.PENDING:

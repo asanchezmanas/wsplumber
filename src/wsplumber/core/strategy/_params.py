@@ -91,3 +91,23 @@ GAP_FREEZE_THRESHOLD_PIPS = 15.0
 # Freeze duration in minutes after a blind gap
 GAP_FREEZE_DURATION_MINUTES = 30
 
+# =========================================
+# IMMUNE SYSTEM: LAYER 1B - TRAILING COUNTER-ORDER
+# =========================================
+
+# Layer 1B Mode: "OFF" | "ON"
+# If ON, trails the pending recovery counter-order when active is in profit
+LAYER1B_MODE = "ON"
+
+# Minimum profit on active recovery before trailing starts
+LAYER1B_ACTIVATION_PIPS = 10.0
+
+# Buffer distance: how close to trail the counter-order
+LAYER1B_BUFFER_PIPS = 5.0
+
+# Minimum move: don't reposition unless it moves at least this much
+LAYER1B_MIN_MOVE_PIPS = 3.0
+
+# Threshold to detect OVERLAP (close-distance hedge vs correction fail)
+LAYER1B_OVERLAP_THRESHOLD_PIPS = 10.0
+

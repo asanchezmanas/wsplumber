@@ -1,0 +1,14 @@
+# Synthetic scenario: Recovery advances then reverses, creating OVERLAP
+# REC_SELL activates, advances +30 pips, then price reverses
+# REC_BUY should have trailed to ~5 pips above, then activate = OVERLAP
+timestamp,bid,ask
+2026-01-20 10:00:00,1.1000,1.1001
+2026-01-20 10:00:01,1.0980,1.0981
+2026-01-20 10:00:02,1.0960,1.0961
+2026-01-20 10:00:03,1.0940,1.0941
+2026-01-20 10:00:04,1.0920,1.0921
+2026-01-20 10:00:05,1.0930,1.0931
+2026-01-20 10:00:06,1.0940,1.0941
+2026-01-20 10:00:07,1.0950,1.0951
+2026-01-20 10:00:08,1.0960,1.0961
+2026-01-20 10:00:09,1.0970,1.0971

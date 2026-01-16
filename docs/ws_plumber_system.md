@@ -312,6 +312,313 @@ Cuando el sistema está saturado (>15 operaciones) y ocurre un nuevo fallo de Ma
 - **Resultado:** Si el mercado se gira, la operación cierra sin beneficio pero **sin generar nueva deuda de 40 pips**
 - Evita la acumulación infinita de niveles en mercados de "látigo"
 
+### Layer 1B: Trailing del Contrario Pendiente (Propuesta)
+
+> *"Si el activo avanza, acerca al contrario para proteger las ganancias"*
+
+#### Problema que Resuelve
+El **"Fallo de Corrección Catastrófico"**: en un gap, ambos recoveries se activan a 40+ pips de distancia, añadiendo deuda real en vez de recuperarla.
+
+#### Lógica
+
+**Setup inicial (sin cambios):**
+```
+REC_BUY_STOP  @ 1.1000
+REC_SELL_STOP @ 1.0960  (40 pips de distancia)
+```
+
+**Precio baja → SELL se activa:**
+```
+REC_SELL activo @ 1.0960
+REC_BUY_STOP pendiente @ 1.1000  (todavía a 40 pips)
+```
+
+**Precio sigue bajando → SELL en profit (+20 pips):**
+```
+Precio actual: 1.0940
+→ Mover REC_BUY_STOP de 1.1000 a 1.0945 (5 pips encima)
+```
+
+**Resultado:**
+| Escenario | Sin Layer 1B | Con Layer 1B |
+|-----------|--------------|--------------|
+| Gap UP de 50 pips | Ambos activos @ 40 pips = +40 deuda | BUY activa cerca = ~5 pips hedge |
+| Precio sigue bajando | SELL llega a TP +80 | SELL llega a TP +80 |
+
+---
+
+#### Parámetros Requeridos (`_params.py`)
+
+```python
+# Layer 1B: Trailing Counter-Order
+LAYER1B_MODE = "OFF"                    # "OFF" | "ON"
+LAYER1B_ACTIVATION_PIPS = 10            # Profit mínimo para empezar trailing
+LAYER1B_BUFFER_PIPS = 5                 # Distancia del contrario al precio actual
+LAYER1B_MIN_MOVE_PIPS = 3               # Movimiento mínimo para reposicionar (evita spam)
+```
+
+---
+
+#### Datos a Trackear por Operación
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `original_entry_price` | Decimal | Precio inicial donde se colocó |
+| `trailing_repositions` | int | Número de veces reposicionado |
+| `last_reposition_at` | datetime | Timestamp última modificación |
+
+**Nota:** El `entry_price` actual del Operation ya refleja el precio vigente. Solo añadimos metadata para auditoría.
+
+---
+
+#### Cambios en el Broker Interface
+
+**Método requerido:** `modify_pending_order(ticket, new_entry_price)`
+
+```python
+async def modify_pending_order(
+    self, 
+    ticket: str, 
+    new_entry_price: Decimal
+) -> Result:
+    """
+    Modifica el precio de entrada de una orden pendiente.
+    Equivalente a OrderModify() en MT4/MT5.
+    """
+```
+
+---
+
+#### Lógica en `_check_operations_status`
+
+```python
+# Layer 1B: Trailing Counter-Order
+if LAYER1B_MODE == "ON" and op.is_recovery and op.is_active:
+    profit_pips = calculate_unrealized_pips(op, tick)
+    
+    if profit_pips >= LAYER1B_ACTIVATION_PIPS:
+        pending_counter = find_pending_recovery_counter(cycle, op)
+        
+        if pending_counter:
+            new_entry = calculate_trailing_entry(
+                active_op=op, 
+                tick=tick, 
+                buffer=LAYER1B_BUFFER_PIPS
+            )
+            
+            move_distance = abs(new_entry - pending_counter.entry_price)
+            if move_distance >= LAYER1B_MIN_MOVE_PIPS * pip_value:
+                await reposition_pending_order(pending_counter, new_entry)
+                pending_counter.metadata["trailing_repositions"] += 1
+```
+
+---
+
+#### Escenarios de Verificación
+
+| Escenario | Archivo | Checks |
+|-----------|---------|--------|
+| `r02_trailing_counter` | recovery avanza, contrario se mueve | contrario nuevo precio |
+| `r03_gap_with_trailing` | gap reverso con trailing activo | hedge cerca, no lejos |
+| `r04_no_trailing_yet` | profit < threshold | contrario NO se mueve |
+
+---
+
+#### Consideraciones de Implementación
+
+1. **SimulatedBroker**: Añadir `modify_pending_order` para backtest
+2. **TradingService**: Wrapper que llama al broker y actualiza Operation
+3. **Logging**: Registrar cada reposición con precio anterior/nuevo
+4. **Rate Limit**: No reposicionar más de 1 vez por tick (evitar spam al broker)
+
+---
+
+#### Trailing Overlap Continuo
+
+> *"Cada pip a favor aumenta el beneficio garantizado"*
+
+El trailing del contrario se ejecuta **continuamente** mientras el activo avanza:
+
+```
+T1: SELL activa @ 1.0960, precio en 1.0940 (+20 pips)
+    → BUY pending movido a 1.0945
+    → Overlap garantizado: 15 pips
+
+T2: Precio baja a 1.0920 (+40 pips)
+    → BUY pending movido a 1.0925
+    → Overlap garantizado: 35 pips
+
+T3: Precio baja a 1.0900 (+60 pips)
+    → BUY pending movido a 1.0905
+    → Overlap garantizado: 55 pips
+```
+
+**Si el precio se gira en T3:**
+- BUY activa @ 1.0905
+- SELL sigue activo @ 1.0960
+- **Beneficio bloqueado: 55 pips** ✅
+
+---
+
+#### Comportamiento "Hedge de Protección" vs "Fallo de Corrección"
+
+| Aspecto | Fallo Corrección (40 pips) | Hedge Protección (<10 pips) |
+|---------|----------------------------|------------------------------|
+| Distancia | Grande (original) | Pequeña (trailing) |
+| ¿Quitar TPs? | **Sí** | **No** |
+| ¿Añadir deuda? | **Sí** (+40 pips) | **No** |
+| ¿Abrir nuevo recovery? | **Sí** | **No** |
+| Al TP de uno... | Esperar | **Cerrar ambos** |
+
+**Detección automática:**
+```python
+distance_pips = abs(buy_entry - sell_entry)
+if distance_pips < LAYER1B_HEDGE_THRESHOLD:  # ej: 10 pips
+    # Hedge de Protección → mantener TPs, cierre atómico
+else:
+    # Fallo de Corrección → quitar TPs, añadir deuda
+```
+
+**Nuevo parámetro requerido:**
+```python
+LAYER1B_HEDGE_THRESHOLD = 10  # Distancia máxima para considerar "hedge cercano"
+```
+
+---
+
+#### Cierre Atómico del Hedge de Protección
+
+Cuando uno de los dos toca TP:
+1. La operación que toca TP cierra normalmente (+80 pips)
+2. La contraria se cierra **inmediatamente** al precio actual
+3. **No se añade deuda** (era un hedge de protección, no un fallo)
+4. Beneficio neto = TP (+80) - pérdida de la otra (variable)
+
+**Ejemplo:**
+```
+SELL cierra TP @ 1.0880 → +80 pips
+BUY se cierra @ 1.0880 → entry era 1.0905 → -25 pips
+NETO: +80 - 25 = +55 pips ✅
+```
+
+---
+
+#### Cierre por OVERLAP (Simplificado)
+
+> *"El beneficio neto es el overlap. No necesitamos TPs."*
+
+**Principio matemático:** Cuando hay OVERLAP, el beneficio neto combinado siempre es igual a la distancia del overlap, independientemente del precio de cierre.
+
+**Flujo:**
+```
+1. OVERLAP detectado (ambas activas, distancia < threshold)
+   SELL @ 1.0960, BUY @ 1.0925
+   Overlap = 35 pips
+
+2. Cerrar AMBAS inmediatamente (MARKET)
+   → No depender de TPs
+   → El Orchestrator cierra
+
+3. Aplicar a deuda FIFO:
+   Deuda pendiente: 20 pips
+   35 - 20 = 15 pips restantes
+
+4. ¿Restante >= 20 pips?
+   Sí → Ciclo cerrado
+   No → Nuevo recovery @ ±20 pips del precio actual
+```
+
+**Lógica:**
+```python
+if is_overlapped(buy_op, sell_op):
+    # Cerrar ambas
+    await broker.close_position(sell_op.ticket)
+    await broker.close_position(buy_op.ticket)
+    
+    # Neto = overlap
+    overlap_pips = abs(sell_op.entry - buy_op.entry)
+    remaining = cycle.accounting.process_recovery_tp(overlap_pips)
+    
+    if remaining >= 20:
+        close_cycle()
+    else:
+        open_new_recovery(current_price)
+```
+
+
+#### Nomenclatura y Etiquetas
+
+**Nuevo estado de ciclo recovery:**
+```python
+class RecoveryState(Enum):
+    PENDING = "pending"           # Ambas órdenes pendientes
+    ACTIVE = "active"             # Una activa, otra pendiente
+    OVERLAPPED = "overlapped"     # Ambas activas, distancia < threshold (L1B hedge)
+    CORRECTION_FAIL = "fail"      # Ambas activas, distancia >= threshold (fallo clásico)
+```
+
+**Metadata de operación (L1B):**
+```python
+op.metadata = {
+    "original_entry_price": Decimal,    # Precio inicial
+    "trailing_repositions": int,        # Veces movido
+    "is_overlapped_hedge": bool,        # True si es hedge de protección
+    "overlap_distance_pips": float,     # Distancia del overlap
+}
+```
+
+---
+
+#### Eventos de Log
+
+| Evento | Nivel | Datos |
+|--------|-------|-------|
+| `TRAILING_REPOSITION` | INFO | `op_id`, `from_price`, `to_price`, `profit_pips` |
+| `OVERLAP_DETECTED` | INFO | `buy_entry`, `sell_entry`, `distance_pips` |
+| `OVERLAP_TP_HIT` | INFO | `winner_id`, `loser_id`, `net_pips` |
+| `ATOMIC_CLOSE` | INFO | `winner_pnl`, `loser_pnl`, `net_pnl` |
+
+**Formato de log:**
+```json
+{
+  "event": "TRAILING_REPOSITION",
+  "op_id": "REC_EURUSD_001_B",
+  "from_price": 1.1000,
+  "to_price": 1.0945,
+  "active_profit_pips": 20,
+  "new_overlap_pips": 15
+}
+```
+
+---
+
+#### Escenarios de Test
+
+| ID | Nombre | Descripción | Checks |
+|----|--------|-------------|--------|
+| `r02` | `trailing_basic` | Recovery avanza +15 pips | Contrario se mueve a buffer |
+| `r03` | `trailing_continuous` | Recovery avanza +40 pips | Múltiples reposiciones |
+| `r04` | `overlap_tp_atomic` | Overlap activo, uno toca TP | Ambos cierran, net > 0 |
+| `r05` | `overlap_vs_fail` | Distancia 8 pips vs 42 pips | Detecta overlap vs fallo |
+| `r06` | `no_trailing_yet` | Profit < activation threshold | Contrario NO se mueve |
+| `r07` | `gap_into_overlap` | Gap reverso con trailing | Hedge activa cerca |
+
+**Ejemplo de check YAML (`r04_overlap_tp_atomic.yaml`):**
+```yaml
+name: "Overlap TP Atomic Close"
+checks:
+  - type: "operation_status"
+    filter: { is_recovery: true }
+    expect: { status: "closed", count: 2 }
+  
+  - type: "cycle_metadata"
+    expect:
+      recovery_state: "overlapped"
+      net_pips: "> 0"
+```
+
+
+
 ### Auditoría de Cierre Real (Slippage)
 
 **El ratio 2:1 debe ser NETO, no bruto:**
