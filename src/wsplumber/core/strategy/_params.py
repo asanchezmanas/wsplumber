@@ -97,7 +97,7 @@ EVENT_CALENDAR = [
     ("2015-09-17T19:00:00", "HIGH", "FOMC September"),
     ("2015-10-28T19:00:00", "HIGH", "FOMC October"),
     ("2015-12-16T19:00:00", "HIGH", "FOMC December Rate Hike"),
-    # ECB Monetary Policy - 12:45 UTC
+    ("2015-01-15T09:30:00", "HIGH", "SNB Black Thursday - 1.20 Cap Removed"),
     ("2015-01-22T12:45:00", "HIGH", "ECB January QE"),
     ("2015-03-05T12:45:00", "HIGH", "ECB March"),
     ("2015-04-15T12:45:00", "HIGH", "ECB April"),

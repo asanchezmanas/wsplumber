@@ -434,18 +434,18 @@ class CycleOrchestrator:
                     remaining=remaining_profit,
                     cycle_id=cycle.id
                 )
-                # Close current cycle and open new one
+                # Close current cycle
                 cycle.status = CycleStatus.CLOSED
                 await self.repository.save_cycle(cycle)
                 
-                # Open new recovery from current price
-                pip_value = 0.0001 if "JPY" not in str(tick.pair) else 0.01
-                distance = RECOVERY_DISTANCE_PIPS * pip_value
-                
-                # Find parent cycle for new recovery
-                parent_cycle = await self._get_parent_main_cycle(tick.pair)
-                if parent_cycle:
-                    await self._open_recovery_cycle(parent_cycle, tick)
+                # We need a StrategySignal to call _open_recovery_cycle
+                from wsplumber.domain.types import StrategySignal, SignalType
+                signal = StrategySignal(
+                    signal_type=SignalType.OPEN_RECOVERY,
+                    pair=tick.pair,
+                    metadata={"parent_cycle": cycle.parent_cycle_id}
+                )
+                await self._open_recovery_cycle(signal, tick)
 
 
     async def _check_operations_status(self, pair: CurrencyPair, tick: TickData):

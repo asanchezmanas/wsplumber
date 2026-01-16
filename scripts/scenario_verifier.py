@@ -103,7 +103,7 @@ class ScenarioVerifier:
         final_balance = float(acc.value["balance"])
         
         if verbose:
-            print(f"\n📊 Simulation complete: {tick_count} ticks")
+            print(f"\nSimulation complete: {tick_count} ticks")
             print(f"   Cycles: {len(repo.cycles)}")
             print(f"   Operations: {len(repo.operations)}")
             print(f"   Balance: {initial_balance:.2f} → {final_balance:.2f}")
