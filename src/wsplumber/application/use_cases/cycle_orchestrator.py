@@ -266,6 +266,19 @@ class CycleOrchestrator:
         if not active_op.is_active or not active_op.is_recovery:
             return
         
+        # FIRST: Check for OVERLAP (both recoveries active)
+        # This must happen regardless of profit level
+        active_counter = None
+        for op in all_ops:
+            if op.is_recovery and op.is_active and op.id != active_op.id:
+                active_counter = op
+                break
+        
+        if active_counter:
+            # Both active = OVERLAP scenario
+            await self._handle_layer1b_overlap(active_op, active_counter, tick, cycle)
+            return
+        
         # Calculate current profit
         mid_price = float(tick.mid)
         entry_price = float(active_op.actual_entry_price or active_op.entry_price)
@@ -275,6 +288,8 @@ class CycleOrchestrator:
             profit_pips = (mid_price - entry_price) * multiplier
         else:
             profit_pips = (entry_price - mid_price) * multiplier
+        
+
         
         # Only trail if profit >= activation threshold
         if profit_pips < LAYER1B_ACTIVATION_PIPS:
@@ -293,11 +308,7 @@ class CycleOrchestrator:
                     break
         
         if not pending_counter:
-            # Check if counter is already active (OVERLAP scenario)
-            for op in all_ops:
-                if op.is_recovery and op.is_active and op.id != active_op.id:
-                    await self._handle_layer1b_overlap(active_op, op, tick, cycle)
-                    return
+            # No pending counter and no active counter - nothing to do
             return
         
         # Calculate new entry for pending counter
@@ -366,7 +377,7 @@ class CycleOrchestrator:
         
         # Check if this is truly an OVERLAP (close distance) vs FAIL (far distance)
         if overlap_pips >= LAYER1B_OVERLAP_THRESHOLD_PIPS:
-            # This is a regular correction fail, not overlap
+            # This is a regular correction fail, not Layer 1B overlap
             return
         
         # Skip if already processed
@@ -382,23 +393,12 @@ class CycleOrchestrator:
         
         # Close both positions atomically
         mid_price = float(tick.mid)
-        
-        # Calculate net PnL
-        if op1.is_buy:
-            op1_pnl = (mid_price - entry1) * multiplier
-            op2_pnl = (entry2 - mid_price) * multiplier
-        else:
-            op1_pnl = (entry1 - mid_price) * multiplier
-            op2_pnl = (mid_price - entry2) * multiplier
-        
         net_pnl = overlap_pips  # Net is always the overlap
         
         logger.info(
             "ATOMIC_CLOSE",
             op1_id=op1.id,
             op2_id=op2.id,
-            op1_pnl=op1_pnl,
-            op2_pnl=op2_pnl,
             net_pnl=net_pnl
         )
         
@@ -417,14 +417,36 @@ class CycleOrchestrator:
         if op2.broker_ticket:
             await self.trading_service.broker.close_position(op2.broker_ticket)
         
-        # Apply net profit to debt (simplified - full FIFO in _handle_recovery_tp)
+        # Apply net profit to debt and check if new recovery needed
         if cycle.accounting:
             remaining = cycle.accounting.shadow_process_recovery(net_pnl)
-            if remaining.get("remaining_profit", 0) >= 20:
+            remaining_profit = remaining.get("remaining_profit", 0)
+            
+            if remaining_profit >= 20:
                 logger.info("OVERLAP resolved cycle debt", cycle_id=cycle.id)
+                # Close the recovery cycle
+                cycle.status = CycleStatus.CLOSED
+                await self.repository.save_cycle(cycle)
             else:
-                logger.info("OVERLAP partial resolution, may need new recovery", 
-                           remaining=remaining.get("remaining_profit", 0))
+                # Need to open a new recovery from current price
+                logger.info(
+                    "OVERLAP partial - opening new recovery",
+                    remaining=remaining_profit,
+                    cycle_id=cycle.id
+                )
+                # Close current cycle and open new one
+                cycle.status = CycleStatus.CLOSED
+                await self.repository.save_cycle(cycle)
+                
+                # Open new recovery from current price
+                pip_value = 0.0001 if "JPY" not in str(tick.pair) else 0.01
+                distance = RECOVERY_DISTANCE_PIPS * pip_value
+                
+                # Find parent cycle for new recovery
+                parent_cycle = await self._get_parent_main_cycle(tick.pair)
+                if parent_cycle:
+                    await self._open_recovery_cycle(parent_cycle, tick)
+
 
     async def _check_operations_status(self, pair: CurrencyPair, tick: TickData):
         """

@@ -73,8 +73,39 @@ EVENT_PROTECTION_WINDOW_PRE = 5
 EVENT_PROTECTION_WINDOW_POST = 5
 
 # Event Calendar: List of (datetime_iso, importance, description)
+# 2015 High-Impact Events for testing
 EVENT_CALENDAR = [
-    ("2026-01-16T12:00:00", "HIGH", "NFP Test")
+    # NFP (Non-Farm Payroll) - First Friday of month, 13:30 UTC
+    ("2015-01-02T13:30:00", "HIGH", "NFP January"),
+    ("2015-02-06T13:30:00", "HIGH", "NFP February"),
+    ("2015-03-06T13:30:00", "HIGH", "NFP March"),
+    ("2015-04-03T13:30:00", "HIGH", "NFP April"),
+    ("2015-05-01T13:30:00", "HIGH", "NFP May"),
+    ("2015-06-05T13:30:00", "HIGH", "NFP June"),
+    ("2015-07-02T13:30:00", "HIGH", "NFP July"),
+    ("2015-08-07T13:30:00", "HIGH", "NFP August"),
+    ("2015-09-04T13:30:00", "HIGH", "NFP September"),
+    ("2015-10-02T13:30:00", "HIGH", "NFP October"),
+    ("2015-11-06T13:30:00", "HIGH", "NFP November"),
+    ("2015-12-04T13:30:00", "HIGH", "NFP December"),
+    # FOMC Announcements - 19:00 UTC
+    ("2015-01-28T19:00:00", "HIGH", "FOMC January"),
+    ("2015-03-18T19:00:00", "HIGH", "FOMC March"),
+    ("2015-04-29T19:00:00", "HIGH", "FOMC April"),
+    ("2015-06-17T19:00:00", "HIGH", "FOMC June"),
+    ("2015-07-29T19:00:00", "HIGH", "FOMC July"),
+    ("2015-09-17T19:00:00", "HIGH", "FOMC September"),
+    ("2015-10-28T19:00:00", "HIGH", "FOMC October"),
+    ("2015-12-16T19:00:00", "HIGH", "FOMC December Rate Hike"),
+    # ECB Monetary Policy - 12:45 UTC
+    ("2015-01-22T12:45:00", "HIGH", "ECB January QE"),
+    ("2015-03-05T12:45:00", "HIGH", "ECB March"),
+    ("2015-04-15T12:45:00", "HIGH", "ECB April"),
+    ("2015-06-03T12:45:00", "HIGH", "ECB June"),
+    ("2015-07-16T12:45:00", "HIGH", "ECB July"),
+    ("2015-09-03T12:45:00", "HIGH", "ECB September"),
+    ("2015-10-22T12:45:00", "HIGH", "ECB October"),
+    ("2015-12-03T12:45:00", "HIGH", "ECB December"),
 ]
 
 # =========================================
