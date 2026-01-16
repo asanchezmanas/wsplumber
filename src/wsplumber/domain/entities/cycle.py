@@ -170,27 +170,29 @@ class CycleAccounting:
         
         Returns comparison with hardcoded system.
         """
-        self._shadow_recovered += real_profit_pips
-        remaining = real_profit_pips
+        profit_dec = Decimal(str(real_profit_pips))
+        self._shadow_recovered += float(profit_dec)
+        remaining = profit_dec
         liquidated_count = 0
         
         while remaining > 0 and self._shadow_debts:
             oldest = self._shadow_debts[0]
-            pips_owed = float(oldest.pips_owed)
+            pips_owed = oldest.pips_owed # This is already Decimal
             
             if remaining >= pips_owed:
                 remaining -= pips_owed
+                oldest.pips_owed = Decimal("0")
                 oldest.status = "liquidated"
                 self._shadow_debts.pop(0)
                 liquidated_count += 1
             else:
                 oldest.pips_owed -= remaining
                 oldest.status = "partially_paid"
-                remaining = 0
+                remaining = Decimal("0")
         
         return {
             "liquidated_count": liquidated_count,
-            "remaining_profit": remaining,
+            "remaining_profit": float(remaining),
             "shadow_debt_remaining": sum(float(d.pips_owed) for d in self._shadow_debts)
         }
     

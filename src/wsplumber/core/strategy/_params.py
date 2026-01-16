@@ -66,14 +66,16 @@ TRAILING_MIN_LOCK = 5.0
 
 # Layer 2 Mode: "OFF" | "ON"
 # If ON, cancels pending orders and forces BE before scheduled events
-LAYER2_MODE = "OFF"
+LAYER2_MODE = "ON"
 
 # Minutes before/after event to activate protection
 EVENT_PROTECTION_WINDOW_PRE = 5
 EVENT_PROTECTION_WINDOW_POST = 5
 
 # Event Calendar: List of (datetime_iso, importance, description)
-EVENT_CALENDAR = []
+EVENT_CALENDAR = [
+    ("2026-01-16T12:00:00", "HIGH", "NFP Test")
+]
 
 # =========================================
 # IMMUNE SYSTEM: LAYER 3 - BLIND GAP GUARD
@@ -81,7 +83,7 @@ EVENT_CALENDAR = []
 
 # Layer 3 Mode: "OFF" | "ON"
 # If ON, stops everything if a sudden price jump is detected
-LAYER3_MODE = "OFF"
+LAYER3_MODE = "ON"
 
 # Jump threshold in pips to trigger emergency freeze
 GAP_FREEZE_THRESHOLD_PIPS = 15.0

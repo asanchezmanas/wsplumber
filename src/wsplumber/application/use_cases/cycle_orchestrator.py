@@ -113,12 +113,16 @@ class CycleOrchestrator:
         pair = tick.pair
         
         # PHASE 5: Immune System Guard
-        if not await self._check_immune_system(pair, tick):
-            return
+        is_allowed = await self._check_immune_system(pair, tick)
 
         try:
-            # 1. Monitorear estado de operaciones activas
+            # 1. Monitorear estado de operaciones activas (SIEMPRE SINCRONIZAR)
+            # Incluso si estamos congelados, debemos saber si el broker cerró algo
             await self._check_operations_status(pair, tick)
+            
+            # Si el sistema inmune bloquea el procesamiento de nuevas señales
+            if not is_allowed:
+                return
 
             # 2. Consultar a la estrategia core
             signal: StrategySignal = self.strategy.process_tick(
@@ -184,8 +188,9 @@ class CycleOrchestrator:
 
         # 3. Verificar Eventos Programados (L2)
         if LAYER2_MODE == "ON":
-            for event_time, importance, desc in EVENT_CALENDAR:
-                # Convertir event_time si es string
+            for event in EVENT_CALENDAR:
+                event_time, importance, desc = event[0], event[1], event[2]
+                # Convertir event_time si es string (solo una vez)
                 if isinstance(event_time, str):
                     try:
                         event_dt = datetime.fromisoformat(event_time.replace("Z", "+00:00"))
@@ -198,10 +203,17 @@ class CycleOrchestrator:
                 post_window = event_dt + timedelta(minutes=EVENT_PROTECTION_WINDOW_POST)
 
                 if now >= pre_window and now <= post_window:
-                    logger.info("Scheduled event active, applying shield", event=desc, importance=importance)
-                    await self._apply_event_shield(pair, tick)
-                    # En L2 permitimos seguir procesando pero con el escudo aplicado
-                    # (el escudo cancela pendientes y pone en BE)
+                    # Usar un flag para no loguear/procesar cada tick del evento
+                    event_key = f"{pair}_{event_dt.isoformat()}"
+                    if getattr(self, "_active_shield_event", None) != event_key:
+                        logger.info("Scheduled event active, applying shield", event=desc, importance=importance)
+                        await self._apply_event_shield(pair, tick)
+                        self._active_shield_event = event_key
+                    return True # L2 activa escudo pero permite flujo
+                
+            # Limpiar flag de evento si ya pasó la ventana
+            if hasattr(self, "_active_shield_event"):
+                delattr(self, "_active_shield_event")
 
         return True
 
@@ -1411,6 +1423,28 @@ class CycleOrchestrator:
     async def _open_new_cycle(self, signal: StrategySignal, tick: TickData):
         """Inicia un nuevo ciclo de trading con dos operaciones (Buy + Sell)."""
         pair = signal.pair
+        
+        # PHASE 5: Immune System Guard - Block new openings
+        now = tick.timestamp or datetime.now()
+        if pair in self._freeze_until and now < self._freeze_until[pair]:
+            logger.info("New cycle BLOCKED by emergency freeze", pair=pair)
+            return
+        
+        # Check if we are in an event window (L2)
+        is_shielded = False
+        if LAYER2_MODE == "ON":
+            for event_time_str, importance, desc in EVENT_CALENDAR:
+                event_time = datetime.fromisoformat(event_time_str)
+                pre_window = event_time - timedelta(minutes=EVENT_PROTECTION_WINDOW_PRE)
+                post_window = event_time + timedelta(minutes=EVENT_PROTECTION_WINDOW_POST)
+                if pre_window <= now <= post_window:
+                    is_shielded = True
+                    break
+                    
+        if is_shielded:
+            logger.info("New cycle BLOCKED by scheduled event shield", pair=pair)
+            return
+
         
         # 1. Obtener métricas de exposición reales
         exposure_pct, num_recoveries = await self._get_exposure_metrics(pair)

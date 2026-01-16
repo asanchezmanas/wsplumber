@@ -1,0 +1,23 @@
+# Scenario E01: Event Guard (Layer 2)
+# Event at 12:00:00
+# Window: 11:55:00 to 12:05:00
+# T1 (11:50): Normal
+# T2 (11:56): Shielded -> Cancellations/BE
+# T3 (12:00): Shielded
+# T4 (12:06): Normal
+
+name: "E01 Event Guard"
+description: "Verifies that scheduled events trigger the protection shield."
+pair: "EURUSD"
+
+expected_logs:
+  - "Scheduled event active, applying shield"
+
+checks:
+  - name: "Positions should be flagged for BE protection"
+    type: "operation_metadata"
+    filter: 
+      status: "active"
+    expect:
+      metadata:
+        event_shield_be: true

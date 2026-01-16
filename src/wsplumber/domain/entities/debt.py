@@ -194,16 +194,17 @@ class DebtUnit:
         
         Returns: Remaining pips after paying this debt (0 if not fully paid)
         """
-        if pips_paid >= self.pips_owed:
+        pips_dec = Decimal(str(pips_paid))
+        if pips_dec >= self.pips_owed:
             # Fully paid
-            remaining = pips_paid - self.pips_owed
+            remaining = pips_dec - self.pips_owed
             self.pips_owed = Decimal("0")
             self.status = "liquidated"
             self.liquidated_at = datetime.now()
             return remaining
         else:
             # Partial payment
-            self.pips_owed -= pips_paid
+            self.pips_owed -= pips_dec
             self.status = "partially_paid"
             return Decimal("0")
     

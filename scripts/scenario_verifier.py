@@ -59,8 +59,8 @@ class ScenarioVerifier:
             print(f"{'='*60}")
         
         # Setup
-        import logging
-        logging.disable(logging.CRITICAL)
+        # import logging
+        # logging.disable(logging.CRITICAL)
         
         broker = SimulatedBroker(initial_balance=10000.0)
         repo = InMemoryRepository()

@@ -1,0 +1,23 @@
+# Scenario G01: Blind Gap Guard (Layer 3)
+# T1: 1.1000
+# T2: 1.1020 (+20 pips) -> EXTREME GAP -> FREEZE TRIGGERED
+# T3/T4: Signals should be ignored.
+# T5: 30 mins later, freeze lifted.
+
+name: "G01 Blind Gap Guard"
+description: "Verifies that an extreme price jump triggers an emergency freeze."
+pair: "EURUSD"
+
+# We expect the freeze log in the output
+expected_logs:
+  - "BLIND GAP DETECTED! Triggering emergency freeze"
+  - "Emergency freeze lifted"
+
+# After the gap at T2, the system should not open any new cycles
+# even if the strategy says so, because it's frozen.
+checks:
+  - name: "Only one cycle should exist (from T1)"
+    type: "cycle_count"
+    filter: {}
+    expect:
+      count: 1
