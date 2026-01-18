@@ -13,7 +13,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from wsplumber.domain.interfaces.ports import IStrategy
-from wsplumber.domain.entities.cycle import Cycle, CycleStatus
+from wsplumber.domain.entities.cycle import Cycle, CycleStatus, CycleType
 from wsplumber.domain.entities.operation import Operation
 from wsplumber.domain.types import (
     StrategySignal, 
@@ -233,11 +233,25 @@ class WallStreetPlumberStrategy(IStrategy):
                         status=cycle.status.value)
             return None
             
-        # GUARD-FIX-001: No generar más señales si ya hay un recovery pendiente
-        # Esto previene la "cascada de señales" durante el tiempo de apertura
-        if any(op.status == OperationStatus.PENDING for op in cycle.recovery_operations):
+        # GUARD-FIX-V2: No generar más señales si ya hay un recovery en curso
+        # Un recovery está "en curso" si:
+        # 1. Hay alguna orden PENDING (enviada al broker pero no activada)
+        # 2. Hay exactamente una orden ACTIVE (activada y buscando el TP)
+        active_rec_ops = [op for op in cycle.recovery_operations if op.status == OperationStatus.ACTIVE]
+        pending_rec_ops = [op for op in cycle.recovery_operations if op.status == OperationStatus.PENDING]
+        
+        if pending_rec_ops:
             logger.debug("Recovery already pending, skipping signal generation", cycle_id=cycle.id)
             return None
+            
+        # Si hay un número impar de activas (o solo 1), significa que una punta está trabajando
+        # y la otra aún no se ha activado (o no existe). No abrimos otro nivel aún.
+        if len(active_rec_ops) % 2 != 0:
+            logger.debug("Recovery active and working, skipping signal generation", cycle_id=cycle.id)
+            return None
+            
+        # Si llegamos aquí, o no hay recoveries (inicio), o los que hay están emparejados (fallo)
+        # o cerrados. Procedemos con la evaluación de distancia.
 
         current_recovery_level = len(cycle.accounting.recovery_queue)
 

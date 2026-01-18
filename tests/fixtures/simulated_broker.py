@@ -79,6 +79,7 @@ class SimulatedBroker(IBroker):
         self.open_positions: Dict[BrokerTicket, SimulatedPosition] = {}
         self.pending_orders: Dict[BrokerTicket, SimulatedOrder] = {}
         self.history: List[Dict[str, Any]] = []  # FIX: Ahora guarda dicts con más info
+        self.history_dict: Dict[BrokerTicket, Dict[str, Any]] = {}  # Optimization for sync
         
         self.ticket_counter = 1000
         self._connected = False
@@ -142,13 +143,18 @@ class SimulatedBroker(IBroker):
                 ask = Price(Decimal(ask_val))
                 
                 raw_ts = row[ts_key]
+                ts_clean = raw_ts.replace(".", "-")
                 try:
-                    dt = datetime.fromisoformat(raw_ts)
+                    dt = datetime.fromisoformat(ts_clean)
                 except ValueError:
                     try:
-                        dt = datetime.strptime(raw_ts, "%Y%m%d %H:%M:%S.%f")
+                        # Try common formats like "2015.01.01 00:00"
+                        dt = datetime.strptime(raw_ts, "%Y.%m.%d %H:%M")
                     except ValueError:
-                        dt = datetime.now()
+                        try:
+                            dt = datetime.strptime(raw_ts, "%Y%m%d %H:%M:%S.%f")
+                        except ValueError:
+                            dt = datetime.now()
                 
                 pips_mult = 100 if "JPY" in str(pair) else 10000
                 spread_val = row.get('spread_pips')
@@ -196,13 +202,21 @@ class SimulatedBroker(IBroker):
                     
                     raw_ts = row[ts_key]
                     try:
-                        dt = datetime.fromisoformat(raw_ts)
-                    except ValueError:
+                        # Handle formats like "2015.01.01 00:00" or ISO
+                        ts_clean = raw_ts.replace(".", "-")
                         try:
-                            # Modified strategy to handle "20030505 03:00:05.536"
-                            dt = datetime.strptime(raw_ts, "%Y%m%d %H:%M:%S.%f")
+                            dt = datetime.fromisoformat(ts_clean)
                         except ValueError:
-                            dt = datetime.now()
+                            try:
+                                # Try common formats
+                                dt = datetime.strptime(raw_ts, "%Y.%m.%d %H:%M")
+                            except ValueError:
+                                try:
+                                    dt = datetime.strptime(raw_ts, "%Y%m%d %H:%M:%S.%f")
+                                except ValueError:
+                                    dt = datetime.now()
+                    except Exception:
+                        dt = datetime.now()
                     
                     pips_mult = 100 if "JPY" in str(pair) else 10000
                     spread_val = row.get(col_map.get('spread_pips', 'NOSUCHCOLUMN'))
@@ -410,7 +424,7 @@ class SimulatedBroker(IBroker):
         self.balance += Decimal(str(pos.current_pnl_money))
         
         # Guardar en historial con información completa
-        self.history.append({
+        h_entry = {
             "ticket": pos.ticket,
             "operation_id": pos.operation_id,
             "pair": pos.pair,
@@ -425,7 +439,9 @@ class SimulatedBroker(IBroker):
             "close_time": pos.close_time or current_tick.timestamp,
             "closed_at": pos.close_time or current_tick.timestamp,
             "status": pos.status.value
-        })
+        }
+        self.history.append(h_entry)
+        self.history_dict[pos.ticket] = h_entry
         
         logger.info("Broker: Position closed", 
                     ticket=ticket, 

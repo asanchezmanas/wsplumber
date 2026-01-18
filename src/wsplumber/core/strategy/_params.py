@@ -106,6 +106,8 @@ EVENT_CALENDAR = [
     ("2015-09-03T12:45:00", "HIGH", "ECB September"),
     ("2015-10-22T12:45:00", "HIGH", "ECB October"),
     ("2015-12-03T12:45:00", "HIGH", "ECB December"),
+    # Test Event for Scenario E01
+    ("2026-01-16T12:00:00", "HIGH", "Scenario Test Event"),
 ]
 
 # =========================================

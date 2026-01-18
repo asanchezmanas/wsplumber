@@ -83,8 +83,13 @@ class ScenarioVerifier:
         await broker.connect()
         
         # Run simulation
+        print(f"[DEBUG] Repository operations count: {len(await repo.get_all_operations())}")
+        print(f"[DEBUG] Broker open positions: {len(broker.open_positions)}")
+        
         auditor = CycleAuditor()
         tick_count = 0
+        max_balance = initial_balance
+        max_drawdown = 0.0
         
         while True:
             tick = await broker.advance_tick()
@@ -96,6 +101,21 @@ class ScenarioVerifier:
             
             acc = await broker.get_account_info()
             balance = float(acc.value["balance"])
+            equity = float(acc.value["equity"])
+            
+            # Calculate drawdown
+            if balance > max_balance:
+                max_balance = balance
+            dd = ((max_balance - equity) / max_balance) * 100 if max_balance > 0 else 0
+            if dd > max_drawdown:
+                max_drawdown = dd
+            
+            # Periodic stats (every 5000 ticks)
+            if tick_count % 5000 == 0:
+                recovery_cycles = len([c for c in repo.cycles.values() if c.cycle_type.value == "recovery"])
+                print(f"[{tick.timestamp}] Processed {tick_count} ticks | Bal: {balance:.2f} | Eq: {equity:.2f} | DD: {max_drawdown:.2f}% | Cycles: {len(repo.cycles)} (Rec: {recovery_cycles})", flush=True)
+
+            # PHASE 4: Audit
             auditor.check(tick_count, repo, broker, balance)
         
         # Get final state
