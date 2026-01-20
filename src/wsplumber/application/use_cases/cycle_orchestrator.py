@@ -1818,6 +1818,22 @@ class CycleOrchestrator:
             logger.warning("No active cycle to attach recovery", pair=pair)
             return
 
+        # GUARD: Only ONE active recovery per parent cycle at a time
+        # This prevents explosion of recoveries when _open_recovery_cycle is called every tick
+        # CRITICAL: Use _active_cycles cache to get in-memory state with added recovery ops
+        # The repository returns a fresh copy without the ops we just added!
+        live_parent = self._active_cycles.get(pair)
+        if live_parent:
+            existing_active_recoveries = [
+                op for op in live_parent.recovery_operations
+                if op.status in (OperationStatus.PENDING, OperationStatus.ACTIVE)
+            ]
+            
+            if existing_active_recoveries:
+                logger.debug("Skipping recovery creation - parent already has active recovery ops",
+                            parent_id=live_parent.id, count=len(existing_active_recoveries))
+                return
+
         # 1. Validar con RiskManager
         exposure_pct, num_recoveries = await self._get_exposure_metrics(pair)
         can_open = self.risk_manager.can_open_position(

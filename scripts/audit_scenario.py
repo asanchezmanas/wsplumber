@@ -121,9 +121,8 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pai
             if tick_count % 1000 == 0:  # Flush every 1000 ticks for performance
                 metrics_file.flush()
         
-        # Periodic status update (every 1k ticks, or 100k for massive TICK files)
-        interval = 100000 if "TICK" in csv_path_str.upper() else 1000
-        if tick_count % interval == 0 or tick_count == 1:
+        # Periodic status update (uses csv_interval for console output)
+        if tick_count % csv_interval == 0 or tick_count == 1:
             acc_info = await broker.get_account_info()
             balance = acc_info.value["balance"]
             equity = acc_info.value["equity"]
