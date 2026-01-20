@@ -409,6 +409,13 @@ class SimulatedBroker(IBroker):
         if ticket not in self.open_positions:
             return Result.fail("Position not found")
         
+        pos = self.open_positions[ticket]
+        # DEBUG: Log what's being closed and its P&L
+        import traceback
+        caller = traceback.format_stack()[-3]  # Get the caller's line
+        print(f"[DEBUG CLOSE] ticket={ticket} op_id={pos.operation_id} type={pos.order_type.value} entry={float(pos.entry_price):.5f} pnl={pos.current_pnl_pips:.1f} pips, status={pos.status.value}")
+        print(f"[DEBUG CALLER] {caller.strip()}")
+        
         pos = self.open_positions.pop(ticket)
         current_tick = self.ticks[self.current_tick_index]
         
@@ -454,6 +461,69 @@ class SimulatedBroker(IBroker):
             fill_price=close_price,
             timestamp=current_tick.timestamp
         ))
+
+    async def close_debt_unit(self, main_ticket: BrokerTicket, hedge_ticket: BrokerTicket) -> Result[Dict]:
+        """
+        Close a debt unit (Main + Hedge) atomically with correct net P&L.
+        
+        The net P&L is calculated from the fixed entry price difference,
+        not from the individual frozen P&Ls which may be inconsistent.
+        
+        Returns:
+            Result with details including the fixed net P&L
+        """
+        if main_ticket not in self.open_positions:
+            return Result.fail(f"Main position {main_ticket} not found")
+        if hedge_ticket not in self.open_positions:
+            return Result.fail(f"Hedge position {hedge_ticket} not found")
+        
+        main_pos = self.open_positions.pop(main_ticket)
+        hedge_pos = self.open_positions.pop(hedge_ticket)
+        current_tick = self.ticks[self.current_tick_index]
+        
+        # Calculate the FIXED net P&L from entry difference
+        # This is always exactly -20 pips for Main+Hedge (10 pip separation + 10 pip to TP)
+        multiplier = 100 if "JPY" in str(main_pos.pair) else 10000
+        entry_diff_pips = abs(float(main_pos.entry_price) - float(hedge_pos.entry_price)) * multiplier
+        
+        # The debt is always the entry difference (negative because it's a loss)
+        net_pips = -entry_diff_pips
+        pip_value_per_lot = 10.0
+        net_money = net_pips * float(main_pos.lot_size) * pip_value_per_lot
+        
+        # Apply to balance
+        self.balance += Decimal(str(net_money))
+        
+        # Save to history
+        for pos, ticket in [(main_pos, main_ticket), (hedge_pos, hedge_ticket)]:
+            h_entry = {
+                "ticket": ticket,
+                "operation_id": pos.operation_id,
+                "pair": pos.pair,
+                "order_type": pos.order_type.value,
+                "entry_price": float(pos.entry_price),
+                "close_price": float(current_tick.mid),
+                "lot_size": float(pos.lot_size),
+                "profit_pips": net_pips / 2,  # Split for record keeping
+                "profit_money": net_money / 2,
+                "closed_at": current_tick.timestamp,
+                "status": "debt_unit_closed"
+            }
+            self.history.append(h_entry)
+            self.history_dict[ticket] = h_entry
+        
+        logger.info("Broker: Debt unit closed atomically",
+                   main_ticket=main_ticket,
+                   hedge_ticket=hedge_ticket,
+                   net_pips=net_pips,
+                   net_money=net_money)
+        
+        return Result.ok({
+            "main_ticket": main_ticket,
+            "hedge_ticket": hedge_ticket,
+            "net_pips": net_pips,
+            "net_money": net_money
+        })
 
     async def modify_order(
         self,

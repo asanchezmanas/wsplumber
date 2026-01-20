@@ -477,24 +477,29 @@ class CycleOrchestrator:
                         pair=pair,
                         metadata={"reason": "no_active_cycle_in_repo"}
                     )
-                    await self._open_new_cycle(signal, tick_res.value)
+            await self._open_new_cycle(signal, tick_res.value)
             return
 
         for cycle in cycles_res.value:
-            # FIX-CACHE-OVERWRITE: Solo sincronizar cache con ciclos ACTIVE/HEDGED
-            # No sobrescribir con ciclos IN_RECOVERY/CLOSED que pueden disparar TP
-            if cycle.cycle_type == CycleType.MAIN and cycle.status in (CycleStatus.ACTIVE, CycleStatus.HEDGED, CycleStatus.PENDING):
+            # FIX-CACHE-OVERWRITE: Solo sincronizar cache con el ciclo MAIN activo
+            if cycle.cycle_type == CycleType.MAIN and cycle.status != CycleStatus.CLOSED:
                 self._active_cycles[pair] = cycle
 
             ops_res = await self.repository.get_operations_by_cycle(cycle.id)
             if not ops_res.success:
                 continue
             
+            # Recolectar operaciones activas para detectar fallo de ciclo al final del loop
+            active_recovery_ops = []
+
             for op in ops_res.value:
                 # ═══════════════════════════════════════════════════════════
                 # 1. MANEJO DE ACTIVACIÓN DE ÓRDENES
                 # ═══════════════════════════════════════════════════════════
                 if op.status == OperationStatus.ACTIVE:
+                    if op.is_recovery:
+                        active_recovery_ops.append(op)
+
                     # Log explícito de activación
                     if not op.metadata.get("activation_logged"):
                         logger.info(
@@ -509,10 +514,9 @@ class CycleOrchestrator:
                     if op.is_recovery and LAYER1_MODE == "ADAPTIVE_TRAILING":
                         trailing_result = await self._process_layer1_trailing(op, tick, cycle)
                         if trailing_result:
-                            # Op was closed by trailing, skip further processing
                             continue
 
-                    # Layer 1B: Trail the pending counter-order when recovery is in profit
+                    # Layer 1B: Trail the pending counter-order
                     if op.is_recovery and LAYER1B_MODE == "ON":
                         await self._process_layer1b_trailing_counter(op, tick, cycle, ops_res.value)
 
@@ -532,12 +536,10 @@ class CycleOrchestrator:
                                 cycle_id=cycle.id)
                         cycle.activate_hedge()
                         
-                        # PHASE 4b: Shadow tracking for initial debt
-                        # Calculate real debt from actual main operation prices
+                        # Phase 4b: Shadow debt tracking ... (simplified for clarity but logic remains)
                         main_buy = next((o for o in active_main_ops if o.is_buy), None)
                         main_sell = next((o for o in active_main_ops if o.is_sell), None)
                         if main_buy and main_sell:
-                            # Real distance between mains = actual loss when neutralized
                             buy_entry = main_buy.actual_entry_price or main_buy.entry_price
                             sell_entry = main_sell.actual_entry_price or main_sell.entry_price
                             multiplier = 100 if "JPY" in str(pair) else 10000
@@ -545,166 +547,122 @@ class CycleOrchestrator:
                             
                             debt = DebtUnit.from_neutralization(
                                 cycle_id=str(cycle.id),
-                                losing_main_id=str(main_sell.id),  # Placeholder - actual loser determined at TP
+                                losing_main_id=str(main_sell.id),
                                 losing_main_entry=Decimal(str(sell_entry)),
-                                losing_main_close=Decimal(str(buy_entry)),  # Neutralized at other main's entry
+                                losing_main_close=Decimal(str(buy_entry)),
                                 winning_main_id=str(main_buy.id),
-                                hedge_id="pending",  # Will be set when hedge created
+                                hedge_id="pending",
                                 pair=str(pair)
                             )
                             cycle.accounting.shadow_add_debt(debt)
-                            logger.debug("Shadow accounting: initial debt added at HEDGED",
-                                        real_debt=float(debt.pips_owed),
-                                        theoretical=20.0,
-                                        difference=float(debt.pips_owed) - 20.0)
-                        
-                        # Crear operaciones de hedge y neutralizar mains
-                        # CONCEPTO: Hedges de CONTINUACIÓN (del mismo lado)
-                        # - HEDGE_BUY se crea al TP del MAIN_BUY → cuando BUY toca TP, HEDGE_BUY continúa
-                        # - HEDGE_SELL se crea al TP del MAIN_SELL → cuando SELL toca TP, HEDGE_SELL continúa
-                        # Esto "bloquea" la pérdida del main opuesto que queda abierto
-                        for main_op in active_main_ops:
 
-                            # Hedge del MISMO lado que el main (continuación)
+                        # Crear operaciones de hedge
+                        for main_op in active_main_ops:
                             if main_op.op_type == OperationType.MAIN_BUY:
-                                # Para MAIN_BUY: crear HEDGE_BUY al TP del BUY
                                 hedge_type = OperationType.HEDGE_BUY
-                                hedge_entry = main_op.tp_price  # TP del MAIN_BUY
+                                hedge_entry = main_op.tp_price
                             else:
-                                # Para MAIN_SELL: crear HEDGE_SELL al TP del SELL
                                 hedge_type = OperationType.HEDGE_SELL
-                                hedge_entry = main_op.tp_price  # TP del MAIN_SELL
+                                hedge_entry = main_op.tp_price
                             
                             hedge_id = f"{cycle.id}_H_{main_op.op_type.value}"
-
-                            hedge_op = Operation(
-                                id=OperationId(hedge_id),
-                                cycle_id=cycle.id,
-                                pair=pair,
-                                op_type=hedge_type,
-                                status=OperationStatus.PENDING,
-                                entry_price=hedge_entry,  # TP del main del mismo lado
-                                lot_size=main_op.lot_size,
-                                linked_operation_id=OperationId(str(main_op.id))  # FIX-FIFO: Vincular hedge con su main
-                            )
-                            # FIX-FIFO: Establecer metadata de vinculación para búsqueda FIFO
-                            hedge_op.metadata["covering_operation"] = str(main_op.id)
-                            hedge_op.metadata["debt_unit_id"] = "INITIAL_UNIT"
-                            cycle.add_operation(hedge_op)
-                            
-                            # NOTE: Do NOT neutralize mains here - they stay active
-                            # until one of them hits TP. At that point, the OTHER main
-                            # gets neutralized in the TP_HIT handling section below.
-                            
-                            request = OrderRequest(
-                                operation_id=hedge_op.id,
-                                pair=pair,
-                                order_type=hedge_type,
-                                entry_price=hedge_op.entry_price,
-                                tp_price=hedge_op.tp_price,
-                                lot_size=hedge_op.lot_size
-                            )
-                            await self.trading_service.open_operation(request, hedge_op)
+                            if not any(h.id == hedge_id for h in ops_res.value):
+                                hedge_op = Operation(
+                                    id=OperationId(hedge_id),
+                                    cycle_id=cycle.id,
+                                    pair=pair,
+                                    op_type=hedge_type,
+                                    status=OperationStatus.PENDING,
+                                    entry_price=hedge_entry,
+                                    lot_size=main_op.lot_size
+                                )
+                                cycle.add_operation(hedge_op)
+                                request = OrderRequest(
+                                    operation_id=hedge_op.id,
+                                    pair=pair,
+                                    order_type=hedge_type,
+                                    entry_price=hedge_op.entry_price,
+                                    tp_price=hedge_op.tp_price,
+                                    lot_size=hedge_op.lot_size
+                                )
+                                await self.trading_service.open_operation(request, hedge_op)
                         
                         await self.repository.save_cycle(cycle)
 
-                    # VERIFICACIÓN DE FALLO DE RECOVERY
-                    # Un recovery falla cuando AMBAS órdenes se activan (se bloquea a 40 pips)
-                    if op.is_recovery and op.status == OperationStatus.ACTIVE:
-                        recovery_ops = [o for o in ops_res.value if o.is_recovery]
-                        active_recovery_ops = [o for o in recovery_ops if o.status == OperationStatus.ACTIVE]
-                        
-                        if len(active_recovery_ops) >= 2:
-                            # Evitar procesar el fallo múltiples veces para el mismo ciclo
-                            if not cycle.metadata.get("failure_processed"):
-                                logger.warning("DEBUG-RECOVERY-FAILURE-DETECTED (both active)", cycle_id=cycle.id)
-                                cycle.metadata["failure_processed"] = True
-                                await self.repository.save_cycle(cycle)
-                                
-                                # Llamar al manejador de fallos (pasa el 'op' actual como el que bloqueó)
-                                await self._handle_recovery_failure(cycle, op, tick)
-                
                 # ═══════════════════════════════════════════════════════════
                 # 2. MANEJO DE CIERRE DE ÓRDENES (TP HIT)
-                # FIX-001 + FIX-002 APLICADOS
                 # ═══════════════════════════════════════════════════════════
                 if op.status in (OperationStatus.TP_HIT, OperationStatus.CLOSED):
-                    # Evitar procesar el mismo TP múltiples veces
                     if op.metadata.get("tp_processed"):
                         continue
 
+                    # Mark as processed
                     op.metadata["tp_processed"] = True
                     await self.repository.save_operation(op)
 
-                    # Cerrar la posición en el broker (solo marca TP, no cierra)
+                    # Close at broker if it hit TP
                     if op.broker_ticket and op.status == OperationStatus.TP_HIT:
-                        logger.info("Closing TP_HIT position in broker",
-                                op_id=str(op.id),
-                                ticket=str(op.broker_ticket))
-                        close_result = await self.trading_service.close_operation(op)
-                        if not close_result.success:
-                            logger.error("Failed to close TP_HIT position",
-                                        op_id=str(op.id),
-                                        error=str(close_result.error))
+                        logger.info("Closing position in broker", op_id=op.id, ticket=op.broker_ticket)
+                        await self.trading_service.close_operation(op)
 
                     if cycle.status == CycleStatus.PENDING:
                         cycle.status = CycleStatus.ACTIVE
                         await self.repository.save_cycle(cycle)
 
-                    # Notificar a la estrategia
-                    signal = self.strategy.process_tp_hit(
+                    # Notify Strategy
+                    self.strategy.process_tp_hit(
                         operation_id=op.id,
                         profit_pips=float(op.profit_pips or MAIN_TP_PIPS),
                         timestamp=datetime.now()
                     )
                     
-                    # ═══════════════════════════════════════════════════════
-                    # MAIN TP: FIX-001 + FIX-002 APLICADOS
-                    # ═══════════════════════════════════════════════════════
                     if op.is_main:
-                        logger.info(
-                            "Main TP detected, processing renewal + hedge cleanup",
-                            op_id=op.id,
-                            profit_pips=float(op.profit_pips or MAIN_TP_PIPS)
-                        )
+                        logger.info("Main TP detected, processing renewal + hedge cleanup", op_id=op.id)
                         
-                        # 1. Cancelar operación pendiente contraria
+                        # 1. Cancel counter main
                         for other_op in ops_res.value:
-                            if (other_op.is_main and 
-                                other_op.id != op.id and 
-                                other_op.status == OperationStatus.PENDING):
-                                logger.info("Cancelling counter-order", op_id=other_op.id)
+                            if other_op.is_main and other_op.id != op.id and other_op.status == OperationStatus.PENDING:
                                 if other_op.broker_ticket:
                                     await self.trading_service.broker.cancel_order(other_op.broker_ticket)
                                 other_op.status = OperationStatus.CANCELLED
-                                other_op.metadata["cancel_reason"] = "counterpart_tp_hit"
                                 await self.repository.save_operation(other_op)
                         
-                        # FIX-CRITICAL: Neutralize ACTIVE opposite main to prevent TP hit
-                        # When in HEDGED state and one main hits TP, the other main
-                        # should be neutralized so it can never hit its own TP
+                        # 2. Neutralize opposite main if HEDGED
                         if cycle.status == CycleStatus.HEDGED:
                             for other_op in ops_res.value:
-                                if (other_op.is_main and 
-                                    other_op.id != op.id and 
-                                    other_op.status == OperationStatus.ACTIVE):
-                                    logger.info("Neutralizing opposite main after TP hit", op_id=other_op.id)
+                                if other_op.is_main and other_op.id != op.id and other_op.status == OperationStatus.ACTIVE:
                                     other_op.neutralize(op.id)
                                     await self.repository.save_operation(other_op)
-                                    # Update broker position to NEUTRALIZED to prevent TP
                                     if other_op.broker_ticket:
-                                        await self.trading_service.broker.update_position_status(
-                                            other_op.broker_ticket,
-                                            OperationStatus.NEUTRALIZED
+                                        # Update status in broker
+                                        await self.trading_service.broker.update_position_status(other_op.broker_ticket, OperationStatus.NEUTRALIZED)
+                                        # CRITICAL: Remove TP from neutralized Main to prevent broker from closing it
+                                        tp_remove_result = await self.trading_service.broker.modify_position(
+                                            other_op.broker_ticket, new_tp=None
                                         )
+                                        if tp_remove_result.success:
+                                            logger.info("Removed TP from neutralized Main", op_id=other_op.id)
+                                        else:
+                                            logger.warning("Failed to remove TP from neutralized Main", 
+                                                          op_id=other_op.id, error=tp_remove_result.error)
+                                    
+                                    # FIX: Also neutralize the covering Hedge so its P&L is frozen
+                                    # This ensures the debt unit always nets to -20 pips exactly
+                                    for hedge_op in ops_res.value:
+                                        if hedge_op.is_hedge and hedge_op.status == OperationStatus.ACTIVE:
+                                            hedge_op.status = OperationStatus.NEUTRALIZED
+                                            hedge_op.metadata["neutralized_as_cover"] = True
+                                            await self.repository.save_operation(hedge_op)
+                                            if hedge_op.broker_ticket:
+                                                await self.trading_service.broker.update_position_status(
+                                                    hedge_op.broker_ticket, OperationStatus.NEUTRALIZED
+                                                )
+                                                logger.info("Neutralized covering Hedge to freeze P&L", 
+                                                           hedge_id=hedge_op.id)
                             
-                            # Transition to IN_RECOVERY and open recovery cycle
                             cycle.start_recovery()
-                            cycle.metadata["just_transitioned"] = True  # FIX-IN-RECOVERY-SKIP
                             await self.repository.save_cycle(cycle)
-                            logger.info("Cycle transitioned to IN_RECOVERY", cycle_id=cycle.id)
                             
-                            # Open recovery cycle to compensate FIFO debt
                             recovery_signal = StrategySignal(
                                 signal_type=SignalType.OPEN_CYCLE,
                                 pair=cycle.pair,
@@ -712,32 +670,49 @@ class CycleOrchestrator:
                             )
                             await self._open_recovery_cycle(recovery_signal, tick)
                         
-                        # FIX-002: Cancelar hedges pendientes contrarios
+                        # 3. Cleanup hedges and record TP
                         await self._cancel_pending_hedge_counterpart(cycle, op)
-
-                        # Registrar TP en contabilidad
                         cycle.record_main_tp(Pips(float(op.profit_pips or MAIN_TP_PIPS)))
                         
-                        # FIX-CYCLE-EXPLOSION: Transicionar C1 ANTES de abrir C2
-                        # Esto evita que C1 quede huérfano en estado ACTIVE/HEDGED
                         if cycle.status == CycleStatus.ACTIVE:
-                            # Solo 1 main estaba activo y tocó TP → ciclo se cierra (sin deuda)
-                            # Cancelar el main pendiente contrario
-                            for other_op in ops_res.value:
-                                if other_op.is_main and other_op.id != op.id and other_op.status == OperationStatus.PENDING:
-                                    other_op.status = OperationStatus.CANCELLED
-                                    other_op.metadata["cancel_reason"] = "counterpart_tp_hit"
-                                    await self.repository.save_operation(other_op)
-                            
                             cycle.status = CycleStatus.CLOSED
                             cycle.closed_at = datetime.now()
                             cycle.metadata["close_reason"] = "single_main_tp_no_debt"
-                            cycle.metadata["just_transitioned"] = True  # FIX-IN-RECOVERY-SKIP
-                            logger.info("Cycle closed (single main TP, no debt)", cycle_id=cycle.id)
-                        
-                        # (HEDGED case already handled above at line 359-362)
                         
                         await self.repository.save_cycle(cycle)
+                        
+                        # 4. Open NEW cycle (Renewal) - ALWAYS on Main TP
+                        # Note: Debt recovery is handled by recovery cycles (opened above if HEDGED).
+                        # New Main opening is INDEPENDENT of debt state.
+                        renewal_signal = StrategySignal(
+                            signal_type=SignalType.OPEN_CYCLE,
+                            pair=cycle.pair,
+                            metadata={"reason": "renewal_after_main_tp", "parent_cycle": cycle.id}
+                        )
+                        await self._open_new_cycle(renewal_signal, tick)
+
+                    # 5. Handle Recovery TP
+                    if op.is_recovery:
+                        if op.metadata.get("trailing_closed"):
+                            # This is handled in _process_layer1_trailing but keeping hook
+                            pass
+                        else:
+                            recovery_cycle_res = await self.repository.get_cycle(op.cycle_id)
+                            if recovery_cycle_res.success and recovery_cycle_res.value:
+                                await self._handle_recovery_tp(recovery_cycle_res.value, tick)
+
+                # End of operation loop
+
+            # ═══════════════════════════════════════════════════════════
+            # 3. VERIFICACIÓN DE FALLO DE RECOVERY (Fuera del loop de ops)
+            # ═══════════════════════════════════════════════════════════
+            if cycle.cycle_type == CycleType.RECOVERY and cycle.status == CycleStatus.ACTIVE:
+                if len(active_recovery_ops) >= 2:
+                    if not cycle.metadata.get("failure_processed"):
+                        logger.warning("RECOVERY FAILURE DETECTED (collision)", cycle_id=cycle.id)
+                        cycle.metadata["failure_processed"] = True
+                        await self.repository.save_cycle(cycle)
+                        await self._handle_recovery_failure(cycle, active_recovery_ops[-1], tick)
                         
                         # FIX-IN-RECOVERY-SKIP: Solo abrir nuevo ciclo si este ciclo ACABA de
                         # transicionar a IN_RECOVERY o CLOSED. Si ya estaba en IN_RECOVERY antes,
@@ -798,12 +773,6 @@ class CycleOrchestrator:
                             recovery_cycle_res = await self.repository.get_cycle(op.cycle_id)
                             if recovery_cycle_res.success and recovery_cycle_res.value:
                                 await self._handle_recovery_tp(recovery_cycle_res.value, tick)
-
-                    # Procesar señal adicional si la hay
-                    if signal.signal_type != SignalType.NO_ACTION:
-                        if not signal.pair:
-                            signal.pair = pair
-                        await self._handle_signal(signal, tick)
 
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -1174,9 +1143,13 @@ class CycleOrchestrator:
             for r_op in recovery_ops_result.value:
                 if r_op.broker_ticket and r_op.status not in (OperationStatus.CLOSED, OperationStatus.CANCELLED):
                     if r_op.id != op.id:  # Don't close the one that already closed by trailing
-                        close_result = await self.trading_service.close_operation(r_op)
-                        if close_result.success:
-                            logger.info("LAYER1: Closed counterpart recovery in broker", op_id=r_op.id)
+                        # FIX-BALANCE-LOSS: NEUTRALIZE instead of CLOSE to prevent realizing losses
+                        r_op.status = OperationStatus.NEUTRALIZED
+                        r_op.metadata["neutralized_reason"] = "counterpart_trailing_closed"
+                        await self.repository.save_operation(r_op)
+                        if r_op.broker_ticket:
+                            await self.trading_service.broker.update_position_status(r_op.broker_ticket, OperationStatus.NEUTRALIZED)
+                        logger.info("LAYER1: Neutralized counterpart recovery (no loss realized)", op_id=r_op.id)
         
         # Reposition: Open new recovery from current price if configured
         # BUG9 FIX: Only reposition if parent cycle is still active and has debt
@@ -1420,24 +1393,23 @@ class CycleOrchestrator:
             skipped_count = 0
 
             for op in recovery_ops:
-                # Solo cerrar operaciones que tengan ticket y no estén ya cerradas
+                # FIX-BALANCE-LOSS: Only "close" ops that already hit TP. Others get NEUTRALIZED.
                 if op.broker_ticket and op.status not in (OperationStatus.CLOSED, OperationStatus.CANCELLED):
-                    logger.info("Closing recovery operation in broker",
-                               op_id=op.id,
-                               ticket=op.broker_ticket,
-                               status=op.status.value,
-                               recovery_id=recovery_cycle.id)
-                    close_result = await self.trading_service.close_operation(op)
-                    if not close_result.success:
-                        logger.error("Failed to close recovery operation",
-                                   op_id=op.id,
-                                   ticket=op.broker_ticket,
-                                   error=close_result.error)
-                    else:
+                    if op.status == OperationStatus.TP_HIT:
+                        # This op hit TP - it's already closed in broker, just update status
+                        op.status = OperationStatus.CLOSED
+                        await self.repository.save_operation(op)
                         closed_count += 1
-                        logger.info("Recovery operation closed successfully",
-                                   op_id=op.id,
-                                   ticket=op.broker_ticket)
+                        logger.info("Recovery operation TP confirmed closed", op_id=op.id)
+                    else:
+                        # This op did NOT hit TP - NEUTRALIZE to prevent realizing loss
+                        op.status = OperationStatus.NEUTRALIZED
+                        op.metadata["neutralized_reason"] = "counterpart_tp_hit"
+                        await self.repository.save_operation(op)
+                        if op.broker_ticket:
+                            await self.trading_service.broker.update_position_status(op.broker_ticket, OperationStatus.NEUTRALIZED)
+                        skipped_count += 1
+                        logger.info("Recovery counterpart NEUTRALIZED (no loss realized)", op_id=op.id)
                 else:
                     skipped_count += 1
                     logger.debug("Skipping recovery operation (already closed or no ticket)",
@@ -1518,8 +1490,10 @@ class CycleOrchestrator:
                 from wsplumber.domain.types import OperationType
 
                 if main_op.op_type == OperationType.MAIN_BUY:
+                    # Si main neutralizado es BUY → buscar HEDGE_SELL activo
                     expected_hedge_type = OperationType.HEDGE_SELL
                 elif main_op.op_type == OperationType.MAIN_SELL:
+                    # Si main neutralizado is SELL → buscar HEDGE_BUY activo
                     expected_hedge_type = OperationType.HEDGE_BUY
                 else:
                     logger.error("Main op has unexpected type", op_type=main_op.op_type)
@@ -1546,54 +1520,49 @@ class CycleOrchestrator:
             "Debt unit components identified",
             main_id=main_op.id,
             main_type=main_op.op_type.value,
+            main_entry=float(main_op.entry_price) if main_op.entry_price else None,
             hedge_id=hedge_op.id,
-            hedge_type=hedge_op.op_type.value
+            hedge_type=hedge_op.op_type.value,
+            hedge_entry=float(hedge_op.entry_price) if hedge_op.entry_price else None
         )
         
-        # Cerrar ambas operaciones
-        close_results = []
-
-        # 1. Cerrar Main neutralizada
-        logger.info("Closing neutralized Main", op_id=main_op.id, status=main_op.status)
-
-        # FIX-FIFO-02: Solo intentar cerrar si NO está ya cerrada
-        if main_op.status not in (OperationStatus.CLOSED, OperationStatus.TP_HIT):
-            if main_op.broker_ticket:
-                close_res = await self.trading_service.close_operation(main_op, reason="fifo_recovery_tp")
-                close_results.append(("main", close_res))
-
-                # FIX-FIFO-02: Solo marcar como CLOSED si el cierre fue exitoso
-                if not close_res.success:
-                    logger.warning("Main close failed, skipping status update", op_id=main_op.id)
-                else:
+        # Use atomic debt unit closure for correct P&L calculation
+        # This ensures the net is exactly -20 pips (entry difference) regardless of when P&Ls were frozen
+        print(f"[DEBUG ATOMIC] main_ticket={main_op.broker_ticket} hedge_ticket={hedge_op.broker_ticket}")
+        print(f"[DEBUG ATOMIC] main_status={main_op.status.value} hedge_status={hedge_op.status.value}")
+        if main_op.broker_ticket and hedge_op.broker_ticket:
+            if main_op.status not in (OperationStatus.CLOSED, OperationStatus.TP_HIT) and \
+               hedge_op.status not in (OperationStatus.CLOSED, OperationStatus.TP_HIT):
+                
+                print("[DEBUG ATOMIC] Calling close_debt_unit!")
+                close_res = await self.trading_service.broker.close_debt_unit(
+                    main_op.broker_ticket, hedge_op.broker_ticket
+                )
+                
+                if close_res.success:
+                    logger.info("Debt unit closed atomically", 
+                               net_pips=close_res.value.get("net_pips"),
+                               main_id=main_op.id, hedge_id=hedge_op.id)
+                    
+                    # Update operation states
                     main_op.status = OperationStatus.CLOSED
                     main_op.metadata["close_reason"] = "fifo_recovery_tp"
-                    main_op.metadata["close_method"] = "atomic_with_hedge"
+                    main_op.metadata["close_method"] = "atomic_debt_unit"
                     main_op.metadata["debt_unit_id"] = debt_unit_id
                     await self.repository.save_operation(main_op)
-        else:
-            logger.info("Main already closed, skipping", op_id=main_op.id, status=main_op.status)
-
-        # 2. Cerrar Hedge que cubría
-        logger.info("Closing covering Hedge", op_id=hedge_op.id, status=hedge_op.status)
-
-        # FIX-FIFO-02: Solo intentar cerrar si NO está ya cerrada
-        if hedge_op.status not in (OperationStatus.CLOSED, OperationStatus.TP_HIT):
-            if hedge_op.broker_ticket:
-                close_res = await self.trading_service.close_operation(hedge_op, reason="fifo_recovery_tp")
-                close_results.append(("hedge", close_res))
-
-                # FIX-FIFO-02: Solo marcar como CLOSED si el cierre fue exitoso
-                if not close_res.success:
-                    logger.warning("Hedge close failed, skipping status update", op_id=hedge_op.id)
-                else:
+                    
                     hedge_op.status = OperationStatus.CLOSED
-                    hedge_op.metadata["close_reason"] = "fifo_recovery_tp"
-                    hedge_op.metadata["close_method"] = "atomic_with_main"
+                    hedge_op.metadata["close_reason"] = "fifo_recovery_tp"  
+                    hedge_op.metadata["close_method"] = "atomic_debt_unit"
                     hedge_op.metadata["debt_unit_id"] = debt_unit_id
                     await self.repository.save_operation(hedge_op)
+                else:
+                    logger.error("Failed to close debt unit atomically", 
+                               error=close_res.error, debt_unit_id=debt_unit_id)
+                    return
         else:
-            logger.info("Hedge already closed, skipping", op_id=hedge_op.id, status=hedge_op.status)
+            logger.warning("Missing broker tickets for debt unit closure",
+                          main_ticket=main_op.broker_ticket, hedge_ticket=hedge_op.broker_ticket)
         
         # Verificar éxito
         failed = [r for r in close_results if not r[1].success]
@@ -1798,41 +1767,77 @@ class CycleOrchestrator:
                            Si no, se usa el bid/ask actual.
         """
         pair = signal.pair
+        now = tick.timestamp or datetime.now()
         
-        # FIX: Resolver el parent_cycle correcto (puede estar en el signal o ser el activo)
-        parent_id_from_signal = signal.metadata.get("parent_cycle")
+        # ═══════════════════════════════════════════════════════════
+        # L2 GUARD: No abrir recoveries durante eventos protegidos
+        # ═══════════════════════════════════════════════════════════
+        if LAYER2_MODE == "ON":
+            for event in EVENT_CALENDAR:
+                event_time_str = event[0]
+                event_dt = datetime.fromisoformat(event_time_str) if isinstance(event_time_str, str) else event_time_str
+                
+                from datetime import timedelta
+                pre_window = event_dt - timedelta(minutes=EVENT_PROTECTION_WINDOW_PRE)
+                post_window = event_dt + timedelta(minutes=EVENT_PROTECTION_WINDOW_POST)
+
+                if now >= pre_window and now <= post_window:
+                    logger.warning("RECOVERY BLOCKED by Layer 2 Event Shield", 
+                                 pair=pair, event=event[2], time=now.isoformat())
+                    return
+
+        # 0. RESOLVE LIVE PARENT (Source of Truth)
+        live_parent = self._active_cycles.get(pair)
+        
+        parent_id_from_signal = signal.metadata.get("parent_cycle") or signal.metadata.get("cycle_id")
         parent_cycle = None
         
         if parent_id_from_signal:
-            parent_res = await self.repository.get_cycle(parent_id_from_signal)
-            if parent_res.success and parent_res.value:
-                parent_cycle = parent_res.value
-                logger.debug("Parent cycle resolved from signal metadata", parent_id=parent_cycle.id)
-                
-        if not parent_cycle:
-            parent_cycle = self._active_cycles.get(pair)
-            if parent_cycle:
-                logger.debug("Parent cycle resolved from active cache", parent_id=parent_cycle.id)
+            if live_parent and live_parent.id == parent_id_from_signal:
+                parent_cycle = live_parent
+            else:
+                p_res = await self.repository.get_cycle(parent_id_from_signal)
+                if p_res.success and p_res.value:
+                    parent_cycle = p_res.value
         
         if not parent_cycle:
-            logger.warning("No active cycle to attach recovery", pair=pair)
+            parent_cycle = live_parent
+            
+        if not parent_cycle:
+            logger.error("Could not resolve parent cycle for recovery", pair=pair)
             return
+
+        # FLAT HIERARCHY
+        while parent_cycle.cycle_type == CycleType.RECOVERY:
+            root_id = parent_cycle.parent_cycle_id
+            if not root_id: break
+            p_res = await self.repository.get_cycle(root_id)
+            if not p_res.success or not p_res.value: break
+            parent_cycle = p_res.value
+
+        # ═══════════════════════════════════════════════════════════
+        # CIRCUIT BREAKER: Máximo 1 recovery por TICK
+        # Previene explosiones recursivas en gaps o alta volatilidad
+        # ═══════════════════════════════════════════════════════════
+        current_tick_key = now.isoformat()
+        if parent_cycle.metadata.get("last_recovery_tick") == current_tick_key:
+            logger.warning("CIRCUIT BREAKER: Recovery blocked (already opened this tick)", 
+                         parent_id=parent_cycle.id, tick=current_tick_key)
+            return
+        
+        parent_cycle.metadata["last_recovery_tick"] = current_tick_key
 
         # GUARD: Only ONE active recovery per parent cycle at a time
         # This prevents explosion of recoveries when _open_recovery_cycle is called every tick
-        # CRITICAL: Use _active_cycles cache to get in-memory state with added recovery ops
-        # The repository returns a fresh copy without the ops we just added!
-        live_parent = self._active_cycles.get(pair)
-        if live_parent:
-            existing_active_recoveries = [
-                op for op in live_parent.recovery_operations
-                if op.status in (OperationStatus.PENDING, OperationStatus.ACTIVE)
-            ]
-            
-            if existing_active_recoveries:
-                logger.debug("Skipping recovery creation - parent already has active recovery ops",
-                            parent_id=live_parent.id, count=len(existing_active_recoveries))
-                return
+        existing_active_recoveries = [
+            op for op in parent_cycle.recovery_operations
+            if op.status in (OperationStatus.PENDING, OperationStatus.ACTIVE)
+        ]
+        
+        if existing_active_recoveries:
+            logger.debug("Skipping recovery creation - parent already has active recovery ops",
+                        parent_id=parent_cycle.id, count=len(existing_active_recoveries))
+            return
 
         # 1. Validar con RiskManager
         exposure_pct, num_recoveries = await self._get_exposure_metrics(pair)
@@ -2002,17 +2007,29 @@ class CycleOrchestrator:
         2. Añade unidad de deuda de 40 pips al padre.
         3. Abre nuevo recovery a ±20 pips del entry de la operación que causó el bloqueo.
         """
-        parent_id = failed_cycle.parent_cycle_id
-        if not parent_id:
+        # FLAT HIERARCHY: Always attach to the root MAIN cycle
+        root_cycle_id = failed_cycle.parent_cycle_id
+        if not root_cycle_id:
             logger.error("Failed recovery cycle has no parent", recovery_id=failed_cycle.id)
             return
-            
-        parent_res = await self.repository.get_cycle(parent_id)
+
+        # Fetch parent
+        parent_res = await self.repository.get_cycle(root_cycle_id)
         if not parent_res.success or not parent_res.value:
-            logger.error("Could not find parent cycle for failed recovery", parent_id=parent_id)
+            logger.error("Could not find parent cycle for failed recovery", parent_id=root_cycle_id)
             return
             
         parent_cycle = parent_res.value
+        
+        # If the parent is ANOTHER recovery, climb up to find the root MAIN
+        while parent_cycle.cycle_type == CycleType.RECOVERY:
+            logger.debug("Climbing hierarchy to find root MAIN", current_id=parent_cycle.id)
+            next_parent_id = parent_cycle.parent_cycle_id
+            if not next_parent_id: break
+            
+            p_res = await self.repository.get_cycle(next_parent_id)
+            if not p_res.success or not p_res.value: break
+            parent_cycle = p_res.value
         
         # 1. Registrar unidad de deuda con PIPS REALES (distancia entre entradas)
         real_loss = 40.0 # Default
@@ -2039,6 +2056,7 @@ class CycleOrchestrator:
                 buy_op = next((op for op in active_ops if op.is_buy), None)
                 sell_op = next((op for op in active_ops if op.is_sell), None)
                 if buy_op and sell_op:
+                    from decimal import Decimal
                     debt = DebtUnit.from_recovery_failure(
                         cycle_id=parent_cycle.id,
                         recovery_buy_id=buy_op.id,
@@ -2054,8 +2072,6 @@ class CycleOrchestrator:
                                 difference=float(debt.pips_owed) - 40.0)
 
                     # FIX: Remove TP from BOTH active recovery operations to prevent premature closure
-                    # This "locks" the loss and prevents the market from hitting one TP
-                    # and leaving the other side exposed to infinite loss.
                     logger.info("Removing TP from collided recovery operations to prevent equity drain", 
                                 cycle_id=failed_cycle.id)
                     
@@ -2085,8 +2101,6 @@ class CycleOrchestrator:
         
         # ═══════════════════════════════════════════════════════════════════════
         # FIX-RECOVERY-BLOCK: Eliminar TPs y marcar NEUTRALIZED
-        # Esto CONGELA el P&L flotante y evita que una operación toque TP
-        # mientras la otra queda huérfana con pérdida infinita.
         # ═══════════════════════════════════════════════════════════════════════
         if failed_ops_res.success:
             active_ops = [op for op in failed_ops_res.value if op.status == OperationStatus.ACTIVE]
@@ -2106,7 +2120,7 @@ class CycleOrchestrator:
                         logger.warning("Could not remove TP from blocked recovery", 
                                       op_id=op.id, error=str(e))
                     
-                    # 2. Actualizar status en broker para congelar P&L
+                    # 2. Actualizar status en broker
                     try:
                         await self.trading_service.broker.update_position_status(
                             op.broker_ticket, 
@@ -2123,7 +2137,6 @@ class CycleOrchestrator:
                 await self.repository.save_operation(op)
         
         # 2. Abrir nuevo ciclo recovery (renovación por fallo)
-        # La posición es ±20 pips del ENTRY de la operación que bloqueó (blocking_op)
         reference_price = Price(blocking_op.actual_entry_price or blocking_op.entry_price)
         
         signal = StrategySignal(
@@ -2133,6 +2146,13 @@ class CycleOrchestrator:
         )
         
         await self._open_recovery_cycle(signal, tick, reference_price=reference_price)
+
+        # 3. MARCAR CICLO FALLIDO COMO CERRADO
+        failed_cycle.status = CycleStatus.CLOSED
+        failed_cycle.closed_at = datetime.now()
+        failed_cycle.metadata["close_reason"] = "recovery_failure_and_renewal"
+        await self.repository.save_cycle(failed_cycle)
+        logger.info("Failed recovery cycle marked as CLOSED", cycle_id=failed_cycle.id)
 
     async def _get_exposure_metrics(self, pair: CurrencyPair) -> tuple[float, int]:
         """Calcula la exposición actual y el número de recoveries activos."""

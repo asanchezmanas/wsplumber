@@ -202,6 +202,11 @@ class WallStreetPlumberStrategy(IStrategy):
             return signals
 
         for cycle in pair_cycles:
+            # FIX-RECURSION: Only analyze MAIN cycles. 
+            # Recoveries are attached to MAIN and managed collectively.
+            if cycle.cycle_type != CycleType.MAIN:
+                continue
+                
             signal = self._analyze_cycle_for_recovery(cycle, current_price, pair)
             if signal:
                 signals.append(signal)
@@ -237,17 +242,10 @@ class WallStreetPlumberStrategy(IStrategy):
         # Un recovery está "en curso" si:
         # 1. Hay alguna orden PENDING (enviada al broker pero no activada)
         # 2. Hay exactamente una orden ACTIVE (activada y buscando el TP)
-        active_rec_ops = [op for op in cycle.recovery_operations if op.status == OperationStatus.ACTIVE]
-        pending_rec_ops = [op for op in cycle.recovery_operations if op.status == OperationStatus.PENDING]
-        
-        if pending_rec_ops:
-            logger.debug("Recovery already pending, skipping signal generation", cycle_id=cycle.id)
-            return None
-            
-        # Si hay un número impar de activas (o solo 1), significa que una punta está trabajando
-        # y la otra aún no se ha activado (o no existe). No abrimos otro nivel aún.
-        if len(active_rec_ops) % 2 != 0:
-            logger.debug("Recovery active and working, skipping signal generation", cycle_id=cycle.id)
+        # GUARD-FIX-V3: Bloqueo total si hay CUALQUIER recovery pendiente o activo
+        # cycle.recovery_operations incluye operaciones asociadas al MAIN
+        if any(op.status in (OperationStatus.PENDING, OperationStatus.ACTIVE) for op in cycle.recovery_operations):
+            logger.debug("Recovery in progress (PENDING or ACTIVE), skipping signal generation", cycle_id=cycle.id)
             return None
             
         # Si llegamos aquí, o no hay recoveries (inicio), o los que hay están emparejados (fallo)
