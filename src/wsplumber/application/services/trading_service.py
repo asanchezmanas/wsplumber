@@ -171,12 +171,19 @@ class TradingService:
                 logger.warning("Broker not connected, skipping sync")
                 return Result.fail("Broker not connected", "CONNECTION_ERROR")
             
-            # 1. Obtener estado actual del broker
+            # 1. Obtener estado actual del broker (Activas + Pendientes)
             broker_positions_res = await self.broker.get_open_positions()
-            if not broker_positions_res.success:
-                return Result.fail("Could not get positions from broker", "SYNC_ERROR")
+            broker_pending_res = await self.broker.get_pending_orders()
             
-            broker_positions = {str(p["ticket"]): p for p in broker_positions_res.value}
+            if not broker_positions_res.success or not broker_pending_res.success:
+                return Result.fail("Could not get state from broker", "SYNC_ERROR")
+            
+            # Combinar ambos en un solo mapa de tickets
+            broker_total = {str(p["ticket"]): p for p in broker_positions_res.value}
+            for p in broker_pending_res.value:
+                broker_total[str(p["ticket"])] = p
+            
+            broker_positions = broker_total
 
             # 2. Obtener operaciones del repo
             repo_active_res = await self.repository.get_active_operations(pair)
@@ -185,13 +192,18 @@ class TradingService:
             if not repo_active_res.success or not repo_pending_res.success:
                 return Result.fail("Could not get operations from repo", "SYNC_ERROR")
             
-            # FIX-TS-02: Obtener historial UNA sola vez
-            history_res = await self.broker.get_order_history()
-            broker_history = {}
-            if history_res.success:
-                for h_pos in history_res.value:
-                    ticket_key = str(h_pos.get("ticket"))
-                    broker_history[ticket_key] = h_pos
+            # Lazy-load broker history only if needed (Optimization for backtests)
+            broker_history = None
+            
+            async def get_lazy_history():
+                nonlocal broker_history
+                if broker_history is None:
+                    h_res = await self.broker.get_order_history()
+                    if h_res.success:
+                        broker_history = {str(p["ticket"]): p for p in h_res.value}
+                    else:
+                        broker_history = {}
+                return broker_history
             
             sync_count = 0
 
@@ -258,8 +270,8 @@ class TradingService:
                         logger.info("Synced pending->active", op_id=op.id)
                 
                 # Caso B: No está en abiertas, buscar en historial
-                elif ticket_str in broker_history:
-                    h_pos = broker_history[ticket_str]
+                elif ticket_str in await get_lazy_history():
+                    h_pos = (await get_lazy_history())[ticket_str]
                     
                     # FIX-TS-01: Solo procesar si hay precio de cierre real
                     raw_close_price = h_pos.get("actual_close_price") or h_pos.get("close_price")
@@ -340,8 +352,9 @@ class TradingService:
                 
                 # Caso B: Ya no está en abiertas - buscar en historial
                 elif ticket_str not in broker_positions:
-                    if ticket_str in broker_history:
-                        h_pos = broker_history[ticket_str]
+                    lazy_h = await get_lazy_history()
+                    if ticket_str in lazy_h:
+                        h_pos = lazy_h[ticket_str]
                         
                         # FIX-TS-01: Requerir precio de cierre
                         raw_close_price = h_pos.get("actual_close_price") or h_pos.get("close_price")
@@ -378,8 +391,8 @@ class TradingService:
                 tp_hit_ops = [op for op in tp_hit_ops if op.pair == pair]
 
             for op in tp_hit_ops:
-                    if not op.broker_ticket:
-                        continue
+                if not op.broker_ticket:
+                    continue
 
                     ticket_str = str(op.broker_ticket)
 

@@ -13,19 +13,26 @@ class InMemoryRepository(IRepository):
     """
     def __init__(self):
         self.cycles: Dict[CycleId, Cycle] = {}
+        self._active_cycle_ids: set = set()
         self.operations: Dict[OperationId, Operation] = {}
+        self._active_ids: set = set()
+        self._pending_ids: set = set()
         self.outbox = []
         self.checkpoints = []
 
     async def save_cycle(self, cycle: Cycle) -> Result[CycleId]:
         self.cycles[cycle.id] = cycle
+        if cycle.status.name != "CLOSED":
+            self._active_cycle_ids.add(cycle.id)
+        else:
+            self._active_cycle_ids.discard(cycle.id)
         return Result.ok(cycle.id)
 
     async def get_cycle(self, cycle_id: CycleId) -> Result[Optional[Cycle]]:
         return Result.ok(self.cycles.get(cycle_id))
 
     async def get_active_cycles(self, pair: Optional[CurrencyPair] = None) -> Result[List[Cycle]]:
-        found = [c for c in self.cycles.values() if c.status.name != "CLOSED"]
+        found = [self.cycles[cid] for cid in self._active_cycle_ids]
         if pair:
             found = [c for c in found if c.pair == pair]
         return Result.ok(found)
@@ -39,6 +46,18 @@ class InMemoryRepository(IRepository):
 
     async def save_operation(self, operation: Operation) -> Result[OperationId]:
         self.operations[operation.id] = operation
+        
+        # Update indexes
+        if operation.status in (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED):
+            self._active_ids.add(operation.id)
+            self._pending_ids.discard(operation.id)
+        elif operation.status == OperationStatus.PENDING:
+            self._pending_ids.add(operation.id)
+            self._active_ids.discard(operation.id)
+        else:
+            self._active_ids.discard(operation.id)
+            self._pending_ids.discard(operation.id)
+            
         return Result.ok(operation.id)
 
     async def get_operation(self, operation_id) -> Result[Optional[Operation]]:
@@ -55,14 +74,13 @@ class InMemoryRepository(IRepository):
         return Result.ok(found)
 
     async def get_active_operations(self, pair=None) -> Result[List[Operation]]:
-        active_statuses = (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED)
-        found = [o for o in self.operations.values() if o.status in active_statuses]
+        found = [self.operations[oid] for oid in self._active_ids]
         if pair:
             found = [o for o in found if o.pair == pair]
         return Result.ok(found)
 
     async def get_pending_operations(self, pair=None) -> Result[List[Operation]]:
-        found = [o for o in self.operations.values() if o.status == OperationStatus.PENDING]
+        found = [self.operations[oid] for oid in self._pending_ids]
         if pair:
             found = [o for o in found if o.pair == pair]
         return Result.ok(found)

@@ -125,19 +125,17 @@ class CycleOrchestrator:
             if not is_allowed:
                 return
 
-            # 2. Consultar a la estrategia core
-            signal: StrategySignal = self.strategy.process_tick(
-                pair=tick.pair,
-                bid=float(tick.bid),
-                ask=float(tick.ask),
-                timestamp=tick.timestamp
-            )
+            # 2. Consultar a la estrategia core (usando la versión moderna y sincronizada)
+            # Fetch active cycles for this pair to pass to strategy
+            active_cycles = await self.repository.get_active_cycles(pair)
+            signals: List[StrategySignal] = await self.strategy.generate_signals(tick, active_cycles.value)
             
-            if signal.signal_type == SignalType.NO_ACTION:
+            if not signals:
                 return
 
-            # 3. Procesar señal
-            await self._handle_signal(signal, tick)
+            # 3. Procesar todas las señales generadas
+            for signal in signals:
+                await self._handle_signal(signal, tick)
 
         except Exception as e:
             logger.error("Error processing tick", _exception=e, pair=pair)
@@ -161,11 +159,13 @@ class CycleOrchestrator:
         now = tick.timestamp or datetime.now()
         mid_price = float(tick.bid + tick.ask) / 2.0
 
-        # 1. Verificar si hay un congelamiento activo (L3)
+        # 1. ACTUALIZAR PRECIO SIEMPRE (para detectar gaps entre ticks consecutivos)
+        # Si no actualizamos mientras estamos congelados, al descongelar comparamos
+        # con un precio de hace 30 minutos, disparando un gap falso.
+        is_frozen = False
         if pair in self._freeze_until:
             if now < self._freeze_until[pair]:
-                # logger.debug("Pair frozen by immune system", pair=pair, until=self._freeze_until[pair])
-                return False
+                is_frozen = True
             else:
                 logger.info("Emergency freeze lifted", pair=pair)
                 del self._freeze_until[pair]
@@ -182,10 +182,12 @@ class CycleOrchestrator:
                 )
                 from datetime import timedelta
                 self._freeze_until[pair] = now + timedelta(minutes=GAP_FREEZE_DURATION_MINUTES)
-                self._last_prices[pair] = mid_price
-                return False
+                is_frozen = True
 
         self._last_prices[pair] = mid_price
+        
+        if is_frozen:
+            return False
 
         # 3. Verificar Eventos Programados (L2)
         if LAYER2_MODE == "ON":
@@ -615,7 +617,7 @@ class CycleOrchestrator:
                         if len(active_recovery_ops) >= 2:
                             # Evitar procesar el fallo múltiples veces para el mismo ciclo
                             if not cycle.metadata.get("failure_processed"):
-                                logger.warning("Recovery failure detected (both active)", cycle_id=cycle.id)
+                                logger.warning("DEBUG-RECOVERY-FAILURE-DETECTED (both active)", cycle_id=cycle.id)
                                 cycle.metadata["failure_processed"] = True
                                 await self.repository.save_cycle(cycle)
                                 
@@ -1694,7 +1696,8 @@ class CycleOrchestrator:
 
         # 4. Crear Entidad Ciclo
         suffix = random.randint(100, 999)
-        cycle_id = f"CYC_{pair}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{suffix}"
+        ts_str = now.strftime('%Y%m%d%H%M%S')
+        cycle_id = f"CYC_{pair}_{ts_str}_{suffix}"
 
         cycle = Cycle(id=cycle_id, pair=pair, status=CycleStatus.PENDING)
         self._active_cycles[pair] = cycle
@@ -1840,7 +1843,8 @@ class CycleOrchestrator:
 
         # 3. Crear ciclo de Recovery
         recovery_level = parent_cycle.recovery_level + 1
-        recovery_id = f"REC_{pair}_{recovery_level}_{datetime.now().strftime('%H%M%S')}"
+        ts_str = (tick.timestamp or datetime.now()).strftime('%H%M%S')
+        recovery_id = f"REC_{pair}_{recovery_level}_{ts_str}"
         
         recovery_cycle = Cycle(
             id=recovery_id,

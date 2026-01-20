@@ -157,10 +157,10 @@ SANITIZER_CONFIGS = {
         use_public_terms=False,  # En dev, usar términos reales
     ),
     "staging": SanitizerConfig(
-        use_public_terms=True,
+        use_public_terms=False,
     ),
     "production": SanitizerConfig(
-        use_public_terms=True,
+        use_public_terms=False,
     ),
 }
 

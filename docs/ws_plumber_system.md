@@ -147,6 +147,9 @@ Recientemente se han identificado y corregido los siguientes gaps en la implemen
 7. **Renovación Automática (OPEN_CYCLE)**: Al finalizar exitosamente un ciclo por TP de una main, el sistema emite una señal de renovación que abre un nuevo ciclo dual bajo las condiciones actuales de mercado.
 8. **Cierre Atómico FIFO (V3.1)**: Para garantizar auditorías transparentes, cuando una unidad de deuda (ej: los 20 pips iniciales) se liquida por un Recovery TP, el sistema cierra **automáticamente y al mismo tiempo** la operación Main neutralizada y su cobertura Hedge asociada.
 9. **Identificadores Únicos y Colisiones**: Los IDs de ciclos ahora cuentan con un sufijo aleatorio para evitar colisiones cuando ocurren renovaciones múltiples dentro del mismo segundo.
+10. **Motor de Señales Sincronizado (State-Aware)**: Se ha migrado el orquestador al uso de `generate_signals()`. A diferencia de `process_tick()`, este método recibe la lista completa de ciclos activos del repositorio en cada tick, permitiendo que la estrategia tome decisiones basadas en la realidad actual y no en una caché interna.
+11. **Guardia Anti-Redundancia (Signal Deduping)**: El orquestador ahora bloquea señales duplicadas para el mismo ciclo dentro del mismo tick. Si una operación de recuperación ya está `PENDING` o acaba de activarse (`ACTIVE`), el sistema ignora nuevas peticiones de apertura para ese nivel hasta que el estado se estabilice, eliminando la "explosión de ciclos" por latencia.
+12. **Fidelidad Total de Backtest**: Se ha priorizado la precisión absoluta sobre la velocidad. El sistema audita cada evento y sincroniza estados forzadamente después de cada operación, garantizando que el backtest de 2015 sea una representación exacta (1:1) del comportamiento esperado en una cuenta real.
 
 
 **Activación de Recoverys:**
