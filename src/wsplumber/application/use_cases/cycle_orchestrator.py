@@ -210,7 +210,7 @@ class CycleOrchestrator:
                         logger.info("Scheduled event active, applying shield", event=desc, importance=importance)
                         await self._apply_event_shield(pair, tick)
                         self._active_shield_event = event_key
-                    return True # L2 activa escudo pero permite flujo
+                    return False  # L2 BLOQUEA nuevas señales durante evento
                 
             # Limpiar flag de evento si ya pasó la ventana
             if hasattr(self, "_active_shield_event"):
