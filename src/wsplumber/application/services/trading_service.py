@@ -97,13 +97,12 @@ class TradingService:
             return Result.fail("Operation has no broker ticket", "INVALID_STATE")
 
         try:
-            # FIX-CLOSE-05: Solo rechazar si está CLOSED, permitir TP_HIT
-            # Las operaciones en TP_HIT necesitan cerrarse en el broker para realizar el P&L
-            if operation.status == OperationStatus.CLOSED:
-                logger.warning("Attempted to close already-closed operation",
-                             operation_id=operation.id,
-                             status=operation.status.value)
-                return Result.fail(f"Operation already closed (status={operation.status.value})", "ALREADY_CLOSED")
+            # FIX-CLOSE-05: Solo rechazar si está CLOSED Y NO TIENE TICKET.
+            # Si tiene ticket, debemos intentar cerrarlo en el broker aunque el DB diga CLOSED (Zombie protection)
+            if operation.status == OperationStatus.CLOSED and not operation.broker_ticket:
+                logger.warning("Attempted to close already-closed operation without ticket",
+                             operation_id=operation.id)
+                return Result.fail(f"Operation already closed", "ALREADY_CLOSED")
 
             logger.info("Closing position", ticket=operation.broker_ticket, operation_id=operation.id)
             broker_result = await self.broker.close_position(operation.broker_ticket)

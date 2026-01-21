@@ -1443,18 +1443,18 @@ class CycleOrchestrator:
                 from wsplumber.domain.types import OperationType
 
                 if main_op.op_type == OperationType.MAIN_BUY:
-                    # Si main neutralizado es BUY → buscar HEDGE_SELL activo
-                    expected_hedge_type = OperationType.HEDGE_SELL
+                    # Si main neutralizado es BUY → buscar HEDGE_SELL activo (o MAIN_SELL para el Root)
+                    expected_opposites = [OperationType.HEDGE_SELL, OperationType.MAIN_SELL]
                 elif main_op.op_type == OperationType.MAIN_SELL:
-                    # Si main neutralizado is SELL → buscar HEDGE_BUY activo
-                    expected_hedge_type = OperationType.HEDGE_BUY
+                    # Si main neutralizado is SELL → buscar HEDGE_BUY activo (o MAIN_BUY para el Root)
+                    expected_opposites = [OperationType.HEDGE_BUY, OperationType.MAIN_BUY]
                 else:
                     logger.error("Main op has unexpected type", op_type=main_op.op_type)
                     break
 
-                # Buscar el hedge del tipo esperado (ACTIVE, TP_HIT o NEUTRALIZED)
+                # Buscar el hedge/opuesto del tipo esperado (ACTIVE, TP_HIT o NEUTRALIZED)
                 for hop in ops_res.value:
-                    if hop.is_hedge and hop.op_type == expected_hedge_type and \
+                    if hop.id != main_op.id and hop.op_type in expected_opposites and \
                        hop.status in (OperationStatus.ACTIVE, OperationStatus.TP_HIT, OperationStatus.NEUTRALIZED, OperationStatus.CLOSED):
                         hedge_op = hop
                         break
@@ -1493,6 +1493,7 @@ class CycleOrchestrator:
                     logger.info("Debt unit closed atomically", 
                                net_pips=close_res.value.get("net_pips"),
                                main_id=main_op.id, hedge_id=hedge_op.id)
+                    # ... (rest of logic)
                     
                     # Update operation states
                     main_op.status = OperationStatus.CLOSED
@@ -1937,16 +1938,27 @@ class CycleOrchestrator:
         # 2. LOCALIZAR Y CERRAR SUB-CICLOS DE RECOVERY (Recursividad)
         # Buscamos todos los ciclos en el repositorio que tengan a este como padre
         # Esto soluciona las "Zombie Operations"
-        all_cycles_res = await self.repository.get_active_cycles()
-        if all_cycles_res.success:
-            child_cycles = [c for c in all_cycles_res.value if c.parent_cycle_id == cycle.id]
-            for child in child_cycles:
-                logger.info("Closing orphaned child recovery cycle", 
-                           child_id=child.id, 
-                           parent_id=cycle.id)
-                # Llamada recursiva para cerrar el hijo (y sus posibles nietos)
-                await self._close_cycle_operations_final(child)
+        # 2. LOCALIZAR Y CERRAR TODOS LOS SUB-CICLOS DE RECOVERY (Recursividad Profunda)
+        # FIX-ZOMBIE-DRAIN: Usamos get_cycles_by_status para encontrar TODOS los hijos, no solo los activos.
+        # Un hijo puede estar "CLOSED" (fallido) pero tener posiciones neutralizadas en el broker.
+        all_child_cycles_res = await self.repository.get_all_cycles() # Get all to be safe
+        if isinstance(all_child_cycles_res, list): # InMemoryRepository returns List
+             all_child_cycles = all_child_cycles_res
+        else: # IRepository usually returns Result[List]
+             all_child_cycles = all_child_cycles_res.value if all_child_cycles_res.success else []
+
+        child_cycles = [c for c in all_child_cycles if c.parent_cycle_id == cycle.id]
+        for child in child_cycles:
+            logger.info("Closing child recovery cycle (including zombies)", 
+                       child_id=child.id, 
+                       parent_id=cycle.id,
+                       status=child.status.value)
+            # Llamada recursiva para cerrar el hijo (y sus posibles nietos)
+            await self._close_cycle_operations_final(child)
+            
+            if child.status != CycleStatus.CLOSED:
                 child.status = CycleStatus.CLOSED
+                child.closed_at = datetime.now()
                 await self.repository.save_cycle(child)
 
         # 3. Cerrar operaciones del ciclo actual
@@ -1965,24 +1977,21 @@ class CycleOrchestrator:
             all_ops = ops_res.value
             
         for op in all_ops:
-            if op.status in (OperationStatus.ACTIVE, OperationStatus.NEUTRALIZED, OperationStatus.PENDING):
-                logger.debug("Closing op during final resolution", op_id=op.id, status=op.status.value)
+            # FIX-ZOMBIE-DRAIN: Include CLOSED + TP_HIT in cleanup if ticket exists. 
+            # If op has a ticket, it MUST be closed in the broker to vanish from the account.
+            if op.broker_ticket and op.status != OperationStatus.CANCELLED:
+                logger.info("Cleaning up terminal resolution position", 
+                           op_id=op.id, status=op.status.value, ticket=op.broker_ticket)
                 
-                # Para PENDING, cancelar
                 if op.status == OperationStatus.PENDING:
-                    if op.broker_ticket:
-                        await self.trading_service.broker.cancel_order(op.broker_ticket)
+                    tasks.append(self.trading_service.broker.cancel_order(op.broker_ticket))
                     op.status = OperationStatus.CANCELLED
-                elif op.status not in (OperationStatus.CLOSED, OperationStatus.TP_HIT):
-                    # Para ACTIVE/NEUTRALIZED, cerrar en el broker
-                    if op.broker_ticket:
-                        tasks.append(self.trading_service.close_operation(op, reason="cycle_final_resolution"))
-                    op.status = OperationStatus.CLOSED
                 else:
-                    continue
+                    # ACTIVE, NEUTRALIZED, TP_HIT, or even CLOSED (if it's a zombie)
+                    tasks.append(self.trading_service.close_operation(op, reason="cycle_final_resolution"))
                 
                 op.metadata["close_reason"] = "cycle_final_resolution"
-                await self.repository.save_operation(op)
+                # State update and save will happen inside close_operation or when tasks are gathered
         
         if tasks:
             await asyncio.gather(*tasks)
@@ -2100,7 +2109,8 @@ class CycleOrchestrator:
                 # 1. Eliminar TP del broker para evitar cierre automático
                 if op.broker_ticket:
                     try:
-                        await self.trading_service.broker.modify_order(
+                        # FIX: Use modify_position for ACTIVE/NEUTRALIZED positions
+                        await self.trading_service.broker.modify_position(
                             op.broker_ticket, 
                             new_tp=None
                         )
