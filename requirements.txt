@@ -8,3 +8,6 @@ MetaTrader5
 pandas
 httpx
 Cython
+polars
+jinja2
+loguru

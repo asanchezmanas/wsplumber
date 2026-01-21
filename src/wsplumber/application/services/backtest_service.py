@@ -245,6 +245,13 @@ class BacktestService:
                 main_cycles = [c for c in all_cycles if c.cycle_type.value == "main"]
                 rec_cycles = [c for c in all_cycles if c.cycle_type.value == "recovery"]
                 
+                # Stats de operaciones (TP hits)
+                # Catch both tp_hit and closed with actual_close_price (indicating it hit TP)
+                main_tps = sum(1 for o in repo.operations.values() 
+                             if o.is_main and (o.status.value == "tp_hit" or (o.status.value == "closed" and o.actual_close_price is not None)))
+                recovery_tps = sum(1 for o in repo.operations.values() 
+                                  if o.is_recovery and (o.status.value == "tp_hit" or (o.status.value == "closed" and o.actual_close_price is not None)))
+
                 progress = BacktestProgress(
                     tick=tick_count,
                     total_ticks=total_ticks,
@@ -254,10 +261,8 @@ class BacktestService:
                     hedged_cycles=sum(1 for c in main_cycles if c.status.value == "hedged"),
                     in_recovery_cycles=sum(1 for c in main_cycles if c.status.value == "in_recovery"),
                     closed_cycles=sum(1 for c in main_cycles if c.status.value == "closed"),
-                    main_tps=sum(1 for o in repo.operations.values() 
-                                if o.is_main and o.status.value == "tp_hit"),
-                    recovery_tps=sum(1 for o in repo.operations.values() 
-                                    if o.is_recovery and o.status.value == "tp_hit"),
+                    main_tps=main_tps,
+                    recovery_tps=recovery_tps,
                     status="running"
                 )
                 
@@ -279,6 +284,12 @@ class BacktestService:
         all_cycles = list(repo.cycles.values())
         main_cycles = [c for c in all_cycles if c.cycle_type.value == "main"]
         
+        # Stats finales
+        final_main_tps = sum(1 for o in repo.operations.values() 
+                           if o.is_main and (o.status.value == "tp_hit" or (o.status.value == "closed" and o.actual_close_price is not None)))
+        final_rec_tps = sum(1 for o in repo.operations.values() 
+                          if o.is_recovery and (o.status.value == "tp_hit" or (o.status.value == "closed" and o.actual_close_price is not None)))
+
         progress = BacktestProgress(
             tick=tick_count,
             total_ticks=total_ticks,
@@ -288,8 +299,8 @@ class BacktestService:
             hedged_cycles=sum(1 for c in main_cycles if c.status.value == "hedged"),
             in_recovery_cycles=sum(1 for c in main_cycles if c.status.value == "in_recovery"),
             closed_cycles=sum(1 for c in main_cycles if c.status.value == "closed"),
-            main_tps=sum(1 for o in repo.operations.values() if o.is_main and o.status.value == "tp_hit"),
-            recovery_tps=sum(1 for o in repo.operations.values() if o.is_recovery and o.status.value == "tp_hit"),
+            main_tps=final_main_tps,
+            recovery_tps=final_rec_tps,
             status="complete",
             message=f"Backtest completado en {duration:.1f}s. P/L: {final_balance - initial_balance:+.2f} EUR"
         )

@@ -55,14 +55,19 @@ PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
 ```
 **Log esperado**: `[MAIN_TP_HIT] cycle_id=XXX profit_pips=10`
 
-### Flujo 2: Ambas Activadas → Cobertura
+### Flujo 2: Ambas Activadas → Cobertura (HEDGE)
 ```
 1. Precio oscila, ambas mains se activan
 2. Ciclo → HEDGED
-3. Abrir órdenes HEDGE_BUY y HEDGE_SELL al nivel del TP opuesto
-4. Registrar deuda: pips_locked = 20
+3. Abrir órdenes HEDGE de CONTINUACIÓN al nivel del TP de cada Main:
+   - HEDGE_BUY en el TP de la Main BUY (+10 pips del entry)
+   - HEDGE_SELL en el TP de la Main SELL (-10 pips del entry)
+4. Registrar deuda: pips_locked = 20 (distancia entre mains 10 + distancia al TP 10)
 5. Cuando UNA main toca TP:
-   - La hedge correspondiente se activa (neutraliza)
+   - Se activa su Hedge de continuación (ej: TP Buy -> Activa Hedge Buy)
+   - Neutralizar la OTRA main (quitarle el TP en broker)
+   - Neutralizar el Hedge que acaba de ponerse ACTIVE (congela P&L en 0)
+   - Resultado: Deuda bloqueada de exactamente 20 pips (Main Sell vs Hedge Buy)
    - Abrir ciclo RECOVERY a ±20 pips del precio actual
    - Ciclo → IN_RECOVERY
 ```
@@ -75,10 +80,12 @@ PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
 3. Sistema FIFO por UNIDADES:
    - Unidad Main+Hedge: 20 pips
    - Unidades Recovery Fallido: 40 pips cada una
-4. Condición de cierre:
+4. CIERRE ATÓMICO: Si se liquida la unidad de 20 pips:
+   - broker.close_debt_unit(main_ticket, hedge_ticket)
+   - P&L neto realizado = exactamente -20 pips
+5. Condición de cierre final:
    - Deuda total == 0 AND Excedente >= 20 pips
-5. Si OK: Cerrar ciclo completo
-6. Si NO: Abrir nuevo recovery a ±20 pips del TP alcanzado
+6. Si OK: Cerrar ciclo completo (Llamar a _close_cycle_operations_final)
 ```
 **Log esperado**: `[RECOVERY_TP_HIT] profit=80 debt_remaining=X`
 
@@ -130,10 +137,18 @@ PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
 | `ACTIVE` | Posición abierta en broker | Se recalcula cada tick |
 | `NEUTRALIZED` | Bloqueada por contraparte | **CONGELADO** al momento del bloqueo |
 | `TP_HIT` | Take Profit alcanzado | Realizado, ya no flota |
-| `CLOSED` | Cerrada manualmente | Realizado |
+| `CLOSED` | Cerrada completamente | Realizado |
 
-> **⚠️ CRÍTICO**: Si una operación NEUTRALIZED mantiene su P&L recalculándose,
-> el equity se disparará negativamente cuando el precio se aleje.
+> **⚠️ CRÍTICO**: Las operaciones `NEUTRALIZED` nunca se cierran individualmente si forman parte de una unidad de deuda. Se deben cerrar usando `close_debt_unit`.
+
+## 🛡️ Cierre Atómico de Unidad de Deuda (Atomic Closure)
+
+Para garantizar que el balance nunca baje de forma imprevista, las deudas se liquidan así:
+
+1. **Identificación**: Se busca la Main neutralizada y su Hedge correspondiente.
+2. **Cálculo**: El broker ignora el P&L actual y calcula `entry_diff * lot_size` (siempre -20 pips para la unidad inicial).
+3. **Ejecución**: Se cierran ambas a la vez en una sola llamada al broker.
+4. **Residuo**: Si no se puede cerrar atómicamente, se registra el error pero NO se cierra una sola.
 
 ---
 
@@ -209,7 +224,8 @@ EMERGENCY_LIMITS = {
 ### Al Cerrar por TP
 - [ ] ¿El `profit_pips` se registró correctamente?
 - [ ] ¿Se ejecutó lógica FIFO para cerrar deudas?
-- [ ] ¿Las operaciones cerradas tienen `closed_at`?
+- [ ] ¿Se llamó a `broker.close_debt_unit` para la unidad inicial?
+- [ ] ¿Las operaciones cerradas tienen `metadata["close_method"] == "atomic_debt_unit"`?
 - [ ] ¿Se emitió señal de renovación (`OPEN_CYCLE`)?
 
 ---

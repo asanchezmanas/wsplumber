@@ -17,6 +17,7 @@ from wsplumber.api.routers import websocket
 from wsplumber.api.routers.traceability import router as traceability_router
 from wsplumber.api.routers.backtest import router as backtest_router
 from wsplumber.api.routers.state_broadcaster import state_broadcaster
+from fastapi.middleware.cors import CORSMiddleware
 
 
 # Lifespan handler para startup/shutdown
@@ -37,6 +38,15 @@ app = FastAPI(
     description="Estrategia Algorítmica de Alta Fidelidad",
     version="0.1.0",
     lifespan=lifespan
+)
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En producción, restringir a dominios específicos
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Registrar Routers
