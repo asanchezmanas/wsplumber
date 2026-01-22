@@ -598,8 +598,7 @@ class Cycle:
         Args:
             pips: Pips recuperados
         """
-        self.accounting.add_recovered_pips(pips)
-        self.accounting.total_recovery_tps += 1
+        self.accounting.process_recovery_tp(float(pips))
 
         # Verificar si se completó la recuperación
         if self.accounting.is_fully_recovered and not self.needs_recovery:

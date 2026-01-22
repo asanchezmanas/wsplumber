@@ -118,17 +118,19 @@ async def test_equity_drain_repro():
     
     # 4. Step 3: Simulate Successful Recovery (Level 2)
     print("\n[STEP 3] Simulating Successful Recovery TP...")
+    # Find active Level 2 recovery (created by orchestrator in Step 2)
     all_cycles = await repo.get_all_cycles()
-    # Find active Level 2 recovery
-    rec2 = next(c for c in all_cycles if c.recovery_level == 2 and c.status != CycleStatus.CLOSED)
+    rec2 = next(c for c in all_cycles if c.recovery_level == 2 and c.status == CycleStatus.ACTIVE)
     
     # Force TP hit on one op of rec2
     rec2_ops = (await repo.get_operations_by_cycle(rec2.id)).value
     tp_op = rec2_ops[0]
-    tp_op.status = OperationStatus.TP_HIT
+    tp_op.status = OperationStatus.ACTIVE 
     tp_op.broker_ticket = f"REC2_{tp_op.id}"
     tp_op.actual_entry_price = tp_op.entry_price
-    # Profit must cover 60 pips. 80 pips is enough.
+    
+    # Mark TP HIT
+    tp_op.status = OperationStatus.TP_HIT
     tp_op.actual_close_price = Price(Decimal(str(tp_op.entry_price)) + Decimal("0.0080")) if tp_op.is_buy else \
                                Price(Decimal(str(tp_op.entry_price)) - Decimal("0.0080"))
     
@@ -138,11 +140,6 @@ async def test_equity_drain_repro():
     
     await repo.save_operation(tp_op)
     
-    # Handle Recovery TP
-    tick3 = get_tick(180)
-    broker.current_tick = tick3
-    broker.current_tick_index = 180
-    
     # Check hierarchy before resolving
     all_cycles = await repo.get_all_cycles()
     print("\n--- BEFORE RESOLUTION ---")
@@ -150,9 +147,11 @@ async def test_equity_drain_repro():
         p_res = await repo.get_operations_by_cycle(c.id)
         p_ops = p_res.value if p_res.success else []
         print(f"Cycle: {c.id} Status: {c.status.value} Parent: {c.parent_cycle_id}")
-        for op in p_ops:
-            print(f"  Op: {op.id} Type: {op.op_type.value} Status: {op.status.value} Ticket: {op.broker_ticket}")
     
+    # Handle Recovery TP (This should trigger Parent closure)
+    tick3 = get_tick(180)
+    broker.current_tick = tick3
+    broker.current_tick_index = 180
     await orchestrator._handle_recovery_tp(rec2, tick3)
     
     # 5. FINAL VERIFICATION
@@ -163,10 +162,10 @@ async def test_equity_drain_repro():
     open_tickets = list(broker.open_positions.keys())
     print(f"Open Tickets in Broker: {open_tickets}")
     
-    # 6. REPOSITORY DIAGNOSTICS (If failed)
-    zombies = [t for t in open_tickets if "REC1" in t or "ROOT" in t]
+    # The fix should close ROOT and REC1 positions.
+    zombies = [t for t in open_tickets if "REC1" in t or "ROOT" in t or "REC2" in t]
     if zombies:
-        print("\n--- REPO DIAGNOSTICS ---")
+        print("\n--- REPO DIAGNOSTICS FOR ZOMBIES ---")
         all_ops = await repo.get_all_operations()
         for op in all_ops:
             if any(z in str(op.broker_ticket) for z in zombies):

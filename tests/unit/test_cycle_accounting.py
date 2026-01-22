@@ -24,14 +24,15 @@ def test_neutralization_logic():
     cycle = Cycle(id="TEST_CYCLE", pair=CurrencyPair("EURUSD"))
     
     # Registrar deudas (neutralización)
+    # Ya empezamos con 20 pips iniciales (Main/Hedge)
     cycle.record_neutralization(Pips(40.0))
     cycle.record_neutralization(Pips(40.0))
     
-    assert float(cycle.accounting.pips_locked) == 80.0
+    assert float(cycle.accounting.total_debt_pips) == 100.0 # 20 + 40 + 40
     
     # Registrar TP de Recovery
-    cycle.record_recovery_tp(Pips(80.0))
+    cycle.record_recovery_tp(Pips(100.0))
     
-    assert float(cycle.accounting.pips_recovered) == 80.0
+    assert float(cycle.accounting.total_recovered_pips) == 100.0
     assert cycle.accounting.is_fully_recovered is True
     assert cycle.accounting.net_pips == 0.0

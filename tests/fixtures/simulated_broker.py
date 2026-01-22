@@ -89,6 +89,12 @@ class SimulatedBroker(IBroker):
 
 
 
+    @property
+    def equity(self) -> Decimal:
+        """Calcula el equity actual (balance + P&L flotante)."""
+        floating_pnl = sum(Decimal(str(pos.current_pnl_money)) for pos in self.open_positions.values())
+        return self.balance + floating_pnl
+
     def load_csv(self, csv_path: str, default_pair: Optional[str] = None):
         """Carga ticks desde un archivo CSV (Formato TickData).
         
