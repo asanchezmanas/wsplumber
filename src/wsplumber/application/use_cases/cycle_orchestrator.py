@@ -1440,12 +1440,24 @@ class CycleOrchestrator:
         
         child_recoveries = [c for c in all_cycles if c.parent_cycle_id == parent_cycle.id]
         
+        logger.warning("DIAG-FIFO: Searching for neutralized ops",
+                      parent_id=parent_cycle.id,
+                      child_recovery_count=len(child_recoveries),
+                      available_pips=available_pips)
+        
         for recovery in child_recoveries:
             ops_res = await self.repository.get_operations_by_cycle(recovery.id)
             if ops_res.success:
                 for op in ops_res.value:
                     if op.status == OperationStatus.NEUTRALIZED and op.broker_ticket:
                         all_neutralized.append(op)
+                    elif op.status == OperationStatus.NEUTRALIZED:
+                        logger.warning("DIAG-FIFO: Neutralized op WITHOUT broker_ticket",
+                                      op_id=op.id, recovery_id=recovery.id)
+        
+        logger.warning("DIAG-FIFO: Found neutralized ops",
+                      count=len(all_neutralized),
+                      parent_id=parent_cycle.id)
         
         if len(all_neutralized) < 2:
             return 0  # Need at least one pair
