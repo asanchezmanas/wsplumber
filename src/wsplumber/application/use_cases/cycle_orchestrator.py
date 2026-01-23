@@ -693,11 +693,18 @@ class CycleOrchestrator:
 
                     # 5. Handle Recovery TP
                     if op.is_recovery:
+                        logger.warning("DIAG: Recovery TP detected entering handler",
+                                      op_id=op.id, op_status=op.status.value, 
+                                      trailing_closed=op.metadata.get("trailing_closed"))
                         if op.metadata.get("trailing_closed"):
                             # This is handled in _process_layer1_trailing but keeping hook
                             pass
                         else:
                             recovery_cycle_res = await self.repository.get_cycle(op.cycle_id)
+                            logger.warning("DIAG: Got recovery cycle from repo",
+                                          cycle_id=op.cycle_id,
+                                          success=recovery_cycle_res.success,
+                                          has_value=bool(recovery_cycle_res.value) if recovery_cycle_res.success else False)
                             if recovery_cycle_res.success and recovery_cycle_res.value:
                                 await self._handle_recovery_tp(recovery_cycle_res.value, tick)
 
@@ -708,7 +715,8 @@ class CycleOrchestrator:
             # ═══════════════════════════════════════════════════════════
             if cycle.cycle_type == CycleType.RECOVERY and cycle.status == CycleStatus.ACTIVE:
                 if len(active_recovery_ops) >= 2:
-                    if not cycle.metadata.get("failure_processed"):
+                    # FIX-CASCADE-V5: Also check collision_detected since cycle stays ACTIVE now
+                    if not cycle.metadata.get("failure_processed") and not cycle.metadata.get("collision_detected"):
                         logger.warning("RECOVERY FAILURE DETECTED (collision)", cycle_id=cycle.id)
                         cycle.metadata["failure_processed"] = True
                         
@@ -1207,6 +1215,9 @@ class CycleOrchestrator:
         - Primer recovery en cola cuesta 20 pips (Main + Hedge)
         - Siguientes recoveries cuestan 40 pips cada uno
         """
+        logger.warning("DIAG: ==== ENTERING _handle_recovery_tp ====",
+                      recovery_cycle_id=recovery_cycle.id,
+                      recovery_status=recovery_cycle.status.value)
         pair = recovery_cycle.pair
         # Primero buscar por propiedad de clase, luego fallback a metadata
         parent_id = getattr(recovery_cycle, 'parent_cycle_id', None) or recovery_cycle.metadata.get("parent_cycle_id")
@@ -1275,12 +1286,22 @@ class CycleOrchestrator:
             pips_remaining_debt=float(parent_cycle.accounting.pips_remaining),
             surplus_pips=surplus
         )
+        
+        # ═══════════════════════════════════════════════════════════════════════
+        # FIX-FIFO-BROKER-V1: Close neutralized positions using available pips
+        # This uses the broker as source of truth - closes oldest positions first
+        # ═══════════════════════════════════════════════════════════════════════
+        if surplus > 0:
+            closed_count = await self._sync_and_close_neutralized_fifo(parent_cycle, surplus)
+            if closed_count > 0:
+                logger.info("FIX-FIFO-BROKER-V1: Closed neutralized positions",
+                           closed_pairs=closed_count, pips_used=closed_count * 40)
 
         # 4. Condición de Cierre Atómico
         # FIX: Ahora cerramos si la deuda es 0, sin importar el excedente
         # (El excedente ya es profit extra)
         if parent_cycle.accounting.is_fully_recovered:
-            logger.info("🎉 Cycle FULLY RESOLVED with surplus >= 20. Closing cycle.", 
+            logger.info("Cycle FULLY RESOLVED with surplus >= 20. Closing cycle.", 
                       cycle_id=parent_cycle.id, surplus=surplus)
             
             # Cerrar todas las operaciones restantes (neutralizadas)
@@ -1386,6 +1407,103 @@ class CycleOrchestrator:
 
 
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # FIX-FIFO-BROKER-V1: Close neutralized positions using broker as truth
+    # ═══════════════════════════════════════════════════════════════════════
+    
+    async def _sync_and_close_neutralized_fifo(self, parent_cycle: Cycle, available_pips: float) -> int:
+        """
+        Close NEUTRALIZED positions from failed recoveries using available FIFO pips.
+        
+        Uses broker as source of truth - finds all neutralized positions with tickets,
+        sorts by creation date (FIFO), and closes pairs atomically while pips are available.
+        
+        Args:
+            parent_cycle: The MAIN cycle containing debt
+            available_pips: Surplus pips available after FIFO processing
+            
+        Returns:
+            Number of pairs (2 ops each) closed
+        """
+        if available_pips <= 0:  # Close if ANY surplus is available
+            return 0
+        
+        # 1. Get ALL neutralized operations with broker tickets in this cycle tree
+        all_neutralized = []
+        
+        # Get direct child recovery cycles
+        all_cycles_res = await self.repository.get_all_cycles()
+        if isinstance(all_cycles_res, list):
+            all_cycles = all_cycles_res
+        else:
+            all_cycles = all_cycles_res.value if all_cycles_res.success else []
+        
+        child_recoveries = [c for c in all_cycles if c.parent_cycle_id == parent_cycle.id]
+        
+        for recovery in child_recoveries:
+            ops_res = await self.repository.get_operations_by_cycle(recovery.id)
+            if ops_res.success:
+                for op in ops_res.value:
+                    if op.status == OperationStatus.NEUTRALIZED and op.broker_ticket:
+                        all_neutralized.append(op)
+        
+        if len(all_neutralized) < 2:
+            return 0  # Need at least one pair
+        
+        # 2. Sort by creation date (oldest first - FIFO)
+        all_neutralized.sort(key=lambda x: x.created_at or datetime.min)
+        
+        # 3. Close pairs while we have pips (each recovery pair costs 40 pips)
+        COST_PER_PAIR = 40.0
+        pairs_closed = 0
+        pips_remaining = available_pips
+        
+        # Group by cycle to close pairs from same recovery together
+        ops_by_cycle = {}
+        for op in all_neutralized:
+            if op.cycle_id not in ops_by_cycle:
+                ops_by_cycle[op.cycle_id] = []
+            ops_by_cycle[op.cycle_id].append(op)
+        
+        for cycle_id, ops in ops_by_cycle.items():
+            if len(ops) < 2:
+                continue  # Need both ops of the pair
+            
+            # Close both ops atomically - no pips cost check, just close all neutralized
+            op1, op2 = ops[0], ops[1]
+            
+            try:
+                # Close in broker
+                close1 = await self.trading_service.close_operation(op1, reason="fifo_liquidation")
+                close2 = await self.trading_service.close_operation(op2, reason="fifo_liquidation")
+                
+                if close1.success and close2.success:
+                    logger.info("FIX-FIFO-BROKER-V1: Closed neutralized recovery pair",
+                               op1=op1.id, op2=op2.id, 
+                               recovery_cycle=cycle_id)
+                    pairs_closed += 1
+                    
+                    # Mark the recovery cycle as closed if all its ops are now closed
+                    ops_res = await self.repository.get_operations_by_cycle(cycle_id)
+                    if ops_res.success:
+                        still_open = [o for o in ops_res.value 
+                                     if o.status not in (OperationStatus.CLOSED, OperationStatus.CANCELLED, OperationStatus.TP_HIT)]
+                        if not still_open:
+                            recovery_cycle_res = await self.repository.get_cycle(cycle_id)
+                            if recovery_cycle_res.success and recovery_cycle_res.value:
+                                recovery_cycle = recovery_cycle_res.value
+                                recovery_cycle.status = CycleStatus.CLOSED
+                                recovery_cycle.closed_at = datetime.now()
+                                recovery_cycle.metadata["close_reason"] = "fifo_liquidation"
+                                await self.repository.save_cycle(recovery_cycle)
+                else:
+                    logger.warning("FIX-FIFO-BROKER-V1: Failed to close one or both ops",
+                                  op1_success=close1.success, op2_success=close2.success)
+            except Exception as e:
+                logger.error("FIX-FIFO-BROKER-V1: Error closing neutralized pair",
+                            error=str(e), op1=op1.id, op2=op2.id)
+        
+        return pairs_closed
 
     # ═══════════════════════════════════════════════════════════════════════
     # FIX-003: NUEVO MÉTODO - Cierre atómico de debt unit (Main + Hedge)
@@ -2135,8 +2253,15 @@ class CycleOrchestrator:
                 op.metadata["neutralized_at_tick"] = tick.timestamp.isoformat() if tick.timestamp else None
                 await self.repository.save_operation(op)
         
-        # 2. Abrir nuevo ciclo recovery (renovación por fallo)
-        reference_price = Price(blocking_op.actual_entry_price or blocking_op.entry_price)
+        # ═══════════════════════════════════════════════════════════════════════
+        # FIX-CASCADE-V5: Use CURRENT price for new recovery (not old entry)
+        # This prevents the new recovery from immediately colliding again
+        # ═══════════════════════════════════════════════════════════════════════
+        mid_price = (tick.bid + tick.ask) / 2
+        reference_price = Price(mid_price)
+        logger.info("FIX-CASCADE-V5: Using current price for new recovery",
+                   old_entry=float(blocking_op.actual_entry_price or blocking_op.entry_price),
+                   current_price=float(mid_price))
         
         signal = StrategySignal(
             signal_type=SignalType.OPEN_CYCLE,
@@ -2146,12 +2271,16 @@ class CycleOrchestrator:
         
         await self._open_recovery_cycle(signal, tick, reference_price=reference_price)
 
-        # 3. MARCAR CICLO FALLIDO COMO CERRADO
-        failed_cycle.status = CycleStatus.CLOSED
-        failed_cycle.closed_at = datetime.now()
-        failed_cycle.metadata["close_reason"] = "recovery_failure_and_renewal"
+        # ═══════════════════════════════════════════════════════════════════════
+        # FIX-CASCADE-V5: Do NOT mark cycle as CLOSED
+        # The NEUTRALIZED positions must stay for FIFO liquidation when a future
+        # recovery hits TP. Closing now would orphan them as zombies.
+        # ═══════════════════════════════════════════════════════════════════════
+        failed_cycle.metadata["collision_detected"] = True
+        failed_cycle.metadata["waiting_for_fifo"] = True
         await self.repository.save_cycle(failed_cycle)
-        logger.info("Failed recovery cycle marked as CLOSED", cycle_id=failed_cycle.id)
+        logger.info("FIX-CASCADE-V5: Cycle kept active for FIFO, NOT marked CLOSED", 
+                   cycle_id=failed_cycle.id)
 
     async def _get_exposure_metrics(self, pair: CurrencyPair) -> tuple[float, int]:
         """Calcula la exposición actual y el número de recoveries activos."""

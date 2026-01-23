@@ -39,7 +39,7 @@ async def run_2015_full():
     file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
     root_logger = logging.getLogger()
     root_logger.addHandler(file_handler)
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(logging.INFO)  # ALWAYS log INFO and WARNING for debugging
 
     start_run = datetime.now()
     pair = CurrencyPair("EURUSD")
