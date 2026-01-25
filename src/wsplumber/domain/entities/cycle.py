@@ -63,16 +63,19 @@ class CycleAccounting:
     total_commissions: Money = Money(Decimal("0"))
     total_swaps: Money = Money(Decimal("0"))
     
-    # Cola de unidades de deuda (pips por unidad) - EXISTING HARDCODED
-    # Ej: [20.0, 40.0, 40.0]
-    debt_units: List[float] = field(default_factory=lambda: [20.0])
+    # Cola de unidades de deuda (objetos DebtUnit)
+    # Ej: [DebtUnit(pips=20, ops=[...]), DebtUnit(pips=40, ops=[...])]
+    debt_units: List[DebtUnit] = field(default_factory=list)
     
+    # Unidades liquidadas en el último proceso (para que el orquestador sepa qué cerrar)
+    liquidated_units: List[DebtUnit] = field(default_factory=list, repr=False)
+
     # Acumulado de deuda generada para cálculo de beneficio neto real
-    total_debt_incurred: float = 20.0
+    total_debt_incurred: float = 0.0
     
     # REAL-PIPS ACCOUNTING FIELDS (Phase 5)
-    total_debt_pips: float = 20.0 # Starts with initial 20 pips unit
-    pips_remaining: float = 20.0 # Starts with initial 20 pips unit
+    total_debt_pips: float = 0.0
+    pips_remaining: float = 0.0
     total_recovered_pips: float = 0.0
     surplus_pips: float = 0.0
     
@@ -85,10 +88,16 @@ class CycleAccounting:
     # =========================================
     
     # Shadow debt queue with real calculated values
-    # Import DebtUnit when needed to avoid circular imports
-    _shadow_debts: List[Any] = field(default_factory=list)
+    _shadow_debts: List[DebtUnit] = field(default_factory=list)
     _shadow_total_debt: float = 0.0
     _shadow_recovered: float = 0.0
+
+    def __post_init__(self):
+        """Inicialización de la deuda inicial si la cola está vacía."""
+        if not self.debt_units and self.total_debt_pips == 0:
+            # Note: The initial 20 pips unit will be added formally 
+            # by the Orchestrator when hedging happens to include tickets.
+            pass
 
     def add_locked_pips(self, pips: Pips) -> None:
         """Añade pips bloqueados (usado para ajustes manuales o inicialización)."""
@@ -97,56 +106,74 @@ class CycleAccounting:
         self.total_debt_pips += pips_val 
         self.pips_remaining += pips_val 
 
-    def add_recovery_failure_unit(self, real_loss_pips: Optional[float] = None) -> None:
+    def add_recovery_failure_unit(self, real_loss_pips: Optional[float] = None, operation_ids: List[str] = None) -> None:
         """
         Añade una unidad de deuda por fallo de recovery (ambas activas).
         
         Args:
             real_loss_pips: Pérdida real calculada entre las entradas (opcional).
                            Si no se provee, usa el valor teórico de 40.0.
+            operation_ids: IDs de las operaciones involucradas (recovery_buy, recovery_sell).
         """
         pips = float(real_loss_pips) if real_loss_pips is not None else 40.0
-        self.debt_units.append(pips)
+        
+        from wsplumber.domain.entities.debt import DebtUnit
+        unit = DebtUnit(
+            id=f"FAIL_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            source_cycle_id="", # Assigned by caller or not needed here
+            source_operation_ids=operation_ids or [],
+            pips_owed=Decimal(str(pips)),
+            debt_type="recovery_failure"
+        )
+        
+        self.debt_units.append(unit)
         self.total_debt_pips += pips
         self.pips_remaining += pips
-        self.pips_locked = Pips(sum(self.debt_units)) # Keep pips_locked updated
+        self.pips_locked = Pips(sum(float(u.pips_owed) for u in self.debt_units))
 
     def process_recovery_tp(self, realized_profit: float) -> float:
         """
-        Procesa el beneficio de un recovery y lo aplica a la deuda (FIFO).
+        Procesa el beneficio de un recovery y lo aplica a la deuda (FIFO ATÓMICO).
         
-        Args:
-            realized_profit: El beneficio real obtenido (aprox 80 pips).
-            
-        Returns:
-            Excedente (surplus) si se cubrió toda la deuda.
+        Regla de oro: Una unidad de deuda (20 o 40) solo se liquida si el beneficio
+        acumulado es MAYOR o IGUAL a su valor total. No hay pagos parciales.
         """
-        profit = float(realized_profit)
-        self.total_recovered_pips += profit
-        self.pips_recovered = Pips(self.total_recovered_pips) # Keep legacy field in sync
+        # El beneficio disponible es lo ganado ahora + lo que sobró de antes
+        total_available = float(realized_profit) + self.surplus_pips
+        self.surplus_pips = 0.0 # Reiniciamos para recalcular
+        
+        self.total_recovered_pips += float(realized_profit)
+        self.pips_recovered = Pips(self.total_recovered_pips)
         self.total_recovery_tps += 1 
+        
+        self.liquidated_units = []
 
         # Aplicar profit a las unidades de deuda (FIFO)
-        while profit > 0 and self.debt_units:
+        while total_available > 0 and self.debt_units:
             unit = self.debt_units[0]
-            if profit >= unit:
-                # Unidad completamente pagada
-                profit -= unit
-                self.debt_units.pop(0)
-                self.pips_remaining -= unit
-            else:
-                # Unidad parcialmente pagada
-                self.debt_units[0] -= profit
-                self.pips_remaining -= profit
-                profit = 0
-                
-        # Si sobra profit y no hay más deuda, es excedente
-        if profit > 0 and not self.debt_units:
-            self.surplus_pips += profit
-            self.pips_remaining = 0.0 # Ensure it's zero if all debt cleared
+            unit_pips = float(unit.pips_owed)
             
-        # Update pips_locked to reflect what remains in the queue
-        self.pips_locked = Pips(sum(self.debt_units))
+            if total_available >= unit_pips:
+                # Unidad COMPLETAMENTE pagada
+                total_available -= unit_pips
+                # Al liquidarse, restamos el valor total de la deuda pendiente
+                self.pips_remaining -= unit_pips
+                
+                liq_unit = self.debt_units.pop(0)
+                liq_unit.status = "liquidated"
+                self.liquidated_units.append(liq_unit)
+            else:
+                # NO hay suficiente para la unidad entera. 
+                # Se queda como excedente (surplus) para el siguiente TP.
+                # NO RESTAMOS nada de pips_remaining ni de unit.pips_owed.
+                break
+                
+        # Lo que quede tras cerrar unidades enteras es el nuevo excedente
+        self.surplus_pips = total_available
+        
+        # pips_remaining es la suma de todas las unidades NO cerradas
+        self.pips_remaining = sum(float(u.pips_owed) for u in self.debt_units)
+        self.pips_locked = Pips(self.pips_remaining)
         
         return self.surplus_pips
 

@@ -131,6 +131,18 @@ PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
 ```
 **Log esperado**: `OVERLAP detected - capturing profit: X pips`
 
+### Flujo 6: Sistema Inmune (L2 & L3)
+```
+1. Layer 2 (Event Guard): 
+   - Shield activates X mins before event
+   - Cancels pending orders
+   - Moves active positions to SL = Entry + 0.1 pips
+2. Layer 3 (Blind Gap Guard):
+   - Detects price jump > 50 pips between ticks
+   - Freezes operations for 30-60 mins
+```
+**Log esperado**: `Scheduled event active, applying shield` o `BLIND GAP DETECTED`
+
 ### Estados de Operación Relevantes
 | Estado | Significado | P&L Flotante |
 |--------|-------------|--------------|
@@ -176,6 +188,12 @@ Recovery 5 toca TP (+80 pips):
 Resultado: R3 y R4 siguen abiertos, deuda = 80 pips
 Nuevo recovery se abre automáticamente.
 ```
+
+### El Concepto de Surplus (Maya-Zonza 2.0)
+Cuando un Recovery cierra con +80 pips pero la unidad más antigua cuesta 20 pips:
+- **Surplus = 80 - 20 = 60 pips**.
+- El sistema usa esos 60 para pagar la siguiente unidad de la cola sin esperar a otro TP.
+- **Log Auditoría**: `FIFO: Liquidating debt units count=X surplus=Y`
 
 ---
 
@@ -228,6 +246,12 @@ EMERGENCY_LIMITS = {
 - [ ] ¿Las operaciones cerradas tienen `metadata["close_method"] == "atomic_debt_unit"`?
 - [ ] ¿Se emitió señal de renovación (`OPEN_CYCLE`)?
 
+### Sistema Inmune
+- [ ] ¿Se cancelaron las pendientes al acercarse el evento (L2)?
+- [ ] ¿Se actualizó el `sl_price` de las activas al nivel de entrada (BE)?
+- [ ] ¿El breaker detectó el `sl_hit` y marcó la op como `TP_HIT`?
+- [ ] ¿El sistema se congeló tras un gap violento (L3)?
+
 ---
 
 ## 📝 Logs Esperados por Evento
@@ -267,6 +291,21 @@ EMERGENCY_LIMITS = {
 [INFO] FIFO processing: closing debt_id=REC_001 (40 pips)
 [INFO] Remaining pips: 20 → PROFIT
 [INFO] Cycle CLOSED with net profit: 20 pips
+```
+
+### Protección Layer 2 (Event Guard)
+```
+[INFO] Scheduled event active, applying shield: event="NFP"
+[INFO] Cancelling pending op due to event shield: op_id=EURUSD_002
+[INFO] Moving position to Break Even due to event shield: op_id=EURUSD_001, be_price=1.0856
+[WARNING] Broker: SL hit for 1001, sl=1.0856, current=1.0856
+```
+
+### Protección Layer 3 (Gap Guard)
+```
+[WARNING] BLIND GAP DETECTED! Triggering emergency freeze: jump_pips=82.5, threshold=50
+[INFO] New cycle BLOCKED by emergency freeze
+[INFO] Emergency freeze lifted: pair=EURUSD
 ```
 
 ---

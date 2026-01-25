@@ -22,6 +22,7 @@ from typing import List, Dict, Optional, Set
 from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "tests"))
 
 from wsplumber.application.use_cases.cycle_orchestrator import CycleOrchestrator
 from wsplumber.application.services.trading_service import TradingService
@@ -30,7 +31,7 @@ from wsplumber.core.risk.risk_manager import RiskManager
 from wsplumber.domain.types import CurrencyPair, OperationStatus, OperationType
 from wsplumber.domain.entities.cycle import CycleStatus, CycleType
 from wsplumber.infrastructure.persistence.in_memory_repo import InMemoryRepository
-from tests.fixtures.simulated_broker import SimulatedBroker
+from fixtures.simulated_broker import SimulatedBroker
 
 
 @dataclass
@@ -41,6 +42,7 @@ class CycleEvent:
     description: str
     details: str = ""
     pips: float = 0.0
+    surplus: float = 0.0  # Surplus after this event
     op_id: str = ""
     ref_op_id: str = ""  # Referenced operation (e.g., linked hedge)
 
@@ -73,8 +75,9 @@ class CycleAudit:
     
     def add_event(self, tick: int, event_type: str, desc: str, 
                   details: str = "", pips: float = 0.0, 
+                  surplus: float = 0.0,
                   op_id: str = "", ref_op_id: str = ""):
-        self.events.append(CycleEvent(tick, event_type, desc, details, pips, op_id, ref_op_id))
+        self.events.append(CycleEvent(tick, event_type, desc, details, pips, surplus, op_id, ref_op_id))
         if pips > 0:
             self.total_pips += pips
 
@@ -217,7 +220,20 @@ class CycleAuditor:
                         details=f"entry={entry:.5f} tp={tp:.5f}",
                         op_id=op_id
                     )
+                # Nueva operación... (ya manejado arriba)
+                pass
             else:
+                # Update existing reference with latest data
+                op_ref = None
+                if op_id in audit.mains: op_ref = audit.mains[op_id]
+                elif op_id in audit.hedges: op_ref = audit.hedges[op_id]
+                elif op_id in audit.recoveries: op_ref = audit.recoveries[op_id]
+                
+                if op_ref:
+                    op_ref.status = status
+                    op_ref.tp_price = tp
+                    op_ref.entry_price = entry
+
                 # Status change
                 old_status = self.last_ops[op_id]["status"]
                 
@@ -230,11 +246,17 @@ class CycleAuditor:
                         
                     elif status == "tp_hit":
                         pips = float(op.profit_pips) if op.profit_pips else 0
+                        surplus = 0.0
+                        cycle_data = repo.cycles.get(cycle_id)
+                        if cycle_data and hasattr(cycle_data.accounting, "surplus_pips"):
+                            surplus = float(cycle_data.accounting.surplus_pips)
+                            
                         audit.add_event(
                             tick, "TP_HIT", 
                             f"{short_name} TP hit",
                             details=f"+{pips:.1f} pips",
                             pips=pips,
+                            surplus=surplus,
                             op_id=op_id
                         )
                         
@@ -246,6 +268,19 @@ class CycleAuditor:
                             details=f"reason={reason}",
                             op_id=op_id
                         )
+                    
+                    elif status == "closed":
+                        # Detect if it was closed via atomic FIFO liquidation
+                        reason = op.metadata.get("close_reason", "manual")
+                        if "liquidated" in reason:
+                            audit.add_event(
+                                tick, "ATOMIC_CLOSE", 
+                                f"{short_name} liquidated by FIFO",
+                                details=f"reason={reason}",
+                                op_id=op_id
+                            )
+                        else:
+                            audit.add_event(tick, "CLOSED", f"{short_name} closed", details=f"reason={reason}", op_id=op_id)
                     
                     # Update status in operation ref
                     if op_id in audit.mains:
@@ -270,9 +305,9 @@ class CycleAuditor:
     def print_report(self, repo, final_balance: float, final_equity: float):
         """Print professional cycle-grouped report."""
         print()
-        print("=" * 80)
+        print("-" * 80)
         print("WSPLUMBER CYCLE AUDIT REPORT")
-        print("=" * 80)
+        print("-" * 80)
         
         sorted_cycles = sorted(self.cycles.values(), key=lambda c: c.created_tick)
         
@@ -288,8 +323,12 @@ class CycleAuditor:
             if cycle_data and hasattr(cycle_data.accounting, 'debt_units'):
                 units = cycle_data.accounting.debt_units
                 remaining = float(cycle_data.accounting.pips_remaining)
-                print(f"  Debt Units:      [{', '.join([f'{u:.0f}' for u in units])}]")
+                # DebtUnits are objects now
+                unit_strs = [f"{float(u.pips_owed):.1f}({u.debt_type[:4]})" for u in units]
+                print(f"  Debt Units:      [{', '.join(unit_strs)}]")
                 print(f"  Debt Remaining:  {remaining:.1f} pips")
+                if hasattr(cycle_data.accounting, 'surplus_pips'):
+                    print(f"  Surplus Pips:    {float(cycle_data.accounting.surplus_pips):.1f} pips")
             
             print(f"  Total P&L:       +{audit.total_pips:.1f} pips")
             print()
@@ -306,7 +345,8 @@ class CycleAuditor:
                 status_str = op.status
                 if status_str == "active" and audit.status != "closed":
                     status_str = "ACTIVE (Running)"
-                print(f"  {short:<8} {op.entry_price:>10.5f} {op.tp_price:>10.5f} {status_str:<15} {linked:<15}")
+                tp_val = f"{op.tp_price:>10.5f}" if op.tp_price else "      NONE"
+                print(f"  {short:<8} {op.entry_price:>10.5f} {tp_val} {status_str:<15} {linked:<15}")
             
             for op_id, op in audit.hedges.items():
                 short = self.get_op_short_name(op.op_type, op_id)
@@ -319,26 +359,30 @@ class CycleAuditor:
                 status_str = op.status
                 if status_str == "active" and audit.status != "closed":
                     status_str = "ACTIVE (Running)"
-                print(f"  {short:<8} {op.entry_price:>10.5f} {op.tp_price:>10.5f} {status_str:<15} {linked:<15}")
+                tp_val = f"{op.tp_price:>10.5f}" if op.tp_price else "      NONE"
+                print(f"  {short:<8} {op.entry_price:>10.5f} {tp_val} {status_str:<15} {linked:<15}")
             
             for op_id, op in audit.recoveries.items():
                 short = self.get_op_short_name(op.op_type, op_id)
                 linked = "-"
-                print(f"  {short:<8} {op.entry_price:>10.5f} {op.tp_price:>10.5f} {op.status:<12} {linked:<15}")
+                tp_val = f"{op.tp_price:>10.5f}" if op.tp_price else "      NONE"
+                print(f"  {short:<8} {op.entry_price:>10.5f} {tp_val} {op.status:<12} {linked:<15}")
             print()
             
             # Event timeline
             print("  EVENT TIMELINE:")
-            print(f"  {'-'*60}")
-            print(f"  {'Tick':<8} {'Event':<18} {'Description':<30} {'Details'}")
-            print(f"  {'-'*60}")
+            print(f"  {'-'*85}")
+            print(f"  {'Tick':<8} {'Event':<18} {'Description':<30} {'Details':<25} {'Surplus'}")
+            print(f"  {'-'*85}")
             
             for event in audit.events:
                 tick_str = f"#{event.tick}"
                 # Truncate long fields
                 desc = event.description[:28] if len(event.description) > 28 else event.description
                 details = event.details[:25] if len(event.details) > 25 else event.details
-                print(f"  {tick_str:<6} {event.event_type:<14} {desc:<28} {details}")
+                surplus_str = f"{event.surplus:>7.1f}*" if event.surplus != 0 else "       -"
+                print(f"  {tick_str:<6} {event.event_type:<14} {desc:<28} {details:<25} {surplus_str}")
+            print("\n  * Surplus pips carried over after liquidation.")
             print()
             
             # Verification checks
@@ -360,21 +404,36 @@ class CycleAuditor:
                     if hedge.linked_op:
                         linked_main = audit.mains.get(hedge.linked_op)
                         if linked_main:
-                            price_ok = abs(hedge.entry_price - linked_main.tp_price) < 0.00001
-                            status = "[OK]" if price_ok else "[FAIL]"
-                            short_h = self.get_op_short_name(hedge.op_type, hid)
-                            short_m = self.get_op_short_name(linked_main.op_type, hedge.linked_op)
-                            print(f"    {status} {short_h} entry={hedge.entry_price:.5f} matches {short_m} TP={linked_main.tp_price:.5f}")
+                            # Use current TP, or if None (Neutralized), check original TP from creation event
+                            target_tp = linked_main.tp_price
+                            if target_tp is None or float(target_tp) == 0:
+                                # Try to find original TP in events
+                                for evt in audit.events:
+                                    if evt.event_type == "MAIN_CREATED" and evt.op_id == hedge.linked_op:
+                                        # Parse from details: "entry=1.10060 tp=1.10160"
+                                        import re
+                                        tp_match = re.search(r"tp=([0-9.]+)", evt.details)
+                                        if tp_match:
+                                            target_tp = float(tp_match.group(1))
+                                            break
+                            
+                            if target_tp is not None:
+                                price_ok = abs(hedge.entry_price - float(target_tp)) < 0.00001
+                                status = "[OK]" if price_ok else "[FAIL]"
+                                short_h = self.get_op_short_name(hedge.op_type, hid)
+                                short_m = self.get_op_short_name(linked_main.op_type, hedge.linked_op)
+                                print(f"    {status} {short_h} entry={hedge.entry_price:.5f} matches {short_m} initial TP={float(target_tp):.5f}")
+                            else:
+                                print(f"    [WARN] Could not verify {hid} entry: linked main TP not found")
             
             tp_events = [e for e in audit.events if e.event_type == "TP_HIT"]
             if tp_events:
                 total_pips = sum(e.pips for e in tp_events)
                 print(f"    [OK] TP hits: {len(tp_events)} (total +{total_pips:.1f} pips)")
         
-        # Global summary
-        print("\n" + "="*100)
+        print("-" * 100)
         print("GLOBAL SUMMARY")
-        print("="*100)
+        print("-" * 100)
         
         main_cycles = [c for c in self.cycles.values() if c.cycle_type == "main"]
         recovery_cycles = [c for c in self.cycles.values() if c.cycle_type == "recovery"]
@@ -395,17 +454,14 @@ class CycleAuditor:
             problematic = [c.name for c in main_cycles if len(c.mains) != 2]
             print(f"    [FAIL] Cycles with mains != 2: {problematic}")
         
-        print("="*100)
+        print("-" * 100)
 
 
-async def run_cycle_audit(max_bars: int = 500):
-    """Execute backtest with cycle audit."""
-    import logging
-    import sys
-    logging.disable(logging.CRITICAL)
-    
-    print(f"\nWSPlumber Cycle Audit ({max_bars} bars)", flush=True)
-    print("-" * 40, flush=True)
+async def run_audit(bars: int, scenario_path: str, quiet: bool = False):
+    """Core audit runner for a single scenario."""
+    if not quiet:
+        print(f"\nWSPlumber Cycle Audit ({bars} bars) - Scenario: {scenario_path}", flush=True)
+        print("-" * 40, flush=True)
     
     broker = SimulatedBroker(initial_balance=10000.0)
     repo = InMemoryRepository()
@@ -421,14 +477,29 @@ async def run_cycle_audit(max_bars: int = 500):
     )
     
     pair = CurrencyPair("EURUSD")
-    broker.load_m1_csv("2026.1.5EURUSD_M1_UTCPlus02(2)-M1-No Session_ohlc.csv", pair, max_bars=max_bars)
+    path_obj = Path(scenario_path)
+    if not path_obj.exists():
+        # Try fallback to tests/scenarios
+        alt = Path("tests/scenarios") / path_obj.name
+        if alt.exists():
+            scenario_path = str(alt)
+        else:
+            print(f"Error: Scenario file {scenario_path} not found")
+            return None
+
+    # Load data
+    if "ohlc" in scenario_path.lower():
+        broker.load_m1_csv(scenario_path, pair, max_bars=bars)
+    else:
+        broker.load_csv(scenario_path)
+    
+    if not broker.ticks and not hasattr(broker, '_tick_generator'):
+         broker.load_csv(scenario_path) # Last attempt
+         
     await broker.connect()
     
     auditor = CycleAuditor()
     tick_count = 0
-    total_ticks = len(broker.ticks)
-    
-    print(f"Total ticks: {total_ticks}")
     
     while True:
         tick = await broker.advance_tick()
@@ -446,9 +517,68 @@ async def run_cycle_audit(max_bars: int = 500):
     final_balance = float(acc.value["balance"])
     final_equity = float(acc.value["equity"])
     
-    auditor.print_report(repo, final_balance, final_equity)
+    if not quiet:
+        auditor.print_report(repo, final_balance, final_equity)
+    
+    # Validation summary for batch
+    has_fail = any("[FAIL]" in str(e) for e in auditor.cycles.values())
+    active_count = len(orchestrator._active_cycles)
+    
+    status = "PASS"
+    if has_fail: 
+        status = "FAIL"
+    elif active_count > 0:
+        status = "OPEN" # The greed trap if it was supposed to close
+    
+    return {
+        "scenario": path_obj.name,
+        "pnl": final_balance - 10000.0,
+        "pips": sum(c.total_pips for c in auditor.cycles.values()),
+        "active_cycles": active_count,
+        "status": status
+    }
 
+
+async def main():
+    import sys
+    bars = int(sys.argv[1]) if len(sys.argv) > 1 else 500
+    path_arg = sys.argv[2] if len(sys.argv) > 2 else None
+    
+    if not path_arg:
+        print("Usage: python audit_by_cycle.py <bars> <scenario_path_or_directory>")
+        return
+
+    target = Path(path_arg)
+    
+    if target.is_dir():
+        print(f"\nBATCH AUDIT: Processing directory {target}")
+        print("=" * 100)
+        results = []
+        files = sorted(list(target.glob("*.csv")))
+        
+        # Disable logging for cleaner batch output
+        import logging
+        logging.disable(logging.CRITICAL)
+        
+        for i, f in enumerate(files):
+            print(f"[{i+1}/{len(files)}] Auditing {f.name}...", end="\r")
+            res = await run_audit(bars, str(f), quiet=True)
+            if res:
+                results.append(res)
+        
+        # Reinstate logging to see result table
+        logging.disable(logging.NOTSET)
+        
+        print("\n\n" + "=" * 100)
+        print(f" {'SCENARIO':<50} | {'PNL':>10} | {'PIPS':>8} | {'CYCLES':>6} | {'STATUS':<6}")
+        print("-" * 100)
+        for r in results:
+            print(f" {r['scenario']:<50} | {r['pnl']:>10.2f} | {r['pips']:>8.1f} | {r['active_cycles']:>6} | {r['status']}")
+        print("=" * 100)
+        print(f"Total: {len(results)} scenarios processed.")
+        
+    else:
+        await run_audit(bars, path_arg)
 
 if __name__ == "__main__":
-    bars = int(sys.argv[1]) if len(sys.argv) > 1 else 500
-    asyncio.run(run_cycle_audit(bars))
+    asyncio.run(main())

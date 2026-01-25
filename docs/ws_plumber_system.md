@@ -150,6 +150,8 @@ Recientemente se han identificado y corregido los siguientes gaps en la implemen
 10. **Motor de Señales Sincronizado (State-Aware)**: Se ha migrado el orquestador al uso de `generate_signals()`. A diferencia de `process_tick()`, este método recibe la lista completa de ciclos activos del repositorio en cada tick, permitiendo que la estrategia tome decisiones basadas en la realidad actual y no en una caché interna.
 11. **Guardia Anti-Redundancia (Signal Deduping)**: El orquestador ahora bloquea señales duplicadas para el mismo ciclo dentro del mismo tick. Si una operación de recuperación ya está `PENDING` o acaba de activarse (`ACTIVE`), el sistema ignora nuevas peticiones de apertura para ese nivel hasta que el estado se estabilice, eliminando la "explosión de ciclos" por latencia.
 12. **Fidelidad Total de Backtest**: Se ha priorizado la precisión absoluta sobre la velocidad. El sistema audita cada evento y sincroniza estados forzadamente después de cada operación, garantizando que el backtest de 2015 sea una representación exacta (1:1) del comportamiento esperado en una cuenta real.
+13. **Maya-Zonza 2.0 (FIFO con Arrastre)**: Evolución del cierre atómico que permite que el beneficio excedente de un Recovery (ej: +80 pips resolviendo una deuda de 20) no se pierda, sino que se arrastre para liquidar deudas posteriores o se acumule como beneficio neto garantizado.
+14. **Sistema Inmune Multicapa (L1, L2, L3)**: Arquitectura de defensa que protege contra trailing stops (L1), eventos de noticias (L2 - Break Even) y gaps ciegos del mercado (L3 - Congelación de Emergencia).
 
 
 **Activación de Recoverys:**
@@ -236,6 +238,27 @@ Cuando el sistema está saturado (>15 operaciones) y ocurre un nuevo fallo de Ma
 4. Los Mains siguen operando para generar flujo de caja
 5. Cuando se libera margen (por poda o Recovery exitoso), se inyectan los Recoveries pendientes
 
+### Sistema Inmune Multicapa (Maya-Zonza 2.0)
+
+Para garantizar la supervivencia en eventos Cisne Negro, el sistema opera con tres capas de protección sincronizadas:
+
+#### Layer 1 & 1B: Trailing & Counter-Trail
+- **L1 (Adaptive Trailing)**: Captura beneficios parciales en movimientos extendidos, cerrando con profit si el mercado se gira.
+- **L1B (Trailing Counter)**: Desplaza las órdenes de cobertura pendientes persiguiendo el precio actual. Garantiza un **OVERLAP** (beneficio bloqueado) que minimiza o elimina la deuda si el mercado corrige bruscamente.
+
+#### Layer 2: Event Guard (Protección Break Even)
+Activado durante noticias de alto impacto (según `EVENT_CALENDAR`):
+- **Window Pre/Post**: Se activa X minutos antes y después del evento.
+- **Cierre de Pendientes**: Elimina todas las órdenes `STOP` no activadas para evitar entradas con slippage.
+- **Break Even Proactivo**: Mueve todas las posiciones activas a **Break Even (Entrada + Buffer)**. Si el precio se gira violentamente tras la noticia, la posición cierra con beneficio cero (o mínimo), preservando el capital.
+- **Bloqueo Operativo**: El sistema entra en modo `FROZEN` para nuevas señales mientras dure la ventana del evento.
+
+#### Layer 3: Blind Gap Guard (Congelación de Emergencia)
+Detecta anomalías macroscópicas entre ticks consecutivos:
+- **Umbral de Gap**: Si el precio salta más de `GAP_FREEZE_THRESHOLD_PIPS` (ej: 50 pips) en un solo tick.
+- **Congelación Instantánea**: Detiene toda la lógica de ejecución durante un periodo de enfriamiento (ej: 30-60 min).
+- **Prevención**: Evita que el orquestador abra órdenes en niveles de precio irreales o durante periodos de iliquidez extrema.
+
 **Justificación del Drawdown Lineal:**
 
 > *"20 operaciones comprometidas son 40€, incluso en una cuenta de 1k es un bajo drawdown. En cualquier otro sistema te habrían fundido la cuenta."*
@@ -266,6 +289,28 @@ Cuando el sistema está saturado (>15 operaciones) y ocurre un nuevo fallo de Ma
 - **Principio:** Un Recovery exitoso (80 pips) neutraliza dos niveles de Recovery perdidos
 - **Fundamento:** Ratio 2:1 que permite absorber errores múltiples con una sola operación exitosa
 - **Eficiencia:** El sistema se auto-balancea matemáticamente
+- **Surplus Carryover (Maya-Zonza 2.0):** El beneficio sobrante de un recovery exitoso se utiliza para "pagar" deudas de unidades FIFO posteriores o se acumula si no queda deuda.
+
+---
+
+## Contabilidad Avanzada: FIFO con Arrastre (Carryover)
+
+El motor contable `CycleAccounting` gestiona la deuda como una cola de unidades discretas:
+
+| Unidad | Coste (Pips) | Origen |
+|---|---|---|
+| **U0 (Base)** | 20 | Mains activas + Hedge activado |
+| **U1..Un** | 40 | Ciclos Recovery que activaron ambas direcciones |
+
+### Mecánica del Arrastre
+1. Un Recovery llega a TP (+80 pips).
+2. Se consulta la unidad más antigua (FIFO). Supongamos U0 (20 pips).
+3. **Liquidación**: Se "paga" la deuda con el beneficio. Sobran 60 pips (`Surplus`).
+4. **Iteración**: Se consulta la siguiente unidad, U1 (40 pips).
+5. Se paga con el excedente anterior. Sobran 20 pips.
+6. **Decisión**:
+   - Si la deuda total es 0 y el surplus >= 20, se **CIERRA EL CICLO** (TP final).
+   - Si queda deuda o el surplus es < 20, se abre un **NUEVO RECOVERY** usando el surplus como "colchón" inicial para la nueva zona de profit.
 
 ---
 

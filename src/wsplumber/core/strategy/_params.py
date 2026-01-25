@@ -22,6 +22,10 @@ RECOVERY_LEVEL_STEP = 40.0    # Separación mínima entre niveles de recovery
 # 1 Recovery (80 pips) = 2 niveles de pérdida (40 pips + 40 pips) o equivalentes
 NEUTRALIZATION_RATIO = 2.0 
 
+# Umbral de Avaricia: Pips extra necesarios sobre la deuda para cerrar unidad (Experimento)
+# 0.0 = Cerrar lo antes posible (Aconsejado). 10.0-20.0 = Esperar a más beneficio.
+RECOVERY_MIN_SURPLUS = 0.0 
+
 # Límites de Seguridad Operativa
 MAX_RECOVERY_LEVELS = 999999 # Límite eliminado por petición
 
@@ -119,7 +123,7 @@ EVENT_CALENDAR = [
 LAYER3_MODE = "ON"
 
 # Jump threshold in pips to trigger emergency freeze
-GAP_FREEZE_THRESHOLD_PIPS = 15.0
+GAP_FREEZE_THRESHOLD_PIPS = 50.0
 
 # Freeze duration in minutes after a blind gap
 GAP_FREEZE_DURATION_MINUTES = 30

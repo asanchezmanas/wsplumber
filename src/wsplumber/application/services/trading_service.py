@@ -213,12 +213,13 @@ class TradingService:
                     
                 ticket_str = str(op.broker_ticket)
                 
-                # Caso A: Está en posiciones abiertas del broker
+                # Caso A: Está en posiciones abiertas del broker (o pendientes)
                 if ticket_str in broker_positions:
                     broker_pos = broker_positions[ticket_str]
                     
-                    # Verificar si está marcada como TP_HIT en el broker
-                    broker_status = broker_pos.get("status", "active")
+                    # Normalización robusta para soportar Enums (Simul) y Strings (MT5)
+                    raw_status = broker_pos.get("status", "pending")
+                    broker_status = str(raw_status.value) if hasattr(raw_status, 'value') else str(raw_status)
                     
                     if broker_status == "tp_hit":
                         # FIX-TS-01: El broker marcó TP, activar y cerrar con precio real
@@ -251,8 +252,9 @@ class TradingService:
                         await self.repository.save_operation(op)
                         sync_count += 1
                         logger.info("Synced pending->TP_HIT (P&L realized)", op_id=op.id, close_price=float(close_price))
-                    else:
-                        # FIX-SYNC-NULLENTRY: Skip if no entry price available
+                    
+                    elif broker_status == "active":
+                        # FIX-TS-ACT: Solo activar si el broker dice 'active' EXPLÍCITAMENTE
                         raw_fill_price = broker_pos.get("entry_price") or broker_pos.get("fill_price") or op.entry_price
                         if raw_fill_price is None:
                             logger.warning("Cannot sync pending->active: no entry price", op_id=op.id)
@@ -267,6 +269,9 @@ class TradingService:
                         await self.repository.save_operation(op)
                         sync_count += 1
                         logger.info("Synced pending->active", op_id=op.id)
+                    else:
+                        # Sigue pendiente en el broker (status='pending' u otro), no activamos en repo
+                        pass
                 
                 # Caso B: No está en abiertas, buscar en historial
                 elif ticket_str in await get_lazy_history():
@@ -309,7 +314,10 @@ class TradingService:
                 # Caso A: Sigue en posiciones abiertas
                 if ticket_str in broker_positions:
                     broker_pos = broker_positions[ticket_str]
-                    broker_status = broker_pos.get("status", "active")
+                    
+                    # Normalización robusta para soportar Enums (Simul) y Strings (MT5)
+                    raw_status = broker_pos.get("status", "active")
+                    broker_status = str(raw_status.value) if hasattr(raw_status, 'value') else str(raw_status)
                     
                     # DEBUG: Log all ops reaching sync with their broker status
                     logger.info(f"SYNC-DEBUG: op={op.id}, broker_status={broker_status}, op.is_recovery={op.is_recovery}, op.op_type={op.op_type.value}")
@@ -398,7 +406,10 @@ class TradingService:
                     # Si la posición sigue en el broker con status tp_hit, cerrarla
                     if ticket_str in broker_positions:
                         broker_pos = broker_positions[ticket_str]
-                        broker_status = broker_pos.get("status", "active")
+                        
+                        # Normalización
+                        raw_status = broker_pos.get("status", "active")
+                        broker_status = str(raw_status.value) if hasattr(raw_status, 'value') else str(raw_status)
 
                         if broker_status == "tp_hit":
                             logger.warning("Found zombie TP_HIT position, closing in broker",

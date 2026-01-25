@@ -399,6 +399,7 @@ class Operation:
 
         self.status = OperationStatus.NEUTRALIZED
         self.linked_operation_id = hedge_operation_id
+        self.tp_price = None  # Clear TP to prevent accidental triggers after neutralization
         self.metadata["neutralized_by"] = hedge_operation_id
 
     def cancel(self, reason: str = "") -> None:

@@ -18,7 +18,7 @@ from wsplumber.core.strategy._engine import WallStreetPlumberStrategy
 from wsplumber.core.risk.risk_manager import RiskManager
 from wsplumber.domain.types import CurrencyPair, TickData, Price, Pips
 from wsplumber.infrastructure.persistence.in_memory_repo import InMemoryRepository
-from tests.fixtures.simulated_broker import SimulatedBroker
+from fixtures.simulated_broker import SimulatedBroker
 
 
 def mock_settings():

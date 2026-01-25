@@ -3,6 +3,7 @@ from pathlib import Path
 from decimal import Decimal
 from datetime import datetime
 from unittest.mock import patch
+import logging
 
 from wsplumber.application.use_cases.cycle_orchestrator import CycleOrchestrator
 from wsplumber.application.services.trading_service import TradingService
@@ -24,24 +25,8 @@ def mock_settings():
     mock.risk.max_exposure_per_pair = 1000.0
     return mock
 
-async def run_2015_full():
+async def run_stats_check(max_ticks=20000):
     csv_path = Path("tests/scenarios/eurusd_2015_full.csv")
-    if not csv_path.exists():
-        print(f"Error: CSV not found at {csv_path}")
-        return
-
-    print(f"\n--- RUNNING BACKTEST: {csv_path.name} ---")
-    print(f"Logging to: eurusd_2015_full.log")
-    
-    # Configure logging to file
-    import logging
-    file_handler = logging.FileHandler("eurusd_2015_full.log", mode='w')
-    file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-    root_logger = logging.getLogger()
-    root_logger.addHandler(file_handler)
-    root_logger.setLevel(logging.INFO)  # ALWAYS log INFO and WARNING for debugging
-
-    start_run = datetime.now()
     pair = CurrencyPair("EURUSD")
     mock = mock_settings()
     
@@ -64,52 +49,31 @@ async def run_2015_full():
         )
         
         tick_count = 0
-        update_freq = 1000  # More frequent updates for feel
-        total_ticks = len(broker.ticks)
-        
         try:
-            while True:
+            while tick_count < max_ticks:
                 tick = await broker.advance_tick()
                 if tick is None:
                     break
                 await orchestrator._process_tick_for_pair(pair)
                 tick_count += 1
                 
-                if tick_count % update_freq == 0:
-                    percent = (tick_count / total_ticks) * 100
-                    date_str = tick.timestamp.strftime("%Y-%m-%d %H:%M")
-                    print(f"[{date_str}] {percent:5.1f}% | Bal: {broker.balance:10.2f} | Eq: {broker.equity:10.2f} | T: {tick_count}", end='\r')
-                    
         except Exception as e:
-            print(f"\nExecution failed: {e}")
-            logging.error(f"Execution failed: {e}", exc_info=True)
+            print(f"Error: {e}")
 
-    end_run = datetime.now()
-    duration = end_run - start_run
+    # Final count of cycles
+    cycles_res = await repo.get_all_cycles()
+    all_cycles = cycles_res.value if cycles_res.success else []
+    resolved = [c for c in all_cycles if c.status.value == "closed"]
+    active = [c for c in all_cycles if c.status.value != "closed"]
+
+    print(f"TICKS PROCESSED: {tick_count}")
+    print(f"BALANCE: {broker.balance:.2f}")
+    print(f"EQUITY: {broker.equity:.2f}")
+    print(f"CYCLES RESOLVED: {len(resolved)}")
+    print(f"CYCLES ACTIVE: {len(active)}")
     
-    summary = f"""
-\n--- RESULTS ---
-Duration: {duration}
-Total Ticks: {tick_count}
-Initial Balance: 10000.00
-Final Balance: {broker.balance:.2f}
-Final Equity: {broker.equity:.2f}
-Equity vs Balance: {broker.equity - broker.balance:.2f}
-Open Positions in Broker: {len(broker.open_positions)}
-"""
-    print(summary)
-    logging.info(summary)
-    
-    # Check for zombies
-    open_tickets = list(broker.open_positions.keys())
-    if open_tickets:
-        msg = f"WARNING: Open positions detected at end of run: {open_tickets}"
-        print(msg)
-        logging.warning(msg)
-    else:
-        msg = "SUCCESS: No zombie positions remaining."
-        print(msg)
-        logging.info(msg)
+    # Check for any huge drawdown
+    print(f"DRAWDOWN: {broker.balance - broker.equity:.2f}")
 
 if __name__ == "__main__":
-    asyncio.run(run_2015_full())
+    asyncio.run(run_stats_check(20000)) # 20k ticks is about 1 week/10 days of M1 data

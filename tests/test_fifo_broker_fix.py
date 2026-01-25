@@ -20,9 +20,7 @@ sys.path.insert(0, 'src')
 
 from wsplumber.domain.entities.cycle import Cycle, CycleStatus, CycleType, CycleAccounting
 from wsplumber.domain.entities.operation import Operation, OperationStatus, OperationType
-from wsplumber.domain.entities.tick import TickData, Price
-from wsplumber.domain.types import CurrencyPair, Pips, LotSize, BrokerTicket
-from wsplumber.infrastructure.result import Result
+from wsplumber.domain.types import CurrencyPair, Pips, LotSize, BrokerTicket, TickData, Price, Result
 
 
 class TestFIFOBrokerFix:
@@ -46,12 +44,21 @@ class TestFIFOBrokerFix:
         """Create a MAIN cycle with accounting."""
         cycle = Cycle(
             id="CYC_EURUSD_TEST_MAIN",
-            pair=CurrencyPair.EURUSD,
+            pair=CurrencyPair("EURUSD"),
             cycle_type=CycleType.MAIN,
             status=CycleStatus.IN_RECOVERY
         )
         # Add initial debt (20 pips from Main+Hedge neutralization)
-        cycle.accounting.add_initial_debt(Pips(20.0))
+        from wsplumber.domain.entities.debt import DebtUnit
+        unit = DebtUnit(
+            id="INIT_TEST",
+            source_cycle_id=cycle.id,
+            source_operation_ids=["MAIN_BUY", "HEDGE_SELL"],
+            pips_owed=Decimal("20.0")
+        )
+        cycle.accounting.debt_units.append(unit)
+        cycle.accounting.total_debt_pips = 20.0
+        cycle.accounting.pips_remaining = 20.0
         return cycle
 
     @pytest.fixture
@@ -59,7 +66,7 @@ class TestFIFOBrokerFix:
         """Create a recovery cycle with neutralized operations."""
         recovery = Cycle(
             id="REC_EURUSD_TEST_1",
-            pair=CurrencyPair.EURUSD,
+            pair=CurrencyPair("EURUSD"),
             cycle_type=CycleType.RECOVERY,
             status=CycleStatus.ACTIVE,
             parent_cycle_id=main_cycle.id
@@ -69,6 +76,7 @@ class TestFIFOBrokerFix:
         buy_op = Operation(
             id="REC_EURUSD_TEST_1_B",
             cycle_id=recovery.id,
+            pair=CurrencyPair("EURUSD"),
             op_type=OperationType.RECOVERY_BUY,
             entry_price=Price(Decimal("1.10000")),
             tp_price=None,  # TP removed on collision
@@ -81,6 +89,7 @@ class TestFIFOBrokerFix:
         sell_op = Operation(
             id="REC_EURUSD_TEST_1_S",
             cycle_id=recovery.id,
+            pair=CurrencyPair("EURUSD"),
             op_type=OperationType.RECOVERY_SELL,
             entry_price=Price(Decimal("1.10200")),
             tp_price=None,
@@ -160,7 +169,7 @@ class TestFIFOBrokerFix:
         """Test that ops without broker_ticket are ignored."""
         recovery = Cycle(
             id="REC_EURUSD_TEST_2",
-            pair=CurrencyPair.EURUSD,
+            pair=CurrencyPair("EURUSD"),
             cycle_type=CycleType.RECOVERY,
             status=CycleStatus.ACTIVE,
             parent_cycle_id=main_cycle.id
@@ -171,6 +180,7 @@ class TestFIFOBrokerFix:
             Operation(
                 id="REC_EURUSD_TEST_2_B",
                 cycle_id=recovery.id,
+                pair=CurrencyPair("EURUSD"),
                 op_type=OperationType.RECOVERY_BUY,
                 entry_price=Price(Decimal("1.10000")),
                 tp_price=None,
@@ -181,6 +191,7 @@ class TestFIFOBrokerFix:
             Operation(
                 id="REC_EURUSD_TEST_2_S",
                 cycle_id=recovery.id,
+                pair=CurrencyPair("EURUSD"),
                 op_type=OperationType.RECOVERY_SELL,
                 entry_price=Price(Decimal("1.10200")),
                 tp_price=None,

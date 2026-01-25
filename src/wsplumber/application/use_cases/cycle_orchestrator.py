@@ -216,6 +216,8 @@ class CycleOrchestrator:
                 
             # Limpiar flag de evento si ya pasó la ventana
             if hasattr(self, "_active_shield_event"):
+                logger.info("Event window closed, triggering post-event normalization", pair=pair)
+                await self._normalize_post_event(pair, tick)
                 delattr(self, "_active_shield_event")
 
         return True
@@ -236,17 +238,121 @@ class CycleOrchestrator:
                     op.status = OperationStatus.CANCELLED
                     op.metadata["cancel_reason"] = "event_shield"
                     await self.repository.save_operation(op)
+                    
+                    # Mark cycle for normalization
+                    cycle_res = await self.repository.get_cycle(op.cycle_id)
+                    if cycle_res.success:
+                        cycle = cycle_res.value
+                        cycle.metadata["event_shield_activated"] = True
+                        await self.repository.save_cycle(cycle)
 
         # 2. Forzar Break Even en activas
         active_res = await self.repository.get_active_operations(pair)
         if active_res.success:
             for op in active_res.value:
-                # Aquí aplicaríamos una lógica de modificación de SL/TP para BE
-                # Por ahora logueamos la intención (Fase 6 requiere modify_order robusto)
-                if "event_shield_be" not in op.metadata:
-                    logger.info("Position flagged for Event BE protection", op_id=op.id)
+                if not op.broker_ticket: continue
+                
+                # PHASE 6: Break Even calculation
+                entry = float(op.actual_entry_price or op.entry_price)
+                # Small buffer (0.1 pips) to ensure BE covers spread/commissions if possible
+                multiplier = 0.01 if "JPY" in str(pair) else 0.0001
+                buffer = 0.1 * multiplier 
+                
+                be_price = entry + buffer if op.is_buy else entry - buffer
+                
+                logger.info("Moving position to Break Even due to event shield", 
+                           op_id=op.id, ticket=op.broker_ticket, be_price=be_price)
+                
+                mod_res = await self.trading_service.broker.modify_position(
+                    op.broker_ticket, 
+                    new_sl=Price(Decimal(str(be_price)))
+                )
+                
+                if mod_res.success:
+                    op.sl_price = Price(Decimal(str(be_price)))
                     op.metadata["event_shield_be"] = True
+                    op.metadata["be_activation_time"] = tick.timestamp.isoformat() if tick.timestamp else None
                     await self.repository.save_operation(op)
+                    
+                    # Flag cycle for post-event normalization
+                    cycle_res = await self.repository.get_cycle(op.cycle_id)
+                    if cycle_res.success:
+                        cycle = cycle_res.value
+                        cycle.metadata["event_shield_activated"] = True
+                        await self.repository.save_cycle(cycle)
+                else:
+                    logger.error("Failed to apply Break Even shield", 
+                                op_id=op.id, error=mod_res.error)
+
+        # 3. Marcar ciclos PENDING que perdieron sus órdenes pero no tenían activas
+        pending_cycles = await self.repository.get_active_cycles(pair)
+        if pending_cycles.success:
+            for cycle in pending_cycles.value:
+                if cycle.status == CycleStatus.PENDING:
+                    cycle.metadata["event_shield_activated"] = True
+                    await self.repository.save_cycle(cycle)
+
+    async def _normalize_post_event(self, pair: CurrencyPair, tick: TickData):
+        """
+        Fase de normalización tras el fin de un evento (L2):
+        1. Cierra ciclos PENDING que quedaron sin órdenes.
+        2. Restaura la estructura de ciclos ACTIVE/HEDGED (re-abre counter-orders).
+        """
+        cycles_res = await self.repository.get_active_cycles(pair)
+        if not cycles_res.success: return
+
+        for cycle in cycles_res.value:
+            if not cycle.metadata.get("event_shield_activated"):
+                continue
+
+            logger.info("Normalizing cycle after event shield", cycle_id=cycle.id, status=cycle.status)
+            
+            # Caso A: Ciclo PENDING o sin posiciones activas -> Reset (Cierre para renovación)
+            ops_res = await self.repository.get_operations_by_cycle(cycle.id)
+            all_ops = ops_res.value if ops_res.success else []
+            active_ops = [op for op in all_ops if op.status == OperationStatus.ACTIVE]
+
+            if not active_ops:
+                logger.info("Cycle has no active positions, closing to allow renewal", cycle_id=cycle.id)
+                cycle.status = CycleStatus.CLOSED
+                cycle.metadata["event_shield_normalization"] = "closed_empty"
+                await self.repository.save_cycle(cycle)
+                continue
+
+            # Caso B: Ciclo con posiciones ACTIVAS -> Reparar estructura
+            # Buscamos las órdenes que fueron canceladas por el escudo
+            shield_cancelled = [
+                op for op in all_ops 
+                if op.status == OperationStatus.CANCELLED and op.metadata.get("cancel_reason") == "event_shield"
+            ]
+
+            for op in shield_cancelled:
+                logger.info("Restoring structure: Re-opening cancelled order", op_id=op.id, entry=op.entry_price)
+                
+                # Crear nueva instancia de Operación (o resetear el estado de la actual)
+                # Para mayor trazabilidad, reseteamos la actual a PENDING
+                op.status = OperationStatus.PENDING
+                op.metadata["event_shield_restored"] = True
+                op.metadata["restoration_time"] = tick.timestamp.isoformat() if tick.timestamp else None
+                
+                request = OrderRequest(
+                    operation_id=op.id,
+                    pair=pair,
+                    order_type=op.op_type,
+                    entry_price=op.entry_price,
+                    tp_price=op.tp_price,
+                    lot_size=op.lot_size
+                )
+                
+                await self.trading_service.open_operation(request, op)
+                await self.repository.save_operation(op)
+
+            # Limpiar flags de escudo del ciclo
+            cycle.metadata["event_shield_activated"] = False
+            cycle.metadata["event_shield_normalized"] = True
+            await self.repository.save_cycle(cycle)
+            
+            logger.info("Cycle structural repair completed", cycle_id=cycle.id)
 
     async def _process_layer1b_trailing_counter(
         self, 
@@ -368,18 +474,37 @@ class CycleOrchestrator:
         cycle: Cycle
     ):
         """
-        Handle OVERLAP: both recoveries active with small distance.
-        Close both atomically and apply net profit to debt queue.
-        """
-        # Calculate overlap distance
-        entry1 = float(op1.actual_entry_price or op1.entry_price)
-        entry2 = float(op2.actual_entry_price or op2.entry_price)
-        multiplier = 10000 if "JPY" not in str(tick.pair) else 100
-        overlap_pips = abs(entry1 - entry2) * multiplier
+        Handle OVERLAP (Positive Hedge): Both recoveries active with positive net profit.
+        Close both atomically and restart the cycle with updated debt.
         
-        # Check if this is truly an OVERLAP (close distance) vs FAIL (far distance)
-        if overlap_pips >= LAYER1B_OVERLAP_THRESHOLD_PIPS:
-            # This is a regular correction fail, not Layer 1B overlap
+        Definition of POSITIVE HEDGE:
+        - Long move: Sell Entry > Buy Entry
+        - Short move: Buy Entry < Sell Entry
+        In both cases, net pips = (Sell Entry - Buy Entry) if Buy first, etc.
+        """
+        # Identify entries
+        buy_op = op1 if op1.is_buy else op2
+        sell_op = op1 if op1.is_sell else op2
+        
+        buy_entry = float(buy_op.actual_entry_price or buy_op.entry_price)
+        sell_entry = float(sell_op.actual_entry_price or sell_op.entry_price)
+        
+        multiplier = 10000 if "JPY" not in str(tick.pair) else 100
+        
+        # Calculate locked profit distance
+        # If sell_entry > buy_entry, we have a positive gap between them
+        locked_profit = (sell_entry - buy_entry) * multiplier
+        
+        # If it's a "buy first" recovery and we are in profit...
+        # Wait, the direction depends on which one was "main" vs "counter".
+        # But mathematically, if Sell > Buy, they are "crossed" in profit territory.
+        
+        # Is this a POSITIVE HEDGE?
+        is_positive_hedge = locked_profit > 0
+        
+        if not is_positive_hedge:
+            # This is a regular "Hedge Negativo" (Neutralization), leave it alone.
+            # It will be resolved by TP if the move continues.
             return
         
         # Skip if already processed
@@ -387,26 +512,20 @@ class CycleOrchestrator:
             return
         
         logger.info(
-            "OVERLAP_DETECTED",
-            buy_entry=entry1 if op1.is_buy else entry2,
-            sell_entry=entry1 if op1.is_sell else entry2,
-            overlap_pips=overlap_pips
+            "POSITIVE_HEDGE_DETECTED (Overlap)",
+            buy_entry=buy_entry,
+            sell_entry=sell_entry,
+            locked_profit=locked_profit,
+            cycle_id=cycle.id
         )
         
         # Close both positions atomically
         mid_price = float(tick.mid)
-        net_pnl = overlap_pips  # Net is always the overlap
-        
-        logger.info(
-            "ATOMIC_CLOSE",
-            op1_id=op1.id,
-            op2_id=op2.id,
-            net_pnl=net_pnl
-        )
+        net_pnl = locked_profit  # Net is exactly what we locked
         
         # Mark as closed
-        op1.close_manually(Price(Decimal(str(mid_price))), "overlap_atomic")
-        op2.close_manually(Price(Decimal(str(mid_price))), "overlap_atomic")
+        op1.close_manually(Price(Decimal(str(mid_price))), "overlap_positive_hedge")
+        op2.close_manually(Price(Decimal(str(mid_price))), "overlap_positive_hedge")
         op1.metadata["overlap_closed"] = True
         op2.metadata["overlap_closed"] = True
         
@@ -419,33 +538,32 @@ class CycleOrchestrator:
         if op2.broker_ticket:
             await self.trading_service.broker.close_position(op2.broker_ticket)
         
-        # Apply net profit to debt and check if new recovery needed
+        # Apply profit to debt and RESTART cycle logic
         if cycle.accounting:
-            remaining = cycle.accounting.shadow_process_recovery(net_pnl)
-            remaining_profit = remaining.get("remaining_profit", 0)
+            # Use real profit for debt reduction
+            shadow_result = cycle.accounting.shadow_process_recovery(net_pnl)
             
-            if remaining_profit >= 20:
-                logger.info("OVERLAP resolved cycle debt", cycle_id=cycle.id)
-                # Close the recovery cycle
-                cycle.status = CycleStatus.CLOSED
-                await self.repository.save_cycle(cycle)
-            else:
-                # Need to open a new recovery from current price
-                logger.info(
-                    "OVERLAP partial - opening new recovery",
-                    remaining=remaining_profit,
-                    cycle_id=cycle.id
-                )
-                # Close current cycle
-                cycle.status = CycleStatus.CLOSED
-                await self.repository.save_cycle(cycle)
-                
-                # We need a StrategySignal to call _open_recovery_cycle
+            logger.info(
+                "OVERLAP_RESOLVED - Debt updated",
+                cycle_id=cycle.id,
+                profit=net_pnl,
+                debt_remaining=shadow_result.get("shadow_debt_remaining")
+            )
+            
+            # THE LOGIC: Close this cycle and open a new one from current price
+            # to continue the recovery process if debt remains.
+            cycle.status = CycleStatus.CLOSED
+            cycle.metadata["close_reason"] = f"overlap_profit_{locked_profit}"
+            await self.repository.save_cycle(cycle)
+            
+            # If debt remains, open a new recovery immediately (Normalization)
+            if shadow_result.get("shadow_debt_remaining", 0) > 0:
+                logger.info("Debt remains after overlap, opening new recovery node", cycle_id=cycle.id)
                 from wsplumber.domain.types import StrategySignal, SignalType
                 signal = StrategySignal(
                     signal_type=SignalType.OPEN_RECOVERY,
                     pair=tick.pair,
-                    metadata={"parent_cycle": cycle.parent_cycle_id}
+                    metadata={"parent_cycle": cycle.parent_cycle_id, "reason": "overlap_restart"}
                 )
                 await self._open_recovery_cycle(signal, tick)
 
@@ -477,7 +595,7 @@ class CycleOrchestrator:
                         pair=pair,
                         metadata={"reason": "no_active_cycle_in_repo"}
                     )
-            await self._open_new_cycle(signal, tick_res.value)
+                    await self._open_new_cycle(signal, tick_res.value)
             return
 
         for cycle in cycles_res.value:
@@ -545,6 +663,7 @@ class CycleOrchestrator:
                             multiplier = 100 if "JPY" in str(pair) else 10000
                             real_distance = abs(float(buy_entry) - float(sell_entry)) * multiplier
                             
+                            from wsplumber.domain.entities.debt import DebtUnit
                             debt = DebtUnit.from_neutralization(
                                 cycle_id=str(cycle.id),
                                 losing_main_id=str(main_sell.id),
@@ -646,11 +765,12 @@ class CycleOrchestrator:
                                             logger.warning("Failed to remove TP from neutralized Main", 
                                                           op_id=other_op.id, error=tp_remove_result.error)
                                     
-                                    # FIX: Also neutralize the covering Hedge so its P&L is frozen
-                                    # This ensures the debt unit always nets to -20 pips exactly
+                                    # FIX: También neutralizar el cobertor Hedge para que el P&L se congele
+                                    # Esto asegura que la unidad de deuda siempre sea exactamente -20 pips
                                     for hedge_op in ops_res.value:
                                         if hedge_op.is_hedge and hedge_op.status == OperationStatus.ACTIVE:
-                                            hedge_op.status = OperationStatus.NEUTRALIZED
+                                            # Using neutralize method which now clears TP
+                                            hedge_op.neutralize(op.id)
                                             hedge_op.metadata["neutralized_as_cover"] = True
                                             await self.repository.save_operation(hedge_op)
                                             if hedge_op.broker_ticket:
@@ -659,6 +779,27 @@ class CycleOrchestrator:
                                                 )
                                                 logger.info("Neutralized covering Hedge to freeze P&L", 
                                                            hedge_id=hedge_op.id)
+                                    
+                                    # VINCULAR DEUDA: Crear la unidad inicial de 20 pips formalmente
+                                    # Find the hedge op ID used for neutralization
+                                    found_hedge_id = ""
+                                    for h_op in ops_res.value:
+                                        if h_op.is_hedge and h_op.metadata.get("neutralized_as_cover"):
+                                            found_hedge_id = str(h_op.id)
+                                            break
+
+                                    from wsplumber.domain.entities.debt import DebtUnit
+                                    initial_unit = DebtUnit(
+                                        id=f"INIT_{cycle.id}_{datetime.now().strftime('%M%S')}",
+                                        source_cycle_id=str(cycle.id),
+                                        source_operation_ids=[str(other_op.id), found_hedge_id],
+                                        pips_owed=Decimal("20.0"),
+                                        debt_type="main_hedge"
+                                    )
+                                    cycle.accounting.debt_units.append(initial_unit)
+                                    cycle.accounting.total_debt_pips += 20.0
+                                    cycle.accounting.pips_remaining += 20.0
+                                    logger.info("FIFO: Initial debt unit created and linked", unit_id=initial_unit.id)
                             
                             cycle.start_recovery()
                             await self.repository.save_cycle(cycle)
@@ -734,6 +875,11 @@ class CycleOrchestrator:
                         
                         await self.repository.save_cycle(cycle)
                         await self._handle_recovery_failure(cycle, active_recovery_ops[-1], tick)
+
+                        # VINCULAR DEUDA: Registrar el fallo de recovery con tickets
+                        fail_op_ids = [str(op.id) for op in active_recovery_ops]
+                        cycle.accounting.add_recovery_failure_unit(real_loss_pips=40.0, operation_ids=fail_op_ids)
+                        logger.info("FIFO: Recovery failure unit created and linked", operation_ids=fail_op_ids)
 
                         
                         # FIX-IN-RECOVERY-SKIP: Solo abrir nuevo ciclo si este ciclo ACABA de
@@ -1257,7 +1403,7 @@ class CycleOrchestrator:
         recovery_ops = [op for op in (await self.repository.get_operations_by_cycle(recovery_cycle.id)).value 
                        if op.status == OperationStatus.TP_HIT]
         if recovery_ops:
-            real_profit = float(recovery_ops[0].realized_pips)
+            real_profit = float(recovery_ops[0].profit_pips)
             
         # DYNAMIC DEBT: Use real profit instead of hardcoded 80.0
         surplus = parent_cycle.accounting.process_recovery_tp(real_profit)
@@ -1271,13 +1417,27 @@ class CycleOrchestrator:
                         shadow_debt_remaining=shadow_result.get("shadow_debt_remaining", 0))
         
         # 3. Aplicar cierres atómicos para las unidades que se hayan liquidado
-        # Si la unidad de 20 pips ya no está en la primera posición de la cola, 
-        # significa que ha sido liquidada (popped) por el proceso FIFO.
-        if had_initial_debt:
-            # Si ahora la cola está vacía o el primer elemento ya no es 20.0
-            if not parent_cycle.accounting.debt_units or parent_cycle.accounting.debt_units[0] != 20.0:
-                logger.info("Initial debt unit (20 pips) liquidated. Closing parent Main+Hedge atomically.")
-                await self._close_debt_unit_atomic(parent_cycle, "INITIAL_UNIT")
+        # Extraemos las unidades que el FIFO marcó como liquidadas (totalmente pagadas)
+        liquidated = parent_cycle.accounting.liquidated_units
+        if liquidated:
+            logger.info("FIFO: Liquidating debt units", 
+                       count=len(liquidated), 
+                       units=[u.id for u in liquidated])
+            
+            for unit in liquidated:
+                # La regla de oro: Solo cerramos lo que tiene tickets vinculados
+                for op_id in unit.source_operation_ids:
+                    # Buscamos la operación para obtener el ticket del broker
+                    op_res = await self.repository.get_operation(op_id)
+                    if op_res.success and op_res.value:
+                        op = op_res.value
+                        if op.broker_ticket and op.status != OperationStatus.CLOSED:
+                            logger.info("FIFO: Closing compensated position", 
+                                       op_id=op.id, ticket=op.broker_ticket)
+                            await self.trading_service.broker.close_position(op.broker_ticket)
+                            op.status = OperationStatus.CLOSED
+                            op.metadata["close_reason"] = f"liquidated_by_unit_{unit.id}"
+                            await self.repository.save_operation(op)
         
         logger.info(
             "FIFO Processing Results",
@@ -1286,23 +1446,15 @@ class CycleOrchestrator:
             pips_remaining_debt=float(parent_cycle.accounting.pips_remaining),
             surplus_pips=surplus
         )
-        
-        # ═══════════════════════════════════════════════════════════════════════
-        # FIX-FIFO-BROKER-V1: Close neutralized positions using available pips
-        # This uses the broker as source of truth - closes oldest positions first
-        # ═══════════════════════════════════════════════════════════════════════
-        if surplus > 0:
-            closed_count = await self._sync_and_close_neutralized_fifo(parent_cycle, surplus)
-            if closed_count > 0:
-                logger.info("FIX-FIFO-BROKER-V1: Closed neutralized positions",
-                           closed_pairs=closed_count, pips_used=closed_count * 40)
 
         # 4. Condición de Cierre Atómico
-        # FIX: Ahora cerramos si la deuda es 0, sin importar el excedente
-        # (El excedente ya es profit extra)
-        if parent_cycle.accounting.is_fully_recovered:
-            logger.info("Cycle FULLY RESOLVED with surplus >= 20. Closing cycle.", 
-                      cycle_id=parent_cycle.id, surplus=surplus)
+        # El ciclo solo se cierra si la deuda es CERO y el excedente supera el umbral de seguridad.
+        from wsplumber.core.strategy._params import RECOVERY_MIN_SURPLUS
+        min_surplus = float(RECOVERY_MIN_SURPLUS)
+        
+        if parent_cycle.accounting.is_fully_recovered and surplus >= min_surplus:
+            logger.info("Cycle FULLY RESOLVED with sufficient surplus. Closing cycle.", 
+                      cycle_id=parent_cycle.id, surplus=surplus, min_required=min_surplus)
             
             # Cerrar todas las operaciones restantes (neutralizadas)
             await self._close_cycle_operations_final(parent_cycle)
@@ -1743,7 +1895,8 @@ class CycleOrchestrator:
         
         # BUY_STOP: entry a mid+5pips, TP a entry+10pips
         # FIX: Usar MID como referencia para mantener distancia exacta de 5 pips
-        buy_entry_price = Price(tick.mid + entry_distance)
+        mid_dec = Decimal(str(tick.mid))
+        buy_entry_price = Price(mid_dec + entry_distance)
         op_buy = Operation(
             id=OperationId(f"{cycle_id}_B"),
             cycle_id=cycle.id,
@@ -1756,7 +1909,7 @@ class CycleOrchestrator:
         )
         
         # SELL_STOP: entry a mid-5pips, TP a entry-10pips
-        sell_entry_price = Price(tick.mid - entry_distance)
+        sell_entry_price = Price(mid_dec - entry_distance)
         op_sell = Operation(
             id=OperationId(f"{cycle_id}_S"),
             cycle_id=cycle.id,
@@ -1883,18 +2036,21 @@ class CycleOrchestrator:
         # ═══════════════════════════════════════════════════════════
         # FIX-CASCADE-V4: Check global collision flag
         # If a collision was detected this tick, block ALL new recoveries
+        # EXCEPT if this is a replacement for a failure or a reposition
         # ═══════════════════════════════════════════════════════════
         current_tick_key = now.isoformat()
-        if hasattr(self, '_collision_tick') and self._collision_tick.get(str(pair)) == current_tick_key:
+        reason = signal.metadata.get("reason", "")
+        is_replacement = reason in ("recovery_renewal_on_failure", "trailing_reposition", "recovery_next_stage")
+        
+        if not is_replacement and hasattr(self, '_collision_tick') and self._collision_tick.get(str(pair)) == current_tick_key:
             logger.warning("FIX-CASCADE-V4: Recovery blocked (collision detected this tick)",
                          pair=str(pair), tick=current_tick_key)
             return
 
         # ═══════════════════════════════════════════════════════════
-        # CIRCUIT BREAKER: Máximo 1 recovery por TICK
-        # Previene explosiones recursivas en gaps o alta volatilidad
+        # CIRCUIT BREAKER: Máximo 1 recovery por TICK (excepto renovaciones críticas)
         # ═══════════════════════════════════════════════════════════
-        if parent_cycle.metadata.get("last_recovery_tick") == current_tick_key:
+        if not is_replacement and parent_cycle.metadata.get("last_recovery_tick") == current_tick_key:
             logger.warning("CIRCUIT BREAKER: Recovery blocked (already opened this tick)", 
                          parent_id=parent_cycle.id, tick=current_tick_key)
             return
@@ -1985,8 +2141,8 @@ class CycleOrchestrator:
         # 4. Determinar base para precios (±20 pips)
         # Si hay reference_price, usamos ese (ej: entry de la op que bloqueó)
         # Si no, usamos el bid/ask actual (ej: para el primer recovery tras main TP)
-        base_buy = reference_price if reference_price else tick.ask
-        base_sell = reference_price if reference_price else tick.bid
+        base_buy = Decimal(str(reference_price)) if reference_price else Decimal(str(tick.ask))
+        base_sell = Decimal(str(reference_price)) if reference_price else Decimal(str(tick.bid))
         
         op_rec_buy = Operation(
             id=OperationId(f"{recovery_id}_B"),
@@ -2185,6 +2341,7 @@ class CycleOrchestrator:
                 sell_op = next((op for op in active_ops if op.is_sell), None)
                 if buy_op and sell_op:
                     from decimal import Decimal
+                    from wsplumber.domain.entities.debt import DebtUnit
                     debt = DebtUnit.from_recovery_failure(
                         cycle_id=parent_cycle.id,
                         recovery_buy_id=buy_op.id,
