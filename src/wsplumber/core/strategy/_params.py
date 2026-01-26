@@ -148,3 +148,14 @@ LAYER1B_MIN_MOVE_PIPS = 3.0
 # Threshold to detect OVERLAP (close-distance hedge vs correction fail)
 LAYER1B_OVERLAP_THRESHOLD_PIPS = 10.0
 
+# =========================================
+# PHASE 11: FIDELITY & PATIENCE STRATEGY
+# =========================================
+
+# Minimum net profit (pips) required to close by overlapping.
+# If profit is positive but less than this, move to BE instead of closing.
+OVERLAP_MIN_PIPS = 50.0
+
+# Buffer for Break Even protection (pips above/below entry)
+BE_BUFFER_PIPS = 0.1
+

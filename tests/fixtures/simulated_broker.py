@@ -639,6 +639,10 @@ class SimulatedBroker(IBroker):
         if new_entry_price is not None:
             old_entry = order.entry_price
             order.entry_price = new_entry_price
+            # Also update reference price to the current mid to maintain correct direction logic
+            if self.current_tick:
+                order.reference_price = self.current_tick.mid
+            
             logger.debug(
                 "Broker: Modified pending order entry",
                 ticket=ticket,

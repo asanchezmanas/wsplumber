@@ -513,6 +513,40 @@ class CycleOrchestrator:
         # Skip if already processed
         if op1.metadata.get("overlap_closed") or op2.metadata.get("overlap_closed"):
             return
+
+        # PHASE 11: PATIENCE STRATEGY
+        # If profit is positive but less than threshold, move to BE as protection
+        # instead of closing prematurely.
+        from wsplumber.core.strategy._params import OVERLAP_MIN_PIPS, BE_BUFFER_PIPS
+        
+        if locked_profit < OVERLAP_MIN_PIPS:
+            if not op1.metadata.get("overlap_be") and not op2.metadata.get("overlap_be"):
+                logger.info(
+                    "OVERLAP_PATIENCE: Profit below threshold, moving to BE protection",
+                    locked_profit=locked_profit,
+                    threshold=OVERLAP_MIN_PIPS,
+                    cycle_id=cycle.id
+                )
+                
+                # Apply BE to both
+                for op in [buy_op, sell_op]:
+                    entry = float(op.actual_entry_price or op.entry_price)
+                    # Multiplier for buffer
+                    m = 0.01 if "JPY" in str(tick.pair) else 0.0001
+                    buffer = BE_BUFFER_PIPS * m
+                    
+                    be_price = entry + buffer if op.is_buy else entry - buffer
+                    
+                    mod_res = await self.trading_service.broker.modify_position(
+                        op.broker_ticket, new_sl=Price(Decimal(str(be_price)))
+                    )
+                    if mod_res.success:
+                        op.sl_price = Price(Decimal(str(be_price)))
+                        op.metadata["overlap_be"] = True
+                        await self.repository.save_operation(op)
+            
+            # Don't close yet
+            return
         
         logger.info(
             "POSITIVE_HEDGE_DETECTED (Overlap)",
@@ -622,6 +656,70 @@ class CycleOrchestrator:
             if not ops_res.success:
                 continue
             
+            # PHASE 11: Robust state detection
+            main_ops = [o for o in ops_res.value if o.is_main]
+            triggered_mains = [o for o in main_ops if o.status in (OperationStatus.ACTIVE, OperationStatus.TP_HIT, OperationStatus.CLOSED)]
+            active_mains = [o for o in main_ops if o.status == OperationStatus.ACTIVE]
+            
+            # Transition to ACTIVE if first op triggered
+            if len(triggered_mains) >= 1 and cycle.status == CycleStatus.PENDING:
+                logger.info("First operation triggered, transitioning cycle to ACTIVE", cycle_id=cycle.id)
+                cycle.status = CycleStatus.ACTIVE
+                await self.repository.save_cycle(cycle)
+
+            # Transition to HEDGED if 2+ mains triggered
+            if len(triggered_mains) >= 2 and cycle.status == CycleStatus.ACTIVE:
+                logger.info("Both main operations triggered (Fast Hedge detected), transitioning to HEDGED", 
+                        cycle_id=cycle.id)
+                cycle.activate_hedge()
+                
+                # Shadow debt tracking
+                m_buy = next((o for o in main_ops if o.is_buy), None)
+                m_sell = next((o for o in main_ops if o.is_sell), None)
+                if m_buy and m_sell:
+                    b_entry = m_buy.actual_entry_price or m_buy.entry_price
+                    s_entry = m_sell.actual_entry_price or m_sell.entry_price
+                    multiplier = 100 if "JPY" in str(pair) else 10000
+                    
+                    from wsplumber.domain.entities.debt import DebtUnit
+                    debt = DebtUnit.from_neutralization(
+                        cycle_id=str(cycle.id),
+                        losing_main_id=str(m_sell.id),
+                        losing_main_entry=Decimal(str(s_entry)),
+                        losing_main_close=Decimal(str(b_entry)),
+                        winning_main_id=str(m_buy.id),
+                        hedge_id="pending",
+                        pair=str(pair)
+                    )
+                    cycle.accounting.shadow_add_debt(debt)
+
+                # Ensure continuation hedges are created
+                for main_op in main_ops:
+                    hedge_type = OperationType.HEDGE_BUY if main_op.op_type == OperationType.MAIN_BUY else OperationType.HEDGE_SELL
+                    hedge_id = f"{cycle.id}_H_{main_op.op_type.value}"
+                    if not any(h.id == hedge_id for h in ops_res.value):
+                        hedge_op = Operation(
+                            id=OperationId(hedge_id),
+                            cycle_id=cycle.id,
+                            pair=pair,
+                            op_type=hedge_type,
+                            status=OperationStatus.PENDING,
+                            entry_price=main_op.tp_price,
+                            lot_size=main_op.lot_size
+                        )
+                        cycle.add_operation(hedge_op)
+                        request = OrderRequest(
+                            operation_id=hedge_op.id,
+                            pair=pair,
+                            order_type=hedge_type,
+                            entry_price=hedge_op.entry_price,
+                            tp_price=hedge_op.tp_price,
+                            lot_size=hedge_op.lot_size
+                        )
+                        await self.trading_service.open_operation(request, hedge_op)
+                
+                await self.repository.save_cycle(cycle)
+
             # Recolectar operaciones activas para detectar fallo de ciclo al final del loop
             active_recovery_ops = []
 
@@ -653,76 +751,6 @@ class CycleOrchestrator:
                     if op.is_recovery and LAYER1B_MODE == "ON":
                         await self._process_layer1b_trailing_counter(op, tick, cycle, ops_res.value)
 
-                    # Si es primera activación del ciclo
-                    if cycle.status == CycleStatus.PENDING:
-                        logger.info("First operation activated, transitioning cycle to ACTIVE", 
-                                cycle_id=cycle.id)
-                        cycle.status = CycleStatus.ACTIVE
-                        await self.repository.save_cycle(cycle)
-
-                    # Verificar si ambas principales se activaron (HEDGE)
-                    main_ops = [o for o in ops_res.value if o.is_main]
-                    active_main_ops = [o for o in main_ops if o.status == OperationStatus.ACTIVE]
-                    
-                    if len(active_main_ops) >= 2 and cycle.status == CycleStatus.ACTIVE:
-                        logger.info("Both main operations active, transitioning to HEDGED", 
-                                cycle_id=cycle.id)
-                        cycle.activate_hedge()
-                        
-                        # Phase 4b: Shadow debt tracking ... (simplified for clarity but logic remains)
-                        main_buy = next((o for o in active_main_ops if o.is_buy), None)
-                        main_sell = next((o for o in active_main_ops if o.is_sell), None)
-                        if main_buy and main_sell:
-                            buy_entry = main_buy.actual_entry_price or main_buy.entry_price
-                            sell_entry = main_sell.actual_entry_price or main_sell.entry_price
-                            multiplier = 100 if "JPY" in str(pair) else 10000
-                            real_distance = abs(float(buy_entry) - float(sell_entry)) * multiplier
-                            
-                            from wsplumber.domain.entities.debt import DebtUnit
-                            debt = DebtUnit.from_neutralization(
-                                cycle_id=str(cycle.id),
-                                losing_main_id=str(main_sell.id),
-                                losing_main_entry=Decimal(str(sell_entry)),
-                                losing_main_close=Decimal(str(buy_entry)),
-                                winning_main_id=str(main_buy.id),
-                                hedge_id="pending",
-                                pair=str(pair)
-                            )
-                            cycle.accounting.shadow_add_debt(debt)
-
-                        # Crear operaciones de hedge
-                        for main_op in active_main_ops:
-                            if main_op.op_type == OperationType.MAIN_BUY:
-                                hedge_type = OperationType.HEDGE_BUY
-                                hedge_entry = main_op.tp_price
-                            else:
-                                hedge_type = OperationType.HEDGE_SELL
-                                hedge_entry = main_op.tp_price
-                            
-                            hedge_id = f"{cycle.id}_H_{main_op.op_type.value}"
-                            if not any(h.id == hedge_id for h in ops_res.value):
-                                hedge_op = Operation(
-                                    id=OperationId(hedge_id),
-                                    cycle_id=cycle.id,
-                                    pair=pair,
-                                    op_type=hedge_type,
-                                    status=OperationStatus.PENDING,
-                                    entry_price=hedge_entry,
-                                    lot_size=main_op.lot_size
-                                )
-                                cycle.add_operation(hedge_op)
-                                request = OrderRequest(
-                                    operation_id=hedge_op.id,
-                                    pair=pair,
-                                    order_type=hedge_type,
-                                    entry_price=hedge_op.entry_price,
-                                    tp_price=hedge_op.tp_price,
-                                    lot_size=hedge_op.lot_size
-                                )
-                                await self.trading_service.open_operation(request, hedge_op)
-                        
-                        await self.repository.save_cycle(cycle)
-
                 # ═══════════════════════════════════════════════════════════
                 # 2. MANEJO DE CIERRE DE ÓRDENES (TP HIT)
                 # ═══════════════════════════════════════════════════════════
@@ -751,52 +779,30 @@ class CycleOrchestrator:
                     )
                     
                     if op.is_main:
-                        logger.info("Main TP detected, processing renewal + hedge cleanup", op_id=op.id)
-                        
-                        # 1. Cancel counter main
-                        for other_op in ops_res.value:
-                            if other_op.is_main and other_op.id != op.id and other_op.status == OperationStatus.PENDING:
-                                if other_op.broker_ticket:
-                                    await self.trading_service.broker.cancel_order(other_op.broker_ticket)
-                                other_op.status = OperationStatus.CANCELLED
-                                await self.repository.save_operation(other_op)
-                        
-                        # 2. Neutralize opposite main if HEDGED
+                        # PHASE 11: Priority Cleanup Protocol
+                        # 1. Branch A: Hedged TP (Pairing)
                         if cycle.status == CycleStatus.HEDGED:
+                            logger.info("Rama B: Hedged TP detected, performing pairing", op_id=op.id, cycle_id=cycle.id)
                             for other_op in ops_res.value:
                                 if other_op.is_main and other_op.id != op.id and other_op.status == OperationStatus.ACTIVE:
                                     other_op.neutralize(op.id)
                                     await self.repository.save_operation(other_op)
                                     if other_op.broker_ticket:
-                                        # Update status in broker
                                         await self.trading_service.broker.update_position_status(other_op.broker_ticket, OperationStatus.NEUTRALIZED)
-                                        # CRITICAL: Remove TP from neutralized Main to prevent broker from closing it
-                                        tp_remove_result = await self.trading_service.broker.modify_position(
-                                            other_op.broker_ticket, new_tp=None
-                                        )
-                                        if tp_remove_result.success:
-                                            logger.info("Removed TP from neutralized Main", op_id=other_op.id)
-                                        else:
-                                            logger.warning("Failed to remove TP from neutralized Main", 
-                                                          op_id=other_op.id, error=tp_remove_result.error)
+                                        # Remove TP to prevent broker closing it
+                                        await self.trading_service.broker.modify_position(other_op.broker_ticket, new_tp=None)
                                     
-                                    # FIX: También neutralizar el cobertor Hedge para que el P&L se congele
-                                    # Esto asegura que la unidad de deuda siempre sea exactamente -20 pips
+                                    # Neutralize the continuation hedge that just went active
+                                    # (Note: In a hedge path, the TP hit for one main activates the hedge for that level)
                                     for hedge_op in ops_res.value:
                                         if hedge_op.is_hedge and hedge_op.status == OperationStatus.ACTIVE:
-                                            # Using neutralize method which now clears TP
                                             hedge_op.neutralize(op.id)
                                             hedge_op.metadata["neutralized_as_cover"] = True
                                             await self.repository.save_operation(hedge_op)
                                             if hedge_op.broker_ticket:
-                                                await self.trading_service.broker.update_position_status(
-                                                    hedge_op.broker_ticket, OperationStatus.NEUTRALIZED
-                                                )
-                                                logger.info("Neutralized covering Hedge to freeze P&L", 
-                                                           hedge_id=hedge_op.id)
+                                                await self.trading_service.broker.update_position_status(hedge_op.broker_ticket, OperationStatus.NEUTRALIZED)
                                     
-                                    # VINCULAR DEUDA: Crear la unidad inicial de 20 pips formalmente
-                                    # Find the hedge op ID used for neutralization
+                                    # Link debt unit
                                     found_hedge_id = ""
                                     for h_op in ops_res.value:
                                         if h_op.is_hedge and h_op.metadata.get("neutralized_as_cover"):
@@ -812,7 +818,7 @@ class CycleOrchestrator:
                                         debt_type="main_hedge"
                                     )
                                     cycle.accounting.debt_units.append(initial_unit)
-                                    logger.info("FIFO: Initial debt unit created and linked", unit_id=initial_unit.id)
+                                    logger.info("FIFO: Pairing complete, debt unit created", unit_id=initial_unit.id)
                             
                             cycle.start_recovery()
                             await self.repository.save_cycle(cycle)
@@ -823,15 +829,34 @@ class CycleOrchestrator:
                                 metadata={"reason": "recovery_after_hedge_tp", "parent_cycle": cycle.id}
                             )
                             await self._open_recovery_cycle(recovery_signal, tick)
-                        
-                        # 3. Cleanup hedges and record TP
+
+                        # 2. Branch B: Simple TP (Happy Path Cleanup)
+                        else:
+                            logger.info("Rama A: Simple TP detected, cleaning counter-orders before close", op_id=op.id, cycle_id=cycle.id)
+                            # Cleanup counter mains (PENDING or ACTIVE residuary)
+                            for other_op in ops_res.value:
+                                if other_op.is_main and other_op.id != op.id:
+                                    if other_op.status == OperationStatus.PENDING:
+                                        if other_op.broker_ticket:
+                                            await self.trading_service.broker.cancel_order(other_op.broker_ticket)
+                                        other_op.status = OperationStatus.CANCELLED
+                                        await self.repository.save_operation(other_op)
+                                    elif other_op.status == OperationStatus.ACTIVE:
+                                        # Emergency cleanup: this shouldn't happen if state machine is correct
+                                        logger.warning("Emergency cleanup: closing active counter-main in simple cycle", op_id=other_op.id)
+                                        if other_op.broker_ticket:
+                                            await self.trading_service.broker.close_position(other_op.broker_ticket)
+                                        other_op.status = OperationStatus.CLOSED
+                                        await self.repository.save_operation(other_op)
+
+                        # 3. Finalize Cycle (Common Cleanup)
                         await self._cancel_pending_hedge_counterpart(cycle, op)
                         cycle.record_main_tp(Pips(float(op.profit_pips or MAIN_TP_PIPS)))
                         
                         if cycle.status == CycleStatus.ACTIVE:
                             cycle.status = CycleStatus.CLOSED
                             cycle.closed_at = datetime.now()
-                            cycle.metadata["close_reason"] = "single_main_tp_no_debt"
+                            cycle.metadata["close_reason"] = "single_main_tp_finalized"
                         
                         await self.repository.save_cycle(cycle)
                         
