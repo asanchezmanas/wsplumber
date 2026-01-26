@@ -43,6 +43,7 @@ class SimulatedPosition:
     current_pnl_pips: float = 0.0
     current_pnl_money: float = 0.0
     status: OperationStatus = OperationStatus.ACTIVE
+    sl_price: Optional[Price] = None
     # FIX-SB-01: Campos para tracking de cierre
     actual_close_price: Optional[Price] = None
     close_time: Optional[datetime] = None
@@ -96,7 +97,7 @@ class SimulatedBroker(IBroker):
         return self.balance + floating_pnl
 
     def load_csv(self, csv_path: str, default_pair: Optional[str] = None):
-        """Carga ticks desde un archivo CSV (Formato TickData).
+        """Carga ticks desde un archivo CSV (Formato TickData) o Parquet.
         
         Usa carga en memoria para archivos < 50MB, streaming para mayores.
         """
@@ -105,6 +106,11 @@ class SimulatedBroker(IBroker):
         self.default_pair = default_pair
         self.ticks = []
         
+        # Check extension
+        if str(csv_path).endswith('.parquet'):
+            self._load_parquet(csv_path, default_pair)
+            return
+            
         file_size_mb = os.path.getsize(csv_path) / (1024 * 1024)
         
         if file_size_mb < 5000:
@@ -115,11 +121,69 @@ class SimulatedBroker(IBroker):
             self._tick_generator = self._create_tick_generator()
             self.current_tick_index = 0
             logger.info(f"Broker prepared for streaming ticks from {csv_path}")
+
+    def _load_parquet(self, parquet_path: str, default_pair: Optional[str] = None):
+        """Carga ticks desde un archivo Parquet usando Pandas."""
+        import pandas as pd
+        logger.info(f"Loading ticks from Parquet: {parquet_path}")
+        df = pd.read_parquet(parquet_path)
+        
+        # Normalize column names
+        df.columns = [c.lower() for c in df.columns]
+        
+        # Determine column names
+        ts_col = 'timestamp' if 'timestamp' in df.columns else ('datetime' if 'datetime' in df.columns else None)
+        bid_col = 'bid'
+        ask_col = 'ask'
+        
+        if not ts_col or bid_col not in df.columns or ask_col not in df.columns:
+            logger.error(f"Parquet file {parquet_path} missing required columns")
+            return
+
+        # Convert to TickData objects
+        for _, row in df.iterrows():
+            p_val = row.get('pair', default_pair) or "EURUSD"
+            pair = CurrencyPair(p_val)
+            
+            # Timestamp conversion
+            raw_ts = row[ts_col]
+            if isinstance(raw_ts, str):
+                ts_clean = raw_ts.replace(".", "-")
+                try:
+                    dt = datetime.fromisoformat(ts_clean)
+                except ValueError:
+                    dt = datetime.strptime(raw_ts, "%Y.%m.%d %H:%M")
+            else:
+                # pandas datetime, ensure it's pydatetime
+                dt = pd.to_datetime(raw_ts).to_pydatetime()
+
+            bid = Price(Decimal(str(row[bid_col])))
+            ask = Price(Decimal(str(row[ask_col])))
+            
+            pips_mult = 100 if "JPY" in str(pair) else 10000
+            spread_val = row.get('spread_pips')
+            if pd.notna(spread_val):
+                spread = float(spread_val)
+            else:
+                spread = float((ask - bid) * pips_mult)
+
+            self.ticks.append(TickData(
+                pair=pair,
+                bid=bid,
+                ask=ask,
+                timestamp=Timestamp(dt),
+                spread_pips=Pips(spread)
+            ))
+            
+        self.current_tick_index = -1
+        logger.info(f"Loaded {len(self.ticks)} ticks from Parquet")
     
     def _load_csv_to_memory(self, csv_path: str, default_pair: Optional[str] = None):
         """Carga ticks en memoria (para archivos < 50MB)."""
         with open(csv_path, mode='r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
+            # Skip comment lines
+            lines = [line for line in f if not line.startswith('#')]
+            reader = csv.DictReader(lines)
             for row in reader:
                 # Normalizar keys: quitar espacios y pasar a minúsculas. Manejar claves None.
                 row = {str(k).strip().lower(): v for k, v in row.items() if k is not None}
@@ -183,12 +247,14 @@ class SimulatedBroker(IBroker):
         """Generador de ticks para evitar cargar todo el CSV en RAM."""
         print(f"[DEBUG] Opening CSV: {self.csv_path}")
         with open(self.csv_path, mode='r', encoding='utf-8-sig') as f:
-            reader = csv.DictReader(f)
+            # Create a generator that skips comment lines
+            clean_lines = (line for line in f if not line.startswith('#'))
+            reader = csv.DictReader(clean_lines)
             row_count = 0
             for row in reader:
                 row_count += 1
-                if row_count == 1:
-                    print(f"[DEBUG] First row keys: {list(row.keys())}")
+                # if row_count == 1:
+                #     print(f"[DEBUG] First row keys: {list(row.keys())}")
                 
                 # Detect column names (handle case-insensitive and different formats)
                 col_map = {k.lower(): k for k in row.keys()}
@@ -239,10 +305,10 @@ class SimulatedBroker(IBroker):
                         spread_pips=Pips(spread)
                     )
                 except Exception as e:
-                    print(f"[DEBUG] Error processing row {row_count}: {e}")
+                    # print(f"[DEBUG] Error processing row {row_count}: {e}")
                     continue
             
-            print(f"[DEBUG] Generator finished after {row_count} rows")
+            # print(f"[DEBUG] Generator finished after {row_count} rows")
 
     async def advance_tick(self) -> Optional[TickData]:
         """Consume el siguiente tick y procesa ejecuciones.
@@ -268,6 +334,7 @@ class SimulatedBroker(IBroker):
             return None
         
         self.current_tick = tick
+        # Procesa activaciones de órdenes y TPs
         await self._process_executions(tick)
         return tick
 
@@ -419,12 +486,18 @@ class SimulatedBroker(IBroker):
         # DEBUG: Log what's being closed and its P&L
         import traceback
         caller = traceback.format_stack()[-3]  # Get the caller's line
-        print(f"[DEBUG CLOSE] ticket={ticket} op_id={pos.operation_id} type={pos.order_type.value} entry={float(pos.entry_price):.5f} pnl={pos.current_pnl_pips:.1f} pips, status={pos.status.value}")
-        print(f"[DEBUG CALLER] {caller.strip()}")
+        # print(f"[DEBUG CLOSE] ticket={ticket} op_id={pos.operation_id} type={pos.order_type.value} entry={float(pos.entry_price):.5f} pnl={pos.current_pnl_pips:.1f} pips, status={pos.status.value}")
+        # print(f"[DEBUG CALLER] {caller.strip()}")
         
         pos = self.open_positions.pop(ticket)
-        current_tick = self.ticks[self.current_tick_index]
+        # Usar current_tick si está disponible (manual en tests o automático en avance)
+        current_tick = self.current_tick
+        if not current_tick and self.ticks and self.current_tick_index >= 0:
+            current_tick = self.ticks[self.current_tick_index]
         
+        if not current_tick:
+             return Result.fail("No current tick available for closing")
+             
         # Determinar precio de cierre
         if pos.actual_close_price:
             # Ya fue marcado como TP_HIT, usar ese precio
@@ -588,15 +661,13 @@ class SimulatedBroker(IBroker):
         if ticket in self.open_positions:
             if new_tp is not None:
                 self.open_positions[ticket].tp_price = new_tp
-            else:
-                self.open_positions[ticket].tp_price = None
             
-            # También soportamos SL
             if new_sl is not None:
-                # SimulatedPosition podría necesitar sl_price
-                pass
-                
-            logger.info(f"Broker: Modified position {ticket}", new_tp=float(new_tp) if new_tp else "REMOVED")
+                self.open_positions[ticket].sl_price = new_sl
+            
+            logger.info(f"Broker: Modified position {ticket}", 
+                       new_tp=float(new_tp) if new_tp else "UNCHANGED",
+                       new_sl=float(new_sl) if new_sl else "UNCHANGED")
             return Result.ok(True)
         return Result.fail("Position not found")
 
@@ -672,16 +743,6 @@ class SimulatedBroker(IBroker):
 
     # --- Lógica de Simulación ---
 
-    async def advance_tick(self) -> Optional[TickData]:
-        """Avanza al siguiente tick y procesa ejecuciones."""
-        self.current_tick_index += 1
-        if self.current_tick_index >= len(self.ticks):
-            return None
-        
-        tick = self.ticks[self.current_tick_index]
-        self.current_tick = tick  # Store for Layer 1 access
-        await self._process_executions(tick)
-        return tick
 
     async def update_pnl_only(self) -> None:
         """
@@ -803,6 +864,7 @@ class SimulatedBroker(IBroker):
                 # Entry está ARRIBA → activa cuando precio SUBE hasta entry
                 # Usa ask para BUY, bid para SELL
                 if order.order_type.is_buy:
+                    # print(f"[DEBUG PK] TICKET {ticket} BUY entry={order.entry_price} ask={tick.ask} above={entry_above}")
                     if tick.ask >= order.entry_price:
                         tickets_to_activate.append(ticket)
                 else:  # SELL con entry arriba (como HEDGE_SELL)
@@ -811,6 +873,7 @@ class SimulatedBroker(IBroker):
             else:
                 # Entry está ABAJO → activa cuando precio BAJA hasta entry
                 if order.order_type.is_sell:
+                    # print(f"[DEBUG PK] TICKET {ticket} SELL entry={order.entry_price} bid={tick.bid} below={entry_below}")
                     if tick.bid <= order.entry_price:
                         tickets_to_activate.append(ticket)
                 else:  # BUY con entry abajo (como HEDGE_BUY)
@@ -874,12 +937,11 @@ class SimulatedBroker(IBroker):
             
             # FIX-SB-01: Solo MARCAR TP, NO cerrar
             # FIX-TP-NULL: Skip TP check if tp_price is None (neutralized)
-            if pos.status == OperationStatus.ACTIVE and pos.tp_price is not None:
-                tp_hit = False
-                close_price = None
-                
-                # FIX-TP-ZERO: Ignore TP check if TP is 0 (meaning no TP)
+            if pos.status == OperationStatus.ACTIVE:
+                # 1. Check Take Profit
                 if pos.tp_price and float(pos.tp_price) > 0:
+                    tp_hit = False
+                    close_price = None
                     if pos.order_type.is_buy and tick.bid >= pos.tp_price:
                         tp_hit = True
                         close_price = tick.bid
@@ -887,16 +949,44 @@ class SimulatedBroker(IBroker):
                         tp_hit = True
                         close_price = tick.ask
                     
-                if tp_hit:
-                    # Recolectar datos para cerrar después del loop
-                    tp_closures.append({
-                        "ticket": ticket,
-                        "pos": pos,
-                        "close_price": close_price,
-                        "pnl_pips": pos.current_pnl_pips,
-                        "pnl_money": pos.current_pnl_money,
-                        "timestamp": tick.timestamp
-                    })
+                    if tp_hit:
+                        tp_closures.append({
+                            "ticket": ticket,
+                            "pos": pos,
+                            "close_price": close_price,
+                            "pnl_pips": pos.current_pnl_pips,
+                            "pnl_money": pos.current_pnl_money,
+                            "timestamp": tick.timestamp
+                        })
+                        continue # If TP hit, no need to check SL
+
+                # 2. Check Stop Loss (PHASE 6)
+                if pos.sl_price and float(pos.sl_price) > 0:
+                    sl_hit = False
+                    close_price = None
+                    # Sl hit for BUY when bid drops to sl
+                    if pos.order_type.is_buy and tick.bid <= pos.sl_price:
+                        sl_hit = True
+                        close_price = tick.bid
+                    # Sl hit for SELL when ask rises to sl
+                    elif pos.order_type.is_sell and tick.ask >= pos.sl_price:
+                        sl_hit = True
+                        close_price = tick.ask
+                    
+                    if sl_hit:
+                        logger.warning(f"Broker: SL hit for {ticket}", 
+                                      sl=float(pos.sl_price), current=float(tick.bid if pos.order_type.is_buy else tick.ask))
+                        # SL should close the position immediately to simulate broker behavior
+                        # But for consistency with SB-01, we mark as CLOSED here (same as orchestrated close)
+                        tp_closures.append({
+                            "ticket": ticket,
+                            "pos": pos,
+                            "close_price": close_price,
+                            "pnl_pips": pos.current_pnl_pips,
+                            "pnl_money": pos.current_pnl_money,
+                            "timestamp": tick.timestamp,
+                            "reason": "sl_hit"
+                        })
 
         # 3. Procesar TPs marcados
         for closure in tp_closures:

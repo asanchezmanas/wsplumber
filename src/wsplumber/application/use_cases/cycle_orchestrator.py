@@ -113,19 +113,22 @@ class CycleOrchestrator:
         """Procesa un tick inyectado directamente (útil para backtesting)."""
         pair = tick.pair
         
-        # PHASE 5: Immune System Guard
+        # 1. PHASE 5: Immune System Guard (CRITICAL: MUST RUN BEFORE BROKER SYNC)
+        # We check the gap BEFORE letting the broker synchronize executions.
+        # This prevents the system from "accepting" TP hits or SL hits that occurred during a gap jump.
         is_allowed = await self._check_immune_system(pair, tick)
 
         try:
-            # 1. Monitorear estado de operaciones activas (SIEMPRE SINCRONIZAR)
-            # Incluso si estamos congelados, debemos saber si el broker cerró algo
-            await self._check_operations_status(pair, tick)
-            
-            # Si el sistema inmune bloquea el procesamiento de nuevas señales
+            # If the immune system blocks (Gap detected), we STOP IMMEDIATELY.
+            # We don't even synchronize with the broker because the price data is unreliable (frozen).
             if not is_allowed:
                 return
 
-            # 2. Consultar a la estrategia core (usando la versión moderna y sincronizada)
+            # 2. Monitorear estado de operaciones activas (SIEMPRE SINCRONIZAR)
+            # Only sync if we are not in an emergency freeze.
+            await self._check_operations_status(pair, tick)
+            
+            # 3. Consultar a la estrategia core (usando la versión moderna y sincronizada)
             # Fetch active cycles for this pair to pass to strategy
             active_cycles = await self.repository.get_active_cycles(pair)
             signals: List[StrategySignal] = await self.strategy.generate_signals(tick, active_cycles.value)
@@ -133,7 +136,7 @@ class CycleOrchestrator:
             if not signals:
                 return
 
-            # 3. Procesar todas las señales generadas
+            # 4. Procesar todas las señales generadas
             for signal in signals:
                 await self._handle_signal(signal, tick)
 
@@ -539,16 +542,28 @@ class CycleOrchestrator:
             await self.trading_service.broker.close_position(op2.broker_ticket)
         
         # Apply profit to debt and RESTART cycle logic
-        if cycle.accounting:
-            # Use real profit for debt reduction
-            shadow_result = cycle.accounting.shadow_process_recovery(net_pnl)
-            
-            logger.info(
-                "OVERLAP_RESOLVED - Debt updated",
-                cycle_id=cycle.id,
-                profit=net_pnl,
-                debt_remaining=shadow_result.get("shadow_debt_remaining")
-            )
+        if cycle.parent_cycle_id:
+            parent_cycle_res = await self.repository.get_cycle(cycle.parent_cycle_id)
+            if parent_cycle_res.success and parent_cycle_res.value:
+                parent_cycle = parent_cycle_res.value
+                
+                # Use real profit for debt reduction on the PARENT
+                parent_cycle.accounting.process_recovery_tp(net_pnl)
+                shadow_result = parent_cycle.accounting.shadow_process_recovery(net_pnl)
+                
+                logger.info(
+                    "OVERLAP_RESOLVED - Parent debt updated",
+                    parent_id=parent_cycle.id,
+                    profit=net_pnl,
+                    debt_remaining=shadow_result.get("shadow_debt_remaining")
+                )
+                await self.repository.save_cycle(parent_cycle)
+            else:
+                logger.warning("Overlap detected but parent cycle not found", parent_id=cycle.parent_cycle_id)
+                shadow_result = {}
+        else:
+            logger.warning("Overlap detected but cycle has no parent", cycle_id=cycle.id)
+            shadow_result = {}
             
             # THE LOGIC: Close this cycle and open a new one from current price
             # to continue the recovery process if debt remains.
@@ -722,7 +737,7 @@ class CycleOrchestrator:
                     # Close at broker if it hit TP
                     if op.broker_ticket and op.status == OperationStatus.TP_HIT:
                         logger.info("Closing position in broker", op_id=op.id, ticket=op.broker_ticket)
-                        await self.trading_service.close_operation(op)
+                        await self.trading_service.close_operation(op, reason="tp_hit")
 
                     if cycle.status == CycleStatus.PENDING:
                         cycle.status = CycleStatus.ACTIVE
@@ -797,8 +812,6 @@ class CycleOrchestrator:
                                         debt_type="main_hedge"
                                     )
                                     cycle.accounting.debt_units.append(initial_unit)
-                                    cycle.accounting.total_debt_pips += 20.0
-                                    cycle.accounting.pips_remaining += 20.0
                                     logger.info("FIFO: Initial debt unit created and linked", unit_id=initial_unit.id)
                             
                             cycle.start_recovery()
@@ -833,7 +846,7 @@ class CycleOrchestrator:
                         await self._open_new_cycle(renewal_signal, tick)
 
                     # 5. Handle Recovery TP
-                    if op.is_recovery:
+                    if op.is_recovery and op.status == OperationStatus.TP_HIT:
                         logger.warning("DIAG: Recovery TP detected entering handler",
                                       op_id=op.id, op_status=op.status.value, 
                                       trailing_closed=op.metadata.get("trailing_closed"))
@@ -842,10 +855,6 @@ class CycleOrchestrator:
                             pass
                         else:
                             recovery_cycle_res = await self.repository.get_cycle(op.cycle_id)
-                            logger.warning("DIAG: Got recovery cycle from repo",
-                                          cycle_id=op.cycle_id,
-                                          success=recovery_cycle_res.success,
-                                          has_value=bool(recovery_cycle_res.value) if recovery_cycle_res.success else False)
                             if recovery_cycle_res.success and recovery_cycle_res.value:
                                 await self._handle_recovery_tp(recovery_cycle_res.value, tick)
 
@@ -1247,9 +1256,7 @@ class CycleOrchestrator:
                 
                 # Recalculate totals
                 parent_cycle.accounting.pips_recovered += trailing_profit_dec
-                parent_cycle.accounting.pips_remaining = Decimal(
-                    str(sum(float(d) for d in parent_cycle.accounting.debt_units))
-                )
+                parent_cycle.accounting.pips_remaining = float(sum(float(u.pips_owed) for u in parent_cycle.accounting.debt_units))
                 
                 await self.repository.save_cycle(parent_cycle)
                 
@@ -1273,7 +1280,7 @@ class CycleOrchestrator:
                         for p_op in parent_ops_result.value:
                             if not p_op.is_recovery and p_op.broker_ticket:
                                 if p_op.status not in (OperationStatus.CLOSED, OperationStatus.CANCELLED):
-                                    close_result = await self.trading_service.close_operation(p_op)
+                                    close_result = await self.trading_service.close_operation(p_op, reason="debt_settled_by_trailing")
                                     if close_result.success:
                                         main_closed += 1
                         
@@ -1434,7 +1441,7 @@ class CycleOrchestrator:
                         if op.broker_ticket and op.status != OperationStatus.CLOSED:
                             logger.info("FIFO: Closing compensated position", 
                                        op_id=op.id, ticket=op.broker_ticket)
-                            await self.trading_service.broker.close_position(op.broker_ticket)
+                            await self.trading_service.close_operation(op, reason="fifo_liquidation")
                             op.status = OperationStatus.CLOSED
                             op.metadata["close_reason"] = f"liquidated_by_unit_{unit.id}"
                             await self.repository.save_operation(op)
@@ -1962,7 +1969,7 @@ class CycleOrchestrator:
                 if op.cycle_id == cycle.id:
                     # FIX-CLOSE-03: Solo cerrar si NO está ya cerrada
                     if op.status not in (OperationStatus.CLOSED, OperationStatus.TP_HIT):
-                        close_res = await self.trading_service.close_operation(op)
+                        close_res = await self.trading_service.close_operation(op, reason="cycle_closure_signal")
                         if not close_res.success:
                             logger.warning("Failed to close operation in cycle closure",
                                          op_id=op.id, error=close_res.error)
@@ -2128,16 +2135,24 @@ class CycleOrchestrator:
         # 3. Crear ciclo de Recovery
         recovery_level = parent_cycle.recovery_level + 1
         ts_str = (tick.timestamp or datetime.now()).strftime('%H%M%S')
-        recovery_id = f"REC_{pair}_{recovery_level}_{ts_str}"
+        import random
+        recovery_id = f"REC_{tick.pair}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{random.randint(100, 999)}"
         
         recovery_cycle = Cycle(
             id=recovery_id,
-            pair=pair,
+            pair=tick.pair,
             cycle_type=CycleType.RECOVERY,
-            parent_cycle_id=parent_cycle.id,
-            recovery_level=recovery_level
+            status=CycleStatus.PENDING,
+            parent_cycle_id=parent_cycle.id
         )
-
+        recovery_cycle.metadata["recovery_level"] = str(recovery_level)
+        recovery_cycle.metadata["source"] = signal.metadata.get("reason", "unknown")
+        
+        # FIX: Register cycle in Strategy Engine to ensure signal generation
+        self.strategy.register_cycle(recovery_cycle)
+        
+        await self.repository.save_cycle(recovery_cycle)
+        
         # 4. Determinar base para precios (±20 pips)
         # Si hay reference_price, usamos ese (ej: entry de la op que bloqueó)
         # Si no, usamos el bid/ask actual (ej: para el primer recovery tras main TP)

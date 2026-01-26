@@ -25,12 +25,17 @@ def mock_settings():
     return mock
 
 async def run_2015_full():
+    # optimized path
+    pq_path = Path("tests/scenarios/eurusd_2015_full.parquet")
     csv_path = Path("tests/scenarios/eurusd_2015_full.csv")
-    if not csv_path.exists():
-        print(f"Error: CSV not found at {csv_path}")
+    
+    data_path = pq_path if pq_path.exists() else csv_path
+    
+    if not data_path.exists():
+        print(f"Error: Data file not found at {data_path}")
         return
 
-    print(f"\n--- RUNNING BACKTEST: {csv_path.name} ---")
+    print(f"\n--- RUNNING INTEGRITY BACKTEST: {data_path.name} ---")
     print(f"Logging to: eurusd_2015_full.log")
     
     # Configure logging to file
@@ -46,7 +51,11 @@ async def run_2015_full():
     mock = mock_settings()
     
     broker = SimulatedBroker(initial_balance=10000.0)
-    broker.load_csv(str(csv_path))
+    print(f"Loading data into memory...")
+    start_load = datetime.now()
+    broker.load_csv(str(data_path))
+    load_duration = (datetime.now() - start_load).total_seconds()
+    print(f"Data ready in {load_duration:.2f}s")
     await broker.connect()
     
     with patch('wsplumber.core.risk.risk_manager.get_settings', return_value=mock):

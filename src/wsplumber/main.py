@@ -14,7 +14,7 @@ from datetime import datetime
 from wsplumber.config.settings import get_settings
 from wsplumber.application.services.trading_service import TradingService
 from wsplumber.application.use_cases.cycle_orchestrator import CycleOrchestrator
-from wsplumber.infrastructure.brokers.mt5_broker import MT5Broker
+# MT5Broker removed from top-level for Linux compatibility
 from wsplumber.infrastructure.persistence.supabase_repo import SupabaseRepository
 from wsplumber.infrastructure.logging.safe_logger import setup_logging, get_logger
 
@@ -47,13 +47,25 @@ async def main():
     # Repositorio (Supabase)
     repository = SupabaseRepository()
     
-    # Broker (MT5)
-    broker = MT5Broker(
-        login=settings.mt5.login,
-        password=settings.mt5.password,
-        server=settings.mt5.server,
-        path=settings.mt5.path
-    )
+    # Selección de Broker dinámica (MT5 vs Paper)
+    trading_mode = os.getenv("TRADING_MODE", "MT5").upper()
+    
+    if trading_mode == "PAPER" or (sys.platform != "win32" and settings.features.enable_paper_trading):
+        from wsplumber.infrastructure.brokers.paper_broker import PaperBroker
+        logger.info("🚀 Initializing PaperBroker (Linux/Cloud Mode)")
+        broker = PaperBroker(
+            initial_balance=10000.0,
+            leverage=100
+        )
+    else:
+        # Broker (MT5) - Solo Windows
+        from wsplumber.infrastructure.brokers.mt5_broker import MT5Broker
+        broker = MT5Broker(
+            login=settings.mt5.login,
+            password=settings.mt5.password,
+            server=settings.mt5.server,
+            path=settings.mt5.path
+        )
 
     # 3. Instanciar Core
     risk_manager = RiskManager()

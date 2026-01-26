@@ -97,6 +97,9 @@ class TradingService:
             return Result.fail("Operation has no broker ticket", "INVALID_STATE")
 
         try:
+            # FIX-METADATA: Store the reason before any broker interaction
+            operation.metadata["close_reason"] = reason
+
             # FIX-CLOSE-05: Solo rechazar si está CLOSED Y NO TIENE TICKET.
             # Si tiene ticket, debemos intentar cerrarlo en el broker aunque el DB diga CLOSED (Zombie protection)
             if operation.status == OperationStatus.CLOSED and not operation.broker_ticket:
@@ -104,7 +107,7 @@ class TradingService:
                              operation_id=operation.id)
                 return Result.fail(f"Operation already closed", "ALREADY_CLOSED")
 
-            logger.info("Closing position", ticket=operation.broker_ticket, operation_id=operation.id)
+            logger.info("Closing position", ticket=operation.broker_ticket, operation_id=operation.id, reason=reason)
             broker_result = await self.broker.close_position(operation.broker_ticket)
 
             if not broker_result.success:
@@ -140,6 +143,8 @@ class TradingService:
                     timestamp=order_res.timestamp or datetime.now()
                 )
 
+            # Ensure we preserve the original reason if close_v2 overwrote it
+            operation.metadata["close_reason"] = reason
             await self.repository.save_operation(operation)
 
             return Result.ok(order_res)

@@ -93,11 +93,8 @@ class CycleAccounting:
     _shadow_recovered: float = 0.0
 
     def __post_init__(self):
-        """Inicialización de la deuda inicial si la cola está vacía."""
-        if not self.debt_units and self.total_debt_pips == 0:
-            # Note: The initial 20 pips unit will be added formally 
-            # by the Orchestrator when hedging happens to include tickets.
-            pass
+        """No defaults here, trust the Orchestrator to add units."""
+        pass
 
     def add_locked_pips(self, pips: Pips) -> None:
         """Añade pips bloqueados (usado para ajustes manuales o inicialización)."""
@@ -655,15 +652,19 @@ class Cycle:
             "recovery_level": self.recovery_level,
             "operations": [op.to_dict() for op in self.operations],
             "accounting": {
-                "pips_locked": self.accounting.pips_locked,
-                "pips_recovered": self.accounting.pips_recovered,
+                "pips_locked": float(self.accounting.pips_locked),
+                "pips_recovered": float(self.accounting.pips_recovered),
                 "total_main_tps": self.accounting.total_main_tps,
                 "total_recovery_tps": self.accounting.total_recovery_tps,
                 "total_commissions": str(self.accounting.total_commissions),
                 "total_swaps": str(self.accounting.total_swaps),
                 "recovery_queue": self.accounting.recovery_queue,
-                "debt_units": self.accounting.debt_units,
+                "debt_units": [u.to_dict() if hasattr(u, 'to_dict') else u for u in self.accounting.debt_units],
                 "total_debt_incurred": self.accounting.total_debt_incurred,
+                "total_debt_pips": self.accounting.total_debt_pips,
+                "pips_remaining": self.accounting.pips_remaining,
+                "total_recovered_pips": self.accounting.total_recovered_pips,
+                "surplus_pips": self.accounting.surplus_pips
             },
             "created_at": self.created_at.isoformat(),
             "activated_at": self.activated_at.isoformat() if self.activated_at else None,
@@ -674,7 +675,18 @@ class Cycle:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> Cycle:
         """Crea Cycle desde diccionario."""
+        from wsplumber.domain.entities.debt import DebtUnit
+        
         accounting_data = data.get("accounting", {})
+        debt_units_data = accounting_data.get("debt_units", [])
+        debt_units = []
+        for du in debt_units_data:
+            if isinstance(du, dict):
+                debt_units.append(DebtUnit.from_dict(du))
+            elif isinstance(du, (float, int, Decimal)):
+                # Fallback for old/corrupt data: convert to generic unit
+                debt_units.append(DebtUnit(id="legacy", source_cycle_id=data["id"], pips_owed=Decimal(str(du))))
+
         accounting = CycleAccounting(
             pips_locked=Pips(accounting_data.get("pips_locked", 0.0)),
             pips_recovered=Pips(accounting_data.get("pips_recovered", 0.0)),
@@ -683,8 +695,12 @@ class Cycle:
             total_commissions=Money(Decimal(accounting_data.get("total_commissions", "0"))),
             total_swaps=Money(Decimal(accounting_data.get("total_swaps", "0"))),
             recovery_queue=accounting_data.get("recovery_queue", []),
-            debt_units=accounting_data.get("debt_units", [20.0]),
-            total_debt_incurred=accounting_data.get("total_debt_incurred", 20.0),
+            debt_units=debt_units,
+            total_debt_incurred=float(accounting_data.get("total_debt_incurred", 0.0)),
+            total_debt_pips=float(accounting_data.get("total_debt_pips", 0.0)),
+            pips_remaining=float(accounting_data.get("pips_remaining", 0.0)),
+            total_recovered_pips=float(accounting_data.get("total_recovered_pips", 0.0)),
+            surplus_pips=float(accounting_data.get("surplus_pips", 0.0))
         )
 
         cycle = cls(
