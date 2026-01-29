@@ -426,15 +426,20 @@ async def run_audit(bars: int, scenario_path: str, quiet: bool = False, start_da
     if not path_obj.exists(): return None
     
     is_ohlc = False
-    if path_obj.suffix.lower() != '.parquet':
+    is_parquet = path_obj.suffix.lower() == '.parquet'
+    
+    if not is_parquet:
         with open(scenario_path, 'r', encoding='utf-8', errors='ignore') as f:
             first_line = f.readline().lower()
             is_ohlc = "open" in first_line and "high" in first_line and ("date" in first_line or "time" in first_line)
     
-    if is_ohlc: 
+    if is_parquet:
+        logger.info(f"Loading Parquet scenario: {scenario_path}")
+        broker.load_csv(scenario_path, start_date=start_date, end_date=end_date)
+    elif is_ohlc: 
         broker.load_m1_csv(scenario_path, CurrencyPair("EURUSD"), max_bars=bars)
     else: 
-        # SimulatedBroker.load_csv now optimized and handles filtering
+        # SimulatedBroker.load_csv handles filtering
         broker.load_csv(scenario_path, start_date=start_date, end_date=end_date)
     
     await broker.connect()
