@@ -123,10 +123,13 @@ EVENT_CALENDAR = [
 LAYER3_MODE = "ON"
 
 # Jump threshold in pips to trigger emergency freeze
-GAP_FREEZE_THRESHOLD_PIPS = 50.0
+GAP_FREEZE_THRESHOLD_PIPS = 30.0
 
-# Freeze duration in minutes after a blind gap
-GAP_FREEZE_DURATION_MINUTES = 30
+# Dynamic Unfreeze: Market must stay calm for this long before resuming
+GAP_CALM_DURATION_MINUTES = 10
+
+# Security Reset: Any jump > this value during freeze resets the calm timer
+GAP_CALM_THRESHOLD_PIPS = 20.0
 
 # =========================================
 # IMMUNE SYSTEM: LAYER 1B - TRAILING COUNTER-ORDER

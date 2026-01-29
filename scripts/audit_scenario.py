@@ -102,6 +102,11 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pai
             acc = await broker.get_account_info()
             bal = acc.value["balance"]
             eq = acc.value["equity"]
+            
+            # PHASE 14: Toxic Equity Guard
+            # If the pair is frozen, mark equity as [FROZEN] in the report
+            is_frozen = pair in orchestrator._freeze_until and tick.timestamp < orchestrator._freeze_until[pair]
+            
             dd = ((bal - eq) / bal * 100) if bal > 0 else 0
             all_c = repo.cycles.values()
             mc = [c for c in all_c if c.cycle_type.value == "main"]
@@ -149,7 +154,12 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pai
             
             dd_pct = ((balance - equity) / balance * 100) if balance > 0 else 0
             
-            print(f"{tick_count:>12,} | {balance:>10.2f} | {equity:>10.2f} | {dd_pct:>4.1f}% | {c_active:>4} | {c_hedged:>4} | {c_in_rec:>4} | {c_closed:>4} | {active_rec:>5} | {closed_rec:>5} | {main_tps:>5} | {rec_tps:>5}", flush=True)
+            is_frozen = pair in orchestrator._freeze_until and tick.timestamp < orchestrator._freeze_until[pair]
+            equity_str = f"{equity:>10.2f}"
+            if is_frozen:
+                equity_str = f"{'[FROZEN]':>10}"
+
+            print(f"{tick_count:>12,} | {balance:>10.2f} | {equity_str} | {dd_pct:>4.1f}% | {c_active:>4} | {c_hedged:>4} | {c_in_rec:>4} | {c_closed:>4} | {active_rec:>5} | {closed_rec:>5} | {main_tps:>5} | {rec_tps:>5}", flush=True)
 
     # Close metrics CSV
     metrics_file.close()

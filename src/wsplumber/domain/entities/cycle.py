@@ -140,6 +140,8 @@ class CycleAccounting:
         self.surplus_pips = 0.0 # Reiniciamos para recalcular
         
         self.total_recovered_pips += float(realized_profit)
+        from wsplumber.infrastructure.logging.safe_logger import get_logger
+        get_logger(__name__).info(f"FIFO_ACCOUNTING: Profit arrived. New total_recovered: {self.total_recovered_pips}")
         self.pips_recovered = Pips(self.total_recovered_pips)
         self.total_recovery_tps += 1 
         

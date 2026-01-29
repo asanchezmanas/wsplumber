@@ -96,7 +96,7 @@ class SimulatedBroker(IBroker):
         floating_pnl = sum(Decimal(str(pos.current_pnl_money)) for pos in self.open_positions.values())
         return self.balance + floating_pnl
 
-    def load_csv(self, csv_path: str, default_pair: Optional[str] = None):
+    def load_csv(self, csv_path: str, default_pair: Optional[str] = None, start_date=None, end_date=None):
         """Carga ticks desde un archivo CSV (Formato TickData) o Parquet.
         
         Usa carga en memoria para archivos < 50MB, streaming para mayores.
@@ -108,7 +108,7 @@ class SimulatedBroker(IBroker):
         
         # Check extension
         if str(csv_path).endswith('.parquet'):
-            self._load_parquet(csv_path, default_pair)
+            self._load_parquet(csv_path, default_pair, start_date, end_date)
             return
             
         file_size_mb = os.path.getsize(csv_path) / (1024 * 1024)
@@ -122,9 +122,10 @@ class SimulatedBroker(IBroker):
             self.current_tick_index = 0
             logger.info(f"Broker prepared for streaming ticks from {csv_path}")
 
-    def _load_parquet(self, parquet_path: str, default_pair: Optional[str] = None):
-        """Carga ticks desde un archivo Parquet usando Pandas."""
+    def _load_parquet(self, parquet_path: str, default_pair: Optional[str] = None, start_date=None, end_date=None):
+        """Carga ticks desde un archivo Parquet usando Pandas (OPTIMIZADO)."""
         import pandas as pd
+        import numpy as np
         logger.info(f"Loading ticks from Parquet: {parquet_path}")
         df = pd.read_parquet(parquet_path)
         
@@ -140,33 +141,28 @@ class SimulatedBroker(IBroker):
             logger.error(f"Parquet file {parquet_path} missing required columns")
             return
 
-        # Convert to TickData objects
-        for _, row in df.iterrows():
-            p_val = row.get('pair', default_pair) or "EURUSD"
-            pair = CurrencyPair(p_val)
-            
-            # Timestamp conversion
-            raw_ts = row[ts_col]
-            if isinstance(raw_ts, str):
-                ts_clean = raw_ts.replace(".", "-")
-                try:
-                    dt = datetime.fromisoformat(ts_clean)
-                except ValueError:
-                    dt = datetime.strptime(raw_ts, "%Y.%m.%d %H:%M")
-            else:
-                # pandas datetime, ensure it's pydatetime
-                dt = pd.to_datetime(raw_ts).to_pydatetime()
+        # Filtering
+        df['timestamp_dt'] = pd.to_datetime(df[ts_col], format='mixed')
+        if start_date:
+            df = df[df['timestamp_dt'] >= pd.to_datetime(start_date)]
+        if end_date:
+            df = df[df['timestamp_dt'] <= pd.to_datetime(end_date)]
 
-            bid = Price(Decimal(str(row[bid_col])))
-            ask = Price(Decimal(str(row[ask_col])))
+        logger.info(f"Ingesting {len(df)} ticks from Parquet...")
+
+        # Convert to TickData objects - Vectorized approach
+        p_vals = df['pair'] if 'pair' in df.columns else [default_pair or "EURUSD"] * len(df)
+        
+        for ts, bid_val, ask_val, p_val in zip(df['timestamp_dt'], df[bid_col], df[ask_col], p_vals):
+            pair = CurrencyPair(p_val)
+            dt = ts.to_pydatetime()
+            bid = Price(Decimal(str(bid_val)))
+            ask = Price(Decimal(str(ask_val)))
             
             pips_mult = 100 if "JPY" in str(pair) else 10000
-            spread_val = row.get('spread_pips')
-            if pd.notna(spread_val):
-                spread = float(spread_val)
-            else:
-                spread = float((ask - bid) * pips_mult)
-
+            # Spread check (optional column)
+            spread = float((ask - bid) * pips_mult)
+            
             self.ticks.append(TickData(
                 pair=pair,
                 bid=bid,
@@ -197,6 +193,24 @@ class SimulatedBroker(IBroker):
                 ask_key = 'ask'
                 ts_key = 'timestamp' if 'timestamp' in row else ('datetime' if 'datetime' in row else None)
                 
+                # PHASE 14: Auto-detect OHLC / Black Swan format
+                if not ts_key:
+                    if 'date' in row and 'time' in row:
+                        row['timestamp'] = f"{row['date']} {row['time']}"
+                        ts_key = 'timestamp'
+                    elif 'date' in row:
+                        ts_key = 'date'
+                
+                if bid_key not in row or ask_key not in row:
+                    # Try OHLC fallback (Close as Bid, Close + small spread as Ask)
+                    if 'close' in row:
+                        row['bid'] = row['close']
+                        # Assume 1.0 pip spread if not present
+                        mult = 0.01 if "JPY" in str(pair) else 0.0001
+                        row['ask'] = str(float(row['close']) + mult)
+                        bid_key = 'bid'
+                        ask_key = 'ask'
+                
                 if not ts_key or bid_key not in row or ask_key not in row:
                     continue
 
@@ -224,7 +238,11 @@ class SimulatedBroker(IBroker):
                         try:
                             dt = datetime.strptime(raw_ts, "%Y%m%d %H:%M:%S.%f")
                         except ValueError:
-                            dt = datetime.now()
+                            try:
+                                # Black Swan format: 20220221 00:00:00
+                                dt = datetime.strptime(raw_ts, "%Y%m%d %H:%M:%S")
+                            except ValueError:
+                                dt = datetime.now()
                 
                 pips_mult = 100 if "JPY" in str(pair) else 10000
                 spread_val = row.get('spread_pips')
@@ -310,10 +328,24 @@ class SimulatedBroker(IBroker):
             
             # print(f"[DEBUG] Generator finished after {row_count} rows")
 
-    async def advance_tick(self) -> Optional[TickData]:
+    def peek_next_tick(self) -> Optional[TickData]:
+        """Peeks at the next tick without consuming it or processing executions."""
+        next_idx = self.current_tick_index + 1
+        if self.ticks:
+            if next_idx < len(self.ticks):
+                return self.ticks[next_idx]
+        elif hasattr(self, '_tick_generator'):
+            # This is harder for generators, but in our audit we usually use in-memory for small/medium files
+            # For now, only support in-memory peeking for deterministic gap detection in tests
+            if next_idx < len(self.ticks): # Fallback if list was partially populated
+                return self.ticks[next_idx]
+        return None
+
+    async def advance_tick(self, is_allowed: bool = True) -> Optional[TickData]:
         """Consume el siguiente tick y procesa ejecuciones.
         
-        Soporta modo in-memory (self.ticks) y streaming (self._tick_generator).
+        Args:
+            is_allowed: If False, skips all executions (activations/TPs/SLs) for this tick.
         """
         tick = None
         
@@ -334,8 +366,13 @@ class SimulatedBroker(IBroker):
             return None
         
         self.current_tick = tick
-        # Procesa activaciones de órdenes y TPs
-        await self._process_executions(tick)
+        
+        # FIX-GAP-STOP: Procesa activaciones solo si el tick es válido (no es gap ciego)
+        if is_allowed:
+            await self._process_executions(tick)
+        else:
+            logger.warning("Broker: Skipping executions for gap tick", price=float(tick.mid))
+            
         return tick
 
     def load_m1_csv(self, csv_path: str, pair: Optional[CurrencyPair] = None, max_bars: int = None):
@@ -886,12 +923,19 @@ class SimulatedBroker(IBroker):
         
         for t in tickets_to_activate:
             order = self.pending_orders.pop(t)
+            # Determine fill price (handle slippage/gaps)
+            # In a real market, a STOP order fills at the first available price better than or equal to entry
+            if order.order_type.is_buy:
+                fill_price = Price(max(Decimal(str(order.entry_price)), Decimal(str(tick.ask))))
+            else:
+                fill_price = Price(min(Decimal(str(order.entry_price)), Decimal(str(tick.bid))))
+                
             pos = SimulatedPosition(
                 ticket=order.ticket,
                 operation_id=order.operation_id,
                 pair=order.pair,
                 order_type=order.order_type,
-                entry_price=order.entry_price,
+                entry_price=fill_price,  # Fills at actual tick price (slippage)
                 tp_price=order.tp_price,
                 lot_size=order.lot_size,
                 open_time=tick.timestamp

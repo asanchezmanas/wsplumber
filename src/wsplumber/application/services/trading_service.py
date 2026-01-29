@@ -249,11 +249,12 @@ class TradingService:
                             broker_ticket=op.broker_ticket,
                             timestamp=broker_pos.get("open_time") or datetime.now()
                         )
-                        # Luego marcar cierre
                         op.close_v2(
                             price=close_price,
                             timestamp=broker_pos.get("close_time") or datetime.now()
                         )
+                        op.metadata["close_reason"] = "BROKER_SYNC_TP_DETECTION"
+                        op.metadata["broker_closed"] = True
                         await self.repository.save_operation(op)
                         sync_count += 1
                         logger.info("Synced pending->TP_HIT (P&L realized)", op_id=op.id, close_price=float(close_price))
@@ -304,6 +305,7 @@ class TradingService:
                         price=close_price,
                         timestamp=h_pos.get("closed_at") or h_pos.get("close_time") or datetime.now()
                     )
+                    op.metadata["close_reason"] = "BROKER_SYNC_HIST_DETECTION"
                     
                     await self.repository.save_operation(op)
                     sync_count += 1
@@ -346,6 +348,8 @@ class TradingService:
                             price=close_price,
                             timestamp=broker_pos.get("close_time") or datetime.now()
                         )
+                        op.metadata["close_reason"] = "BROKER_SYNC_TP_DETECTION"
+                        op.metadata["broker_closed"] = True
                         await self.repository.save_operation(op)
                         sync_count += 1
                         logger.info("Synced active->TP_HIT (P&L realized)", op_id=op.id, close_price=float(close_price))
@@ -384,6 +388,7 @@ class TradingService:
                         
                         close_time = h_pos.get("closed_at") or h_pos.get("close_time") or datetime.now()
                         op.close_v2(price=close_price, timestamp=close_time)
+                        op.metadata["close_reason"] = "BROKER_SYNC_HIST_DETECTION"
                         await self.repository.save_operation(op)
                         sync_count += 1
                         logger.info("Synced active->closed from history", op_id=op.id)
@@ -537,35 +542,27 @@ class TradingService:
                            exit_price=curr,
                            distance_to_tp=round(80.0 - max_profit, 1))
                 
-                # Close position
-                close_result = await self.broker.close_position(op.broker_ticket)
+                # Close position using standardized method
+                close_result = await self.close_operation(op, reason="TRAILING_STOP_HIT")
                 if close_result.success:
-                    close_price = Price(Decimal(str(current_price)))
-                    
-                    # BUG4 FIX: Set metadata for orchestrator to process partial profit
-                    # The orchestrator will read this and apply proportional debt reduction
+                    # Trailing-specific metadata is already handled in some cases, 
+                    # but we ensure it's here for forensic visibility
                     op.metadata["trailing_closed"] = True
                     op.metadata["trailing_profit_pips"] = floating_pips
-                    op.metadata["close_reason"] = "trailing_stop"
                     
-                    # BUG5 FIX: Signal orchestrator to open replacement recovery
+                    # Signal orchestrator to open replacement recovery
                     if TRAILING_REPOSITION:
                         op.metadata["needs_reposition"] = True
                         op.metadata["reposition_price"] = float(current_price)
                     
-                    # BUG3 FIX: Check status before close_v2
-                    if op.status not in (OperationStatus.CLOSED, OperationStatus.TP_HIT):
-                        op.close_v2(price=close_price, timestamp=datetime.now())
-                    
                     await self.repository.save_operation(op)
                     
                     logger.info("LAYER1-TRAILING: Position closed successfully",
-                               op_id=op.id,
-                               profit_pips=round(floating_pips, 1),
-                               close_price=float(close_price),
-                               needs_reposition=op.metadata.get("needs_reposition", False))
+                                op_id=op.id,
+                                profit_pips=round(floating_pips, 1),
+                                needs_reposition=op.metadata.get("needs_reposition", False))
                     
-                    return True  # BUG2 FIX: Return True for sync_count
+                    return True
                 else:
                     logger.error("LAYER1-TRAILING: Failed to close position",
                                 op_id=op.id,

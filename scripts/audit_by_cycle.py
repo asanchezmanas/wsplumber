@@ -20,8 +20,62 @@ from wsplumber.application.use_cases.cycle_orchestrator import CycleOrchestrator
 from wsplumber.core.risk.risk_manager import RiskManager
 from wsplumber.domain.types import StrategySignal, SignalType
 from wsplumber.core.strategy._params import MAIN_TP_PIPS
+from wsplumber.domain.services.forensic_accounting import ForensicAccountingService
 
+import pickle
+from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
+)
 logger = logging.getLogger("ws_audit")
+
+def save_simulation_state(path, repo, broker, orchestrator, auditor):
+    state = {
+        "repo": repo,
+        "broker_balance": broker.balance,
+        "broker_positions": broker.open_positions,
+        "broker_pending": broker.pending_orders,
+        "broker_history": broker.history,
+        "broker_ticket_counter": broker.ticket_counter,
+        "auditor": auditor,
+        "forensic": auditor.forensic
+    }
+    with open(path, "wb") as f:
+        pickle.dump(state, f)
+    logger.info(f"Simulation state saved to {path}")
+
+def load_simulation_state(path, repo, broker, orchestrator, auditor):
+    with open(path, "rb") as f:
+        state = pickle.load(f)
+    
+    # Restore repo state
+    repo.cycles = state["repo"].cycles
+    repo._active_cycle_ids = state["repo"]._active_cycle_ids
+    repo.operations = state["repo"].operations
+    repo._active_ids = state["repo"]._active_ids
+    repo._pending_ids = state["repo"]._pending_ids
+    
+    # Restore broker state
+    broker.balance = state["broker_balance"]
+    broker.open_positions = state["broker_positions"]
+    broker.pending_orders = state["broker_pending"]
+    broker.history = state["broker_history"]
+    broker.ticket_counter = state["broker_ticket_counter"]
+    
+    # Restore auditor state
+    for attr, value in state["auditor"].__dict__.items():
+        if attr != 'forensic': # Don't overwrite the service instance itself
+            setattr(auditor, attr, value)
+            
+    # Restore forensic metrics
+    if "forensic" in state:
+        for attr, value in state["forensic"].__dict__.items():
+            setattr(auditor.forensic, attr, value)
+        
+    logger.info(f"Simulation state loaded from {path}")
 
 @dataclass
 class CycleEvent:
@@ -74,7 +128,7 @@ class CycleAudit:
             self.total_pips += pips
 
 class CycleAuditor:
-    def __init__(self):
+    def __init__(self, forensic_service: Optional[ForensicAccountingService] = None):
         self.cycles: Dict[str, CycleAudit] = {}
         self.top_level_cycles: List[str] = []
         self.last_ops: Dict[str, Dict] = {}
@@ -82,7 +136,9 @@ class CycleAuditor:
         self.max_drawdown = 0.0
         self.peak_equity = 10000.0
         self.equity_history = []
+        self.last_equity = 10000.0
         self.last_balance = 10000.0
+        self.forensic = forensic_service or ForensicAccountingService()
         
         # Stats
         self.total_main_tps = 0
@@ -124,6 +180,7 @@ class CycleAuditor:
                     parent_id=parent_id
                 )
                 self.cycles[c.id] = audit
+                self.forensic.register_cycle_event("CYCLE_CREATED", cycle_type=c.cycle_type.value)
                 
                 if parent_id and parent_id in self.cycles:
                     self.cycles[parent_id].child_cycles.append(audit)
@@ -147,8 +204,18 @@ class CycleAuditor:
                 audit = self.cycles[c.id]
                 if audit.status != c.status.value:
                     mid_p = float(broker.current_tick.mid if broker.current_tick else 0.0)
+                    rem = 0.0
+                    if c.accounting:
+                        rem = float(c.accounting.pips_remaining)
+                    
+                    if c.status.value == "closed":
+                        self.forensic.register_cycle_event("CYCLE_CLOSED", str(getattr(c, 'metadata', {})), cycle_type=c.cycle_type.value)
+                        # [FIX] Avoid calling async repo methods inside the sync auditor.check
+                        ops = [o for o in repo.operations.values() if o.cycle_id == c.id]
+                        self.forensic.validate_laws(c, ops)
+
                     audit.add_event(tick, "STATUS_CHANGE", f"{audit.status.upper()} -> {c.status.value.upper()}",
-                                    balance=balance, equity=equity, price=mid_p)
+                                    balance=balance, equity=equity, price=mid_p, surplus=rem) # Use surplus slot for remaining
                     audit.status = c.status.value
                     
                     if c.status.value == "closed":
@@ -191,6 +258,7 @@ class CycleAuditor:
                     if status == "active": 
                         audit.add_event(tick, "ACTIVATED", f"{short_name} active", balance=balance, equity=equity, price=current_price)
                     elif status == "neutralized": 
+                        self.forensic.register_cycle_event("OP_NEUTRALIZED", f"{short_name}")
                         audit.add_event(tick, "NEUTRALIZED", f"{short_name} neutralized", balance=balance, equity=equity, price=current_price)
                         for d in [audit.mains, audit.hedges, audit.recoveries]:
                             if op_id in d: d[op_id].was_neutralized = True
@@ -204,17 +272,43 @@ class CycleAuditor:
                         reason = op.metadata.get("close_reason", "tp_hit" if status == "tp_hit" else "manual")
                         
                         if status == "tp_hit":
+                            self.forensic.audit_operation(op)
                             audit.add_event(tick, "TP_HIT", f"{short_name} hit", pips=pips, surplus=surplus, 
-                                          details=f"reason={reason}", balance=balance, equity=equity, price=float(op.tp_price or current_price))
+                                          details=f"reason={reason} | Pips: {pips:+.1f} pips", balance=balance, equity=equity, 
+                                          price=float(op.actual_close_price or op.tp_price or current_price))
                         else:
-                            if pips > 0:
-                                audit_event_type = "ATOMIC_FIFO" if ("resolution" in reason or "fifo" in reason) else "TP_HIT"
-                                audit.add_event(tick, audit_event_type, f"{short_name} closed", pips=pips, surplus=surplus, 
-                                              details=f"reason={reason}", balance=balance, equity=equity, price=current_price)
+                            # PHASE 11: Differentiate Overlap and FIFO closures
+                            if "overlap" in reason:
+                                label = "OVERLAP_RESOLVED"
+                                self.forensic.register_cycle_event("OVERLAP_PROFIT", f"{pips}")
+                                details = f"reason=overlap | Captured: {pips:+.1f} pips"
+                            elif "fifo" in reason or "liquidat" in reason:
+                                label = "DEBT_SETTLED"
+                                # Find liquidated units in cycle accounting
+                                cycle_data = repo.cycles.get(cycle_id)
+                                liq_details = ""
+
+                                # Forensic Link: who triggered the liquidation?
+                                trigger_id = op.metadata.get("liquidated_by_op_id", "")
+                                if trigger_id:
+                                    # Get short name for trigger op (ticket format)
+                                    trigger_short = trigger_id.split('_')[-2] if '_' in trigger_id else trigger_id[:8]
+                                    liq_details += f" | PAID_BY: #{trigger_short}"
+
+                                if cycle_data and hasattr(cycle_data, 'accounting'):
+                                    liq_units = cycle_data.accounting.liquidated_units
+                                    if liq_units:
+                                        unit_ids = [str(u.id) for u in liq_units]
+                                        liq_details += f" | Units: {', '.join(unit_ids)}"
+                                details = f"reason=fifo{liq_details}"
                             else:
-                                event_label = "DEBT_UNIT_LIQUIDATED" if "unit" in reason else "CLOSED"
-                                audit.add_event(tick, event_label, f"{short_name} {event_label.lower()}", pips=pips, surplus=surplus, 
-                                              details=f"reason={reason} | Debt settled", balance=balance, equity=equity, price=current_price)
+                                label = "CLOSED"
+                                if "smart" in reason.lower():
+                                    self.forensic.register_cycle_event("SMART_EXIT")
+                                details = f"reason={reason}"
+                                
+                            audit.add_event(tick, label, f"{short_name} {label.lower()}", pips=pips, surplus=surplus, 
+                                          details=details, balance=balance, equity=equity, price=current_price)
 
                     elif status == "cancelled": audit.add_event(tick, "CANCELLED", f"{short_name} cancelled", balance=balance, equity=equity, price=current_price)
                     
@@ -227,11 +321,18 @@ class CycleAuditor:
         dd = self.peak_equity - equity
         if dd > self.max_drawdown: self.max_drawdown = dd
         self.last_balance = balance
+        self.last_equity = equity
 
     def print_report(self, repo, final_balance: float, final_equity: float, output_file=None):
+        import io
+        if hasattr(sys.stdout, 'reconfigure'):
+            try:
+                sys.stdout.reconfigure(encoding='utf-8')
+            except: pass
+        
         def _render_cycle(audit, level, stream):
             indent = "    " * level
-            connector = " " if level == 0 else " └─ "
+            connector = " " if level == 0 else " |-- "
             cycle_data = repo.cycles.get(audit.id)
             tier_label = f"TIER: {audit.name}" if level > 0 else f"ROOT: {audit.name}"
             
@@ -273,7 +374,18 @@ class CycleAuditor:
                 
                 if audit.status == "closed":
                     print(f"{indent}    {'-'*110}", file=stream)
-                    print(f"{indent}    --- CYCLE FINALIZED | Total Pips: {audit.total_pips:+.1f} ---", file=stream)
+                    # PHASE 11: Absolute Traceability Narrative
+                    closure_reason = getattr(cycle_data, 'metadata', {}).get("close_reason", "unknown")
+                    pips = audit.total_pips
+                    
+                    print(f"{indent}    >>> CYCLE CLOSED FINALIZED <<<", file=stream)
+                    print(f"{indent}    Reason: {closure_reason.upper()}", file=stream)
+                    print(f"{indent}    Net Pips: {pips:+.1f} pips", file=stream)
+                    
+                    if audit.cycle_type == "recovery" and pips > 0:
+                        print(f"{indent}    Debt Impact: This profit was used to reduce parent cycle debt via FIFO.", file=stream)
+                    
+                    print(f"{indent}    {'-'*110}", file=stream)
                 print(file=stream)
             
             if audit.child_cycles:
@@ -290,36 +402,97 @@ class CycleAuditor:
             print(f"Final Balance: {final_balance:.2f} | Equity: {final_equity:.2f} | Max DD: {self.max_drawdown:.2f}", file=stream)
 
         _render(sys.stdout)
+        print(self.forensic.get_master_summary(), file=sys.stdout)
+        
         if output_file:
-            with open(output_file, 'w', encoding='utf-8') as f: _render(f)
+            with open(output_file, 'w', encoding='utf-8') as f: 
+                _render(f)
+                print(self.forensic.get_master_summary(), file=f)
 
-async def run_audit(bars: int, scenario_path: str, quiet: bool = False):
+async def run_audit(bars: int, scenario_path: str, quiet: bool = False, start_date=None, end_date=None, save_checkpoint=None, load_checkpoint=None):
     logging.getLogger('wsplumber').setLevel(logging.WARNING)
     broker = SimulatedBroker(initial_balance=10000.0)
     repo = InMemoryRepository()
     orchestrator = CycleOrchestrator(TradingService(broker, repo), WallStreetPlumberStrategy(), RiskManager(), repo)
+    
+    forensic = ForensicAccountingService()
+    auditor = CycleAuditor(forensic_service=forensic)
+    
+    # Restore from checkpoint if provided
+    if load_checkpoint and os.path.exists(load_checkpoint):
+        load_simulation_state(load_checkpoint, repo, broker, orchestrator, auditor)
+    
     path_obj = Path(scenario_path)
     if not path_obj.exists(): return None
-    if "ohlc" in scenario_path.lower(): broker.load_m1_csv(scenario_path, CurrencyPair("EURUSD"), max_bars=bars)
-    else: broker.load_csv(scenario_path)
+    
+    is_ohlc = False
+    if path_obj.suffix.lower() != '.parquet':
+        with open(scenario_path, 'r', encoding='utf-8', errors='ignore') as f:
+            first_line = f.readline().lower()
+            is_ohlc = "open" in first_line and "high" in first_line and ("date" in first_line or "time" in first_line)
+    
+    if is_ohlc: 
+        broker.load_m1_csv(scenario_path, CurrencyPair("EURUSD"), max_bars=bars)
+    else: 
+        # SimulatedBroker.load_csv now optimized and handles filtering
+        broker.load_csv(scenario_path, start_date=start_date, end_date=end_date)
+    
     await broker.connect()
-    auditor = CycleAuditor()
     tick_count = 0
     while True:
-        tick = await broker.advance_tick()
+        # 1. Peek next tick to check for gaps BEFORE any simulation occurs
+        next_tick = broker.peek_next_tick()
+        if not next_tick: 
+            tick = await broker.advance_tick()
+        else:
+            # Check gap with orchestrator's immune system
+            is_allowed = await orchestrator._check_immune_system(next_tick.pair, next_tick)
+            # Advance broker with the veto flag
+            tick = await broker.advance_tick(is_allowed=is_allowed)
+            
         if not tick or (bars > 0 and tick_count >= bars): break
-        await orchestrator.process_tick(tick)
+        
+        # 2. Process in orchestrator
+        is_allowed = await orchestrator.process_tick(tick)
         tick_count += 1
+        
         acc = await broker.get_account_info()
-        auditor.check(tick_count, repo, broker, float(acc.value["balance"]), float(acc.value["equity"]))
+        balance = float(acc.value["balance"])
+        equity = float(acc.value["equity"])
+        
+        if not is_allowed and hasattr(auditor, 'last_equity'):
+            equity = auditor.last_equity
+            
+        auditor.check(tick_count, repo, broker, balance, equity)
+    
     acc = await broker.get_account_info()
-    auditor.print_report(repo, float(acc.value["balance"]), float(acc.value["equity"]), output_file=f"audit_report_{path_obj.stem}.txt")
+    out_name = f"audit_report_{path_obj.stem}_{start_date if start_date else 'full'}.txt"
+    auditor.print_report(repo, float(acc.value["balance"]), float(acc.value["equity"]), output_file=out_name)
+    
+    # Save checkpoint if requested
+    if save_checkpoint:
+        save_simulation_state(save_checkpoint, repo, broker, orchestrator, auditor)
+        
     return {"pnl": float(acc.value["equity"]) - 10000.0}
 
 async def main():
-    bars = int(sys.argv[1]) if len(sys.argv) > 1 else 500
-    path = sys.argv[2] if len(sys.argv) > 2 else "tests/scenarios/eurusd_2015_full.parquet"
-    await run_audit(bars, path)
+    import argparse
+    parser = argparse.ArgumentParser(description="Audit WSPlumber Cycles")
+    parser.add_argument("path", help="Path to scenario (Parquet/CSV)")
+    parser.add_argument("--bars", type=int, default=0, help="Max ticks to process (0=all)")
+    parser.add_argument("--start-date", help="Start date (YYYY-MM-DD)")
+    parser.add_argument("--end-date", help="End date (YYYY-MM-DD)")
+    parser.add_argument("--save-checkpoint", help="Path to save simulation state")
+    parser.add_argument("--load-checkpoint", help="Path to load simulation state")
+    
+    args = parser.parse_args()
+    await run_audit(
+        args.bars, args.path, 
+        start_date=args.start_date, 
+        end_date=args.end_date,
+        save_checkpoint=args.save_checkpoint,
+        load_checkpoint=args.load_checkpoint
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
