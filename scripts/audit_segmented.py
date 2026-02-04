@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 
 # Add src and scripts to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "tests"))
 sys.path.insert(0, str(Path(__file__).parent))
 
 from wsplumber.application.use_cases.cycle_orchestrator import CycleOrchestrator
@@ -50,11 +51,21 @@ def load_simulation_state(path, repo, broker, orchestrator, auditor):
     with open(path, "rb") as f:
         state = pickle.load(f)
     
-    repo.cycles = state["repo_cycles"]
-    repo._active_cycle_ids = state["repo_active_cycle_ids"]
-    repo.operations = state["repo_operations"]
-    repo._active_ids = state["repo_active_ids"]
-    repo._pending_ids = state["repo_pending_ids"]
+    if "repo" in state:
+        # Compatibility with new format where entire repo is pickled
+        restored_repo = state["repo"]
+        repo.cycles = restored_repo.cycles
+        repo._active_cycle_ids = getattr(restored_repo, "_active_cycle_ids", [])
+        repo.operations = restored_repo.operations
+        repo._active_ids = getattr(restored_repo, "_active_ids", [])
+        repo._pending_ids = getattr(restored_repo, "_pending_ids", [])
+    else:
+        # Legacy format
+        repo.cycles = state.get("repo_cycles", {})
+        repo._active_cycle_ids = state.get("repo_active_cycle_ids", [])
+        repo.operations = state.get("repo_operations", {})
+        repo._active_ids = state.get("repo_active_ids", [])
+        repo._pending_ids = state.get("repo_pending_ids", [])
     
     broker.balance = state["broker_balance"]
     broker.open_positions = state["broker_positions"]
@@ -63,10 +74,14 @@ def load_simulation_state(path, repo, broker, orchestrator, auditor):
     broker.ticket_counter = state["broker_ticket_counter"]
     
     # Restore auditor
-    restored_auditor = state["auditor_state"]
-    # Copy attributes to existing auditor instance
-    for attr, value in restored_auditor.__dict__.items():
-        setattr(auditor, attr, value)
+    if "auditor" in state:
+        restored_auditor = state["auditor"]
+    else:
+        restored_auditor = state.get("auditor_state")
+        
+    if restored_auditor:
+        for attr, value in restored_auditor.__dict__.items():
+            setattr(auditor, attr, value)
         
     print(f"Simulation state loaded from {path}")
 

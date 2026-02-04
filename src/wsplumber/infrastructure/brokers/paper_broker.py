@@ -56,9 +56,9 @@ class PaperBroker(IBroker):
                 tick = price_res.value
                 mult = 100 if "JPY" in str(pair) else 10000
                 if pos["order_type"] == "buy":
-                    pips = float((tick.bid - Price(pos["entry_price"])) * mult)
+                    pips = float(Decimal(str(tick.bid)) - Decimal(str(pos["entry_price"]))) * mult
                 else:
-                    pips = float((Price(pos["entry_price"]) - tick.ask) * mult)
+                    pips = float(Decimal(str(pos["entry_price"])) - Decimal(str(tick.ask))) * mult
                 
                 pos["profit_pips"] = pips
                 pos["profit_money"] = pips * float(pos["lot_size"]) * 10.0
@@ -117,6 +117,10 @@ class PaperBroker(IBroker):
             if pair_str in self._price_cache:
                 return Result.ok(self._price_cache[pair_str])
             return Result.fail(str(e))
+
+    def set_cache_price(self, pair: CurrencyPair, tick: TickData):
+        self._price_cache[str(pair)] = tick
+        self._last_poll_time = datetime.now()
 
     async def place_order(self, request: OrderRequest) -> Result[OrderResult]:
         ticket = BrokerTicket(str(self.ticket_counter))
@@ -223,9 +227,10 @@ class PaperBroker(IBroker):
             price_res = await self.get_current_price(pos["pair"])
             if price_res.success:
                 tick = price_res.value
-                if pos["order_type"] == "buy" and pos["tp_price"] and tick.bid >= Price(pos["tp_price"]):
+                tp_price = pos.get("tp_price")
+                if pos["order_type"] == "buy" and tp_price and tick.bid >= Price(Decimal(str(tp_price))):
                     tp_closed.append(ticket)
-                elif pos["order_type"] == "sell" and pos["tp_price"] and tick.ask <= Price(pos["tp_price"]):
+                elif pos["order_type"] == "sell" and tp_price and tick.ask <= Price(Decimal(str(tp_price))):
                     tp_closed.append(ticket)
         
         for ticket in tp_closed:

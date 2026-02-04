@@ -246,12 +246,17 @@ Para garantizar la supervivencia en eventos Cisne Negro, el sistema opera con tr
 - **L1 (Adaptive Trailing)**: Captura beneficios parciales en movimientos extendidos, cerrando con profit si el mercado se gira.
 - **L1B (Trailing Counter)**: Desplaza las órdenes de cobertura pendientes persiguiendo el precio actual. Garantiza un **OVERLAP** (beneficio bloqueado) que minimiza o elimina la deuda si el mercado corrige bruscamente.
 
-#### Layer 2: Event Guard (Protección Break Even)
+#### Layer 2: Event Guard (Protección Estratégica V3.1)
 Activado durante noticias de alto impacto (según `EVENT_CALENDAR`):
-- **Window Pre/Post**: Se activa X minutos antes y después del evento.
-- **Cierre de Pendientes**: Elimina todas las órdenes `STOP` no activadas para evitar entradas con slippage.
-- **Break Even Proactivo**: Mueve todas las posiciones activas a **Break Even (Entrada + Buffer)**. Si el precio se gira violentamente tras la noticia, la posición cierra con beneficio cero (o mínimo), preservando el capital.
-- **Bloqueo Operativo**: El sistema entra en modo `FROZEN` para nuevas señales mientras dure la ventana del evento.
+- **Window Pre/Post**: Se activa X minutos antes y después del evento (ej: 5 min).
+- **Cancelación Preventiva**: Elimina todas las órdenes `STOP` (Mains o Recoveries) no activadas para evitar entradas con slippage o spreads ensanchados.
+- **Diferenciación de Escenarios (V3.1)**:
+  - **Escenario de BENEFICIO**: Si una posición ya está en profit, se aplica **Break Even reactivo** (SL = Entrada + Buffer) y se cancela su contra-orden inmediatamente para asegurar la ganancia sin riesgo.
+  - **Escenario de PÉRDIDA (Bloqueo)**: Si una posición está en negativo, se **quitan los TPs** y se **deshabilitan los Hedges de continuación**. Esto mantiene el "Lock" de pérdida fija durante la volatilidad, evitando cierres parciales descompensados.
+- **Normalización Post-Evento**: Una vez cerrada la ventana, el sistema realiza una reactivación inteligente:
+  - Los ciclos que fueron limpiados se reabren al **precio actual** de mercado (`forced_price`).
+  - Las posiciones bloqueadas recuperan sus TPs y activan sus protecciones normales.
+- **Bloqueo Operativo**: El sistema ignora nuevas señales de apertura "ciega" mientras el escudo esté activo.
 
 #### Layer 3: Blind Gap Guard (Congelación de Emergencia)
 Detecta anomalías macroscópicas entre ticks consecutivos:

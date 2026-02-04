@@ -105,7 +105,7 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pai
             
             # PHASE 14: Toxic Equity Guard
             # If the pair is frozen, mark equity as [FROZEN] in the report
-            is_frozen = pair in orchestrator._freeze_until and tick.timestamp < orchestrator._freeze_until[pair]
+            is_frozen = pair in getattr(orchestrator, '_calm_since', {}) or pair in getattr(orchestrator, '_freeze_until', {})
             
             dd = ((bal - eq) / bal * 100) if bal > 0 else 0
             all_c = repo.cycles.values()
@@ -154,7 +154,7 @@ async def audit_scenario(csv_path_str: str, log_level: str = "INFO", default_pai
             
             dd_pct = ((balance - equity) / balance * 100) if balance > 0 else 0
             
-            is_frozen = pair in orchestrator._freeze_until and tick.timestamp < orchestrator._freeze_until[pair]
+            is_frozen = pair in getattr(orchestrator, '_calm_since', {}) or pair in getattr(orchestrator, '_freeze_until', {})
             equity_str = f"{equity:>10.2f}"
             if is_frozen:
                 equity_str = f"{'[FROZEN]':>10}"

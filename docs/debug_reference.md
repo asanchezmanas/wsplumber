@@ -133,13 +133,15 @@ PENDING ──► ACTIVE ──► HEDGED ──► IN_RECOVERY ──► CLOSED
 
 ### Flujo 6: Sistema Inmune (L2 & L3)
 ```
-1. Layer 2 (Event Guard): 
+1. Layer 2 (Event Guard V3.1): 
    - Shield activates X mins before event
-   - Cancels pending orders
-   - Moves active positions to SL = Entry + 0.1 pips
+   - Cancels pending orders (preventive)
+   - IF PROFIT: Move to BE (Entry + 0.1) & cancel counter
+   - IF LOSS: Strip TPs & disable continuation hedges (maintain lock)
+   - Normalization: Re-open at current market price (`forced_price`)
 2. Layer 3 (Blind Gap Guard):
    - Detects price jump > 50 pips between ticks
-   - Freezes operations for 30-60 mins
+   - Freezes operations (L3 `_calm_since`) for X mins
 ```
 **Log esperado**: `Scheduled event active, applying shield` o `BLIND GAP DETECTED`
 
@@ -248,7 +250,9 @@ EMERGENCY_LIMITS = {
 
 ### Sistema Inmune
 - [ ] ¿Se cancelaron las pendientes al acercarse el evento (L2)?
-- [ ] ¿Se actualizó el `sl_price` de las activas al nivel de entrada (BE)?
+- [ ] ¿Se aplicó BE a las ganancias y se quitaron TPs a las pérdidas?
+- [ ] ¿Se cancelaron órdenes opuestas de las posiciones en profit?
+- [ ] ¿El sistema se normalizó abriendo ciclos al precio actual tras el evento?
 - [ ] ¿El breaker detectó el `sl_hit` y marcó la op como `TP_HIT`?
 - [ ] ¿El sistema se congeló tras un gap violento (L3)?
 
@@ -296,9 +300,10 @@ EMERGENCY_LIMITS = {
 ### Protección Layer 2 (Event Guard)
 ```
 [INFO] Scheduled event active, applying shield: event="NFP"
-[INFO] Cancelling pending op due to event shield: op_id=EURUSD_002
-[INFO] Moving position to Break Even due to event shield: op_id=EURUSD_001, be_price=1.0856
-[WARNING] Broker: SL hit for 1001, sl=1.0856, current=1.0856
+[INFO] EVENT-GUARD: Position in profit, applying BE: op_id=EURUSD_001
+[INFO] EVENT-GUARD: profit secured, cancelling counter-order: op_id=EURUSD_001_S
+[INFO] EVENT-GUARD: Position in loss, stripping TP: op_id=EURUSD_001
+[INFO] EVENT-GUARD: Entering post-event normalization: pair=EURUSD
 ```
 
 ### Protección Layer 3 (Gap Guard)

@@ -35,6 +35,18 @@ class EconomicCalendar:
         self.data_dir = Path(data_dir)
         self.events: List[EconomicEvent] = []
         self._loaded_years: set = set()
+        
+        # PHASE 11: Priority to Param-based events for testing consistency
+        try:
+            from wsplumber.core.strategy._params import EVENT_CALENDAR
+            for ev_str, importance, desc in EVENT_CALENDAR:
+                dt = datetime.fromisoformat(ev_str)
+                if importance.upper() == "HIGH":
+                    self.events.append(EconomicEvent(dt, importance, desc))
+            self.events.sort(key=lambda x: x.timestamp)
+            logger.info(f"Loaded {len(self.events)} events from strategy params")
+        except ImportError:
+            logger.warning("Strategy params not found, relying on CSV files")
 
     def load_historical_events(self, year: int) -> bool:
         """

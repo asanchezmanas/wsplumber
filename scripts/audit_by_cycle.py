@@ -9,6 +9,11 @@ from typing import List, Dict, Optional, Set, Tuple
 from collections import defaultdict
 from pathlib import Path
 
+# Setup paths
+root = Path(__file__).parent.parent
+sys.path.insert(0, str(root))
+sys.path.insert(0, str(root / "src"))
+
 from wsplumber.domain.types import CurrencyPair, Price, Pips, OperationId
 from wsplumber.domain.entities.operation import Operation, OperationType, OperationStatus
 from wsplumber.domain.entities.cycle import Cycle, CycleType, CycleStatus
@@ -26,7 +31,7 @@ import pickle
 from pathlib import Path
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     stream=sys.stderr
 )
@@ -410,7 +415,7 @@ class CycleAuditor:
                 print(self.forensic.get_master_summary(), file=f)
 
 async def run_audit(bars: int, scenario_path: str, quiet: bool = False, start_date=None, end_date=None, save_checkpoint=None, load_checkpoint=None):
-    logging.getLogger('wsplumber').setLevel(logging.WARNING)
+    pass # logging.getLogger('wsplumber').setLevel(logging.WARNING)
     broker = SimulatedBroker(initial_balance=10000.0)
     repo = InMemoryRepository()
     orchestrator = CycleOrchestrator(TradingService(broker, repo), WallStreetPlumberStrategy(), RiskManager(), repo)
@@ -458,6 +463,7 @@ async def run_audit(bars: int, scenario_path: str, quiet: bool = False, start_da
         if not tick or (bars > 0 and tick_count >= bars): break
         
         # 2. Process in orchestrator
+        # print(f"DEBUG: Tick #{tick_count} | {tick.timestamp} | {tick.mid} | Allowed={is_allowed}")
         is_allowed = await orchestrator.process_tick(tick)
         tick_count += 1
         

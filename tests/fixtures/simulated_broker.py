@@ -375,6 +375,14 @@ class SimulatedBroker(IBroker):
             
         return tick
 
+    async def process_tick_manual(self, tick: TickData, is_allowed: bool = True) -> None:
+        """Procesa un tick inyectado manualmente (útil para tests de matriz)."""
+        self.current_tick = tick
+        if is_allowed:
+            await self._process_executions(tick)
+        else:
+            await self.update_pnl_only()
+
     def load_m1_csv(self, csv_path: str, pair: Optional[CurrencyPair] = None, max_bars: int = None):
         """Carga ticks desde un archivo CSV M1 (Formato OHLC)."""
         if not pair:
@@ -698,17 +706,15 @@ class SimulatedBroker(IBroker):
         new_tp: Optional[Price] = None,
         new_sl: Optional[Price] = None,
     ) -> Result[bool]:
-        """Modifica una posición abierta. new_tp=None elimina el TP."""
+        """Modifica una posición abierta. Si se pasa None, se elimina el TP/SL."""
         if ticket in self.open_positions:
-            if new_tp is not None:
-                self.open_positions[ticket].tp_price = new_tp
-            
-            if new_sl is not None:
-                self.open_positions[ticket].sl_price = new_sl
+            # FIX: No filtrar por 'is not None' para permitir el borrado de TPs (stripping)
+            self.open_positions[ticket].tp_price = new_tp
+            self.open_positions[ticket].sl_price = new_sl
             
             logger.info(f"Broker: Modified position {ticket}", 
-                       new_tp=float(new_tp) if new_tp else "UNCHANGED",
-                       new_sl=float(new_sl) if new_sl else "UNCHANGED")
+                       new_tp=float(new_tp) if new_tp is not None else "NONE",
+                       new_sl=float(new_sl) if new_sl is not None else "NONE")
             return Result.ok(True)
         return Result.fail("Position not found")
 
@@ -941,10 +947,20 @@ class SimulatedBroker(IBroker):
                 open_time=tick.timestamp
             )
             self.open_positions[t] = pos
-            logger.info(f"Broker: Order {t} activated", 
-                       operation_id=order.operation_id,
-                       entry_price=float(order.entry_price),
-                       timestamp=tick.timestamp)
+            
+            # PHASE 11: Absolute Forensic Gap Tracking
+            gap_pips = 0.0
+            if abs(float(fill_price) - float(order.entry_price)) > 1e-7:
+                 mult = 100 if "JPY" in str(order.pair) else 10000
+                 gap_pips = (float(fill_price) - float(order.entry_price)) * mult if order.order_type.is_buy else (float(order.entry_price) - float(fill_price)) * mult
+                 logger.warning(f"Broker: GAP ACTIVATION detected for {t}", 
+                              op_id=order.operation_id, entry=float(order.entry_price), 
+                              fill=float(fill_price), gap_pips=f"{gap_pips:+.1f}")
+            else:
+                 logger.info(f"Broker: Order {t} activated", 
+                            operation_id=order.operation_id,
+                            entry_price=float(order.entry_price),
+                            timestamp=tick.timestamp)
 
         # 2. Actualizar P&L y MARCAR TPs
         # Recolectar tickets a cerrar para no modificar dict durante iteración

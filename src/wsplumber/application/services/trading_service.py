@@ -56,6 +56,7 @@ class TradingService:
         Abre una operación en el broker y la actualiza en el repositorio.
         """
         try:
+            print(f"DEBUG: TradingService.open_operation for {operation.id} {operation.op_type.value} lot={request.lot_size}")
             logger.info("Placing order", 
                         operation_id=operation.id, 
                         pair=operation.pair,
@@ -64,6 +65,7 @@ class TradingService:
                         tp=float(request.tp_price))
             
             broker_result = await self.broker.place_order(request)
+            print(f"DEBUG: TradingService.open_operation broker_result for {operation.id}: success={broker_result.success}")
 
             if not broker_result.success:
                 logger.error("Broker rejected order", operation_id=operation.id, error=broker_result.error)

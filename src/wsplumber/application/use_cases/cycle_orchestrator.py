@@ -52,7 +52,8 @@ from wsplumber.core.strategy._params import (
     LAYER1_MODE, TRAILING_LEVELS, TRAILING_MIN_LOCK, TRAILING_REPOSITION,
     LAYER2_MODE, EVENT_PROTECTION_WINDOW_PRE, EVENT_PROTECTION_WINDOW_POST, EVENT_CALENDAR,
     LAYER3_MODE, GAP_FREEZE_THRESHOLD_PIPS, GAP_CALM_DURATION_MINUTES, GAP_CALM_THRESHOLD_PIPS,
-    LAYER1B_MODE, LAYER1B_ACTIVATION_PIPS, LAYER1B_BUFFER_PIPS, LAYER1B_MIN_MOVE_PIPS, LAYER1B_OVERLAP_THRESHOLD_PIPS
+    LAYER1B_MODE, LAYER1B_ACTIVATION_PIPS, LAYER1B_BUFFER_PIPS, LAYER1B_MIN_MOVE_PIPS, LAYER1B_OVERLAP_THRESHOLD_PIPS,
+    BE_BUFFER_PIPS
 )
 from wsplumber.infrastructure.logging.safe_logger import get_logger
 
@@ -113,27 +114,42 @@ class CycleOrchestrator:
 
     async def process_tick(self, tick: TickData) -> bool:
         """Procesa un tick inyectado directamente (útil para backtesting)."""
+        print(f"DEBUG: process_tick entry for {tick.pair} at {tick.timestamp}")
         pair = tick.pair
         
-        # 1. PHASE 5: Immune System Guard (CRITICAL: MUST RUN BEFORE BROKER SYNC)
-        # We check the gap BEFORE letting the broker synchronize executions.
-        # This prevents the system from "accepting" TP hits or SL hits that occurred during a gap jump.
-        is_allowed = await self._check_immune_system(pair, tick)
+        # 1. PHASE 5: Immune System Guard
+        # Retorna: (is_allowed_to_act, is_emergency_freeze)
+        is_allowed, is_emergency = await self._check_immune_system(pair, tick)
 
         try:
-            # If the immune system blocks (Gap detected), we STOP IMMEDIATELY.
-            # We don't even synchronize with the broker because the price data is unreliable (frozen).
+            # A. GAP DETECTADO (is_emergency=True): 
+            # El sistema se vuelve totalmente CIEGO. No sincronizamos con el broker
+            # porque los precios del gap no son confiables para el sistema contable local.
+            if is_emergency:
+                logger.warning("FROZEN: Emergency freeze active (Blind Gap)", pair=pair)
+                return False
+
+            # B. SIEMPRE SINCRONIZAR (Vigilancia Activa)
+            # A menos que estemos en un Gap Ciego, el sistema debe saber qué está pasando.
+            # Noticia (is_allowed=False) pero NO es emergencia -> Sincronizamos.
+            await self.trading_service.sync_all_active_positions(pair)
+
+            # C. ESCUDO DE EVENTOS (is_allowed=False):
+            # El monitoreo ya se hizo (sync), pero bloqueamos la toma de decisiones
+            # y el trailing para evitar latigazos destructivos.
             if not is_allowed:
                 return False
 
-            # 2. Monitorear estado de operaciones activas (SIEMPRE SINCRONIZAR)
-            # Only sync if we are not in an emergency freeze.
-            await self._check_operations_status(pair, tick)
+            # 2. Lógica de negocio avanzada (Solo si está permitido actuar)
+            await self._check_operations_status(pair, tick, skip_sync=True)
             
             # 3. Consultar a la estrategia core (usando la versión moderna y sincronizada)
             # Fetch active cycles for this pair to pass to strategy
             active_cycles = await self.repository.get_active_cycles(pair)
             signals: List[StrategySignal] = await self.strategy.generate_signals(tick, active_cycles.value)
+            
+            if signals:
+                print(f"DEBUG: Strategy produced {len(signals)} signals: {[s.signal_type for s in signals]}")
             
             if not signals:
                 return True
@@ -155,70 +171,48 @@ class CycleOrchestrator:
             return
         await self.process_tick(tick_res.value)
 
-    # ═══════════════════════════════════════════════════════════════════════
-    # IMMUNE SYSTEM METHODS (PHASE 5)
-    # ═══════════════════════════════════════════════════════════════════════
 
     async def _check_immune_system(self, pair: CurrencyPair, tick: TickData) -> bool:
         """
-        Verifica Layer 2 (Eventos) y Layer 3 (Gaps Ciegos).
-        Retorna True si el procesamiento puede continuar, False si está congelado.
+        Garantiza la supervivencia ante Gaps y Noticias.
+        Retorna True si la ejecución de señales puede continuar.
         """
-        from wsplumber.core.strategy._params import (
-            LAYER2_MODE, EVENT_CALENDAR, EVENT_PROTECTION_WINDOW_PRE, EVENT_PROTECTION_WINDOW_POST,
-            LAYER3_MODE, GAP_FREEZE_THRESHOLD_PIPS, GAP_CALM_DURATION_MINUTES, GAP_CALM_THRESHOLD_PIPS
-        )
-        
-        now = tick.timestamp or datetime.now()
-        mid_price = float(tick.bid + tick.ask) / 2.0
-        multiplier = 0.01 if "JPY" in str(pair) else 0.0001
-        
+        now = tick.timestamp
+        if not now:
+            return True
+
         # ═══════════════════════════════════════════════════════════
-        # 1. LAYER 3: BLIND GAP & DYNAMIC UNFREEZE (Quiet Period)
+        # 1. LAYER 3: BLIND GAP GUARD (Emergency Freeze)
         # ═══════════════════════════════════════════════════════════
         if LAYER3_MODE == "ON":
             last_price = self._last_prices.get(pair)
+            mid_price = tick.mid
             
-            # A. Detección de Salto (Trigger o Reset de Seguridad)
             if last_price:
-                jump_pips = abs(mid_price - last_price) / multiplier
+                multiplier = 100 if "JPY" in str(pair) else 10000
+                jump_pips = abs(float(mid_price - last_price)) * multiplier
                 
-                # Caso Alpha: El mercado está saltando FUERTE (> 50 pips) -> Iniciamos Freeze
+                # Caso Alpha: El mercado salta el umbral de pánico
                 if jump_pips >= GAP_FREEZE_THRESHOLD_PIPS:
-                    print(f"DEBUG L3: TRIGGER! Jump={jump_pips}, Pair={pair}")
-                    logger.warning(
-                        "BLIND GAP DETECTED! Triggering dynamic freeze",
-                        pair=pair, jump_pips=jump_pips, threshold=GAP_FREEZE_THRESHOLD_PIPS
-                    )
+                    logger.warning("BLIND GAP DETECTED! Triggering emergency freeze", 
+                                 pair=pair, jump_pips=jump_pips, threshold=GAP_FREEZE_THRESHOLD_PIPS)
                     self._calm_since[pair] = now
+                    return False
                 
-                # Caso Beta: Estamos congelados y ocurre un salto significativo (> 20 pips) -> Reset de Calma
+                # Caso Beta: Estamos congelados y ocurre inestabilidad -> Reset de Calma
                 elif pair in self._calm_since and jump_pips >= GAP_CALM_THRESHOLD_PIPS:
-                    print(f"DEBUG L3: RESET! Jump={jump_pips}, Pair={pair}")
-                    logger.info(
-                        "SECURITY RESET: Instability detected during freeze, restarting calm timer",
-                        pair=pair, jump_pips=jump_pips
-                    )
+                    logger.info("SECURITY RESET: Instability detected during freeze", pair=pair)
                     self._calm_since[pair] = now
-                else:
-                    if pair in self._calm_since:
-                        print(f"DEBUG L3: Calm... Jump={jump_pips}")
 
             self._last_prices[pair] = mid_price
 
-            # B. Validación de Reactivación (Quiet Period)
             if pair in self._calm_since:
-                from datetime import timedelta
                 calm_duration = now - self._calm_since[pair]
-                
                 if calm_duration >= timedelta(minutes=GAP_CALM_DURATION_MINUTES):
-                    logger.info(
-                        "DYNAMIC UNFREEZE: Market stabilized, lifting emergency freeze",
-                        pair=pair, calm_period_min=calm_duration.total_seconds() / 60
-                    )
+                    logger.info("DYNAMIC UNFREEZE: Market stabilized", pair=pair)
                     del self._calm_since[pair]
                 else:
-                    return False  # El sistema sigue congelado (esperando calma)
+                    return False
 
         # ═══════════════════════════════════════════════════════════
         # 2. LAYER 2: EVENT GUARD (Scheduled)
@@ -228,153 +222,23 @@ class CycleOrchestrator:
             
             if event:
                 event_key = f"{pair}_{event.timestamp.isoformat()}"
+                
+                # MONITOREO CONTINUO: Siempre llamamos al escudo durante el evento para BE reactivo
+                await self._apply_event_shield(pair, tick)
+                
                 if getattr(self, "_active_shield_event", None) != event_key:
-                    logger.info("Scheduled event active, applying shield", 
-                              event=event.description, importance=event.importance)
-                    await self._apply_event_shield(pair, tick)
+                    logger.info("Scheduled event active, initial shield applied", event=event.description)
                     self._active_shield_event = event_key
+                
+                # Bloqueamos el flujo normal de señales (Vivir peligrosamente: solo protect)
                 return False 
             
             if hasattr(self, "_active_shield_event"):
-                logger.info("Event window closed, triggering post-event normalization", pair=pair)
+                logger.info("Event window closed, normalizing system", pair=pair)
                 await self._normalize_post_event(pair, tick)
                 delattr(self, "_active_shield_event")
 
         return True
-
-    async def _apply_event_shield(self, pair: CurrencyPair, tick: TickData):
-        """
-        Aplica protección de Layer 2:
-        1. Cancela todas las órdenes pendientes.
-        2. Mueve posiciones activas huérfanas a Break Even.
-        """
-        # 1. Cancelar pendientes
-        pending_res = await self.repository.get_pending_operations(pair)
-        if pending_res.success:
-            for op in pending_res.value:
-                if op.broker_ticket:
-                    print(f"DEBUG L2: Shielding cycle {op.cycle_id} - Cancelling {op.id}")
-                    logger.info("Cancelling pending op due to event shield", op_id=op.id)
-                    await self.trading_service.broker.cancel_order(op.broker_ticket)
-                    op.status = OperationStatus.CANCELLED
-                    op.metadata["cancel_reason"] = "event_shield"
-                    await self.repository.save_operation(op)
-                    
-                    # Mark cycle for normalization
-                    cycle_res = await self.repository.get_cycle(op.cycle_id)
-                    if cycle_res.success:
-                        cycle = cycle_res.value
-                        cycle.metadata["event_shield_activated"] = True
-                        await self.repository.save_cycle(cycle)
-
-        # 2. Forzar Break Even en activas
-        active_res = await self.repository.get_active_operations(pair)
-        if active_res.success:
-            for op in active_res.value:
-                if not op.broker_ticket: continue
-                
-                # PHASE 6: Break Even calculation
-                entry = float(op.actual_entry_price or op.entry_price)
-                # Small buffer (0.1 pips) to ensure BE covers spread/commissions if possible
-                multiplier = 0.01 if "JPY" in str(pair) else 0.0001
-                buffer = 0.1 * multiplier 
-                
-                be_price = entry + buffer if op.is_buy else entry - buffer
-                
-                print(f"DEBUG L2: Shielding pos {op.id} - Moving to BE: {be_price:.5f}")
-                logger.info("Moving position to Break Even due to event shield", 
-                           op_id=op.id, ticket=op.broker_ticket, be_price=be_price)
-                
-                mod_res = await self.trading_service.broker.modify_position(
-                    op.broker_ticket, 
-                    new_sl=Price(Decimal(str(be_price)))
-                )
-                
-                if mod_res.success:
-                    op.sl_price = Price(Decimal(str(be_price)))
-                    op.metadata["event_shield_be"] = True
-                    op.metadata["be_activation_time"] = tick.timestamp.isoformat() if tick.timestamp else None
-                    await self.repository.save_operation(op)
-                    
-                    # Flag cycle for post-event normalization
-                    cycle_res = await self.repository.get_cycle(op.cycle_id)
-                    if cycle_res.success:
-                        cycle = cycle_res.value
-                        cycle.metadata["event_shield_activated"] = True
-                        await self.repository.save_cycle(cycle)
-                else:
-                    logger.error("Failed to apply Break Even shield", 
-                                op_id=op.id, error=mod_res.error)
-
-        # 3. Marcar ciclos PENDING que perdieron sus órdenes pero no tenían activas
-        pending_cycles = await self.repository.get_active_cycles(pair)
-        if pending_cycles.success:
-            for cycle in pending_cycles.value:
-                if cycle.status == CycleStatus.PENDING:
-                    cycle.metadata["event_shield_activated"] = True
-                    await self.repository.save_cycle(cycle)
-
-    async def _normalize_post_event(self, pair: CurrencyPair, tick: TickData):
-        """
-        Fase de normalización tras el fin de un evento (L2):
-        1. Cierra ciclos PENDING que quedaron sin órdenes.
-        2. Restaura la estructura de ciclos ACTIVE/HEDGED (re-abre counter-orders).
-        """
-        cycles_res = await self.repository.get_active_cycles(pair)
-        if not cycles_res.success: return
-
-        for cycle in cycles_res.value:
-            if not cycle.metadata.get("event_shield_activated"):
-                continue
-
-            logger.info("Normalizing cycle after event shield", cycle_id=cycle.id, status=cycle.status)
-            
-            # Caso A: Ciclo PENDING o sin posiciones activas -> Reset (Cierre para renovación)
-            ops_res = await self.repository.get_operations_by_cycle(cycle.id)
-            all_ops = ops_res.value if ops_res.success else []
-            active_ops = [op for op in all_ops if op.status == OperationStatus.ACTIVE]
-
-            if not active_ops:
-                logger.info("Cycle has no active positions, closing to allow renewal", cycle_id=cycle.id)
-                cycle.status = CycleStatus.CLOSED
-                cycle.metadata["event_shield_normalization"] = "closed_empty"
-                await self.repository.save_cycle(cycle)
-                continue
-
-            # Caso B: Ciclo con posiciones ACTIVAS -> Reparar estructura
-            # Buscamos las órdenes que fueron canceladas por el escudo
-            shield_cancelled = [
-                op for op in all_ops 
-                if op.status == OperationStatus.CANCELLED and op.metadata.get("cancel_reason") == "event_shield"
-            ]
-
-            for op in shield_cancelled:
-                logger.info("Restoring structure: Re-opening cancelled order", op_id=op.id, entry=op.entry_price)
-                
-                # Crear nueva instancia de Operación (o resetear el estado de la actual)
-                # Para mayor trazabilidad, reseteamos la actual a PENDING
-                op.status = OperationStatus.PENDING
-                op.metadata["event_shield_restored"] = True
-                op.metadata["restoration_time"] = tick.timestamp.isoformat() if tick.timestamp else None
-                
-                request = OrderRequest(
-                    operation_id=op.id,
-                    pair=pair,
-                    order_type=op.op_type,
-                    entry_price=op.entry_price,
-                    tp_price=op.tp_price,
-                    lot_size=op.lot_size
-                )
-                
-                await self.trading_service.open_operation(request, op)
-                await self.repository.save_operation(op)
-
-            # Limpiar flags de escudo del ciclo
-            cycle.metadata["event_shield_activated"] = False
-            cycle.metadata["event_shield_normalized"] = True
-            await self.repository.save_cycle(cycle)
-            
-            logger.info("Cycle structural repair completed", cycle_id=cycle.id)
 
     async def _process_layer1b_trailing_counter(
         self, 
@@ -564,9 +428,9 @@ class CycleOrchestrator:
 
         if not should_close:
             # APPLY BREAK EVEN PROTECTION
-            # print(f"DEBUG: Entering BE branch for {cycle.id}. Metadata: op1_be={op1.metadata.get('overlap_be')}, op2_be={op2.metadata.get('overlap_be')}")
+            print(f"DEBUG: Entering BE branch for {cycle.id}. Metadata: op1_be={op1.metadata.get('overlap_be')}, op2_be={op2.metadata.get('overlap_be')}")
             if not op1.metadata.get("overlap_be") and not op2.metadata.get("overlap_be"):
-                # print(f"DEBUG: Applying BE protection for {cycle.id}")
+                print(f"DEBUG: Applying BE protection for {cycle.id}")
                 logger.info(
                     "OVERLAP_PATIENCE: Profit below target, moving to BE protection",
                     locked_profit=locked_profit,
@@ -664,25 +528,25 @@ class CycleOrchestrator:
             await self._open_recovery_cycle(signal, tick)
 
 
-    async def _check_operations_status(self, pair: CurrencyPair, tick: TickData):
+    async def _check_operations_status(self, pair: CurrencyPair, tick: TickData, skip_sync: bool = False):
         """
         Detecta cierres y activaciones de operaciones.
-        
-        FIX-001 APLICADO: Ahora renueva operaciones main después de TP.
-        FIX-002 APLICADO: Cancela hedges pendientes contrarios.
         """
-        # Sincronizar con el broker
-        sync_res = await self.trading_service.sync_all_active_positions(pair)
-        if not sync_res.success:
-            return
+        # Sincronizar con el broker (a menos que ya se haya hecho en process_tick)
+        if not skip_sync:
+            sync_res = await self.trading_service.sync_all_active_positions(pair)
+            if not sync_res.success:
+                return
 
         # FIX: Monitoreamos TODOS los ciclos activos para este par (Principal + Recoveries)
         cycles_res = await self.repository.get_active_cycles(pair)
+        print(f"DEBUG: get_active_cycles returned {len(cycles_res.value) if cycles_res.success else 'error'} active cycles")
         
         # FIX-OPEN-FIRST-CYCLE: Si no hay ciclos activos, abrir el primero
         if not cycles_res.success or not cycles_res.value:
             # Solo abrir si no hay ya uno en cache
             if pair not in self._active_cycles:
+                print(f"DEBUG: Deciding to open first cycle for {pair}")
                 # Obtener tick actual del broker
                 tick_res = await self.trading_service.broker.get_current_price(pair)
                 if tick_res.success and tick_res.value:
@@ -691,7 +555,12 @@ class CycleOrchestrator:
                         pair=pair,
                         metadata={"reason": "no_active_cycle_in_repo"}
                     )
+                    print(f"DEBUG: Calling _open_new_cycle for {pair}")
                     await self._open_new_cycle(signal, tick_res.value)
+                else:
+                    print(f"DEBUG: get_current_price failed during open first cycle: {tick_res.error}")
+            else:
+                print(f"DEBUG: Cycle for {pair} already in cache")
             return
 
         for cycle in cycles_res.value:
@@ -993,7 +862,7 @@ class CycleOrchestrator:
                                         pair=cycle.pair,
                                         metadata={"reason": "renewal_after_main_tp", "parent_cycle": cycle.id}
                                     )
-                                    # print(f"DEBUG: Main TP Hit! Opening NEW CYCLE (Full recovery version) from {cycle.id}")
+                                    print(f"DEBUG: Main TP Hit! Opening NEW CYCLE (Full recovery version) from {cycle.id}")
                                     await self._open_new_cycle(signal_open_cycle, tick)
                             else:
                                 signal_open_cycle = StrategySignal(
@@ -1396,7 +1265,7 @@ class CycleOrchestrator:
                 if (parent_cycle.status not in (CycleStatus.CLOSED, CycleStatus.CANCELLED) and
                     parent_cycle.accounting.pips_remaining > Decimal("0")):
                     
-                    # print(f"DEBUG L1: Opening REPOSITION RECOVERY for {parent_cycle.id}")
+                    print(f"DEBUG L1: Opening REPOSITION RECOVERY for {parent_cycle.id}")
                     logger.info("LAYER1: Opening replacement recovery",
                                parent_id=parent_cycle.id,
                                reposition_price=reposition_price,
@@ -1531,7 +1400,7 @@ class CycleOrchestrator:
                                 op.metadata["liquidated_by_op_id"] = trigger_op_id
                             await self.repository.save_operation(op)
         
-        # print(f"DEBUG FIFO: Cycle {parent_cycle.id} - Remaining Debt: {parent_cycle.accounting.pips_remaining} | Surplus: {surplus}")
+                            print(f"DEBUG FIFO: Cycle {parent_cycle.id} - Remaining Debt: {parent_cycle.accounting.pips_remaining} | Surplus: {surplus}")
         logger.info(
             "FIFO Processing Results",
             cycle_id=parent_cycle.id,
@@ -1546,7 +1415,7 @@ class CycleOrchestrator:
         min_surplus = float(RECOVERY_MIN_SURPLUS)
         
         if parent_cycle.accounting.is_fully_recovered and surplus >= min_surplus:
-            # print(f"DEBUG: CYCLE {parent_cycle.id} FULLY RESOLVED! Surplus: {surplus}")
+            print(f"DEBUG: CYCLE {parent_cycle.id} FULLY RESOLVED! Surplus: {surplus}")
             logger.info("Cycle FULLY RESOLVED with sufficient surplus. Closing cycle.", 
                       cycle_id=parent_cycle.id, surplus=surplus, min_required=min_surplus)
             
@@ -1899,6 +1768,7 @@ class CycleOrchestrator:
     async def _handle_signal(self, signal: StrategySignal, tick: TickData):
         """Maneja las señales emitidas por la estrategia."""
         reason = signal.metadata.get("reason", "unknown") if signal.metadata else "unknown"
+        print(f"DEBUG: Signal received: {signal.signal_type.name} for {signal.pair} Reason: {reason}")
         logger.info("Signal received", type=signal.signal_type.name, pair=signal.pair, reason=reason)
 
         if signal.signal_type == SignalType.OPEN_CYCLE:
@@ -1913,10 +1783,12 @@ class CycleOrchestrator:
     async def _open_new_cycle(self, signal: StrategySignal, tick: TickData):
         """Inicia un nuevo ciclo de trading con dos operaciones (Buy + Sell)."""
         pair = signal.pair
+        print(f"DEBUG: _open_new_cycle entry for {pair} at {tick.timestamp}")
         
         # PHASE 5: Immune System Guard - Block new openings
         now = tick.timestamp or datetime.now()
         if pair in self._calm_since:
+            print(f"DEBUG: _open_new_cycle BLOCKED by calm_since")
             logger.info("New cycle BLOCKED by emergency freeze", pair=pair)
             return
         
@@ -1929,6 +1801,7 @@ class CycleOrchestrator:
                 post_window = event_time + timedelta(minutes=EVENT_PROTECTION_WINDOW_POST)
                 if pre_window <= now <= post_window:
                     is_shielded = True
+                    print(f"DEBUG: _open_new_cycle BLOCKED by shield: {desc}")
                     break
                     
         if is_shielded:
@@ -1940,6 +1813,7 @@ class CycleOrchestrator:
         exposure_pct, num_recoveries = await self._get_exposure_metrics(pair)
         acc_info = await self.trading_service.broker.get_account_info()
         balance = acc_info.value["balance"] if acc_info.success else 10000.0
+        print(f"DEBUG: _open_new_cycle exposure={exposure_pct}, balance={balance}")
 
         # Validar con el RiskManager
         can_open = self.risk_manager.can_open_position(
@@ -1948,6 +1822,7 @@ class CycleOrchestrator:
             num_recoveries=num_recoveries
         )
         if not can_open.success:
+            print(f"DEBUG: _open_new_cycle BLOCKED by RiskManager: {can_open.error}")
             logger.info("Signal rejected by RiskManager", reason=can_open.error, pair=pair)
             return
 
@@ -1990,7 +1865,14 @@ class CycleOrchestrator:
         
         # BUY_STOP: entry a mid+5pips, TP a entry+10pips
         # FIX: Usar MID como referencia para mantener distancia exacta de 5 pips
-        mid_dec = Decimal(str(tick.mid))
+        # SUPPORT FORCED PRICE (Post-Event Reactivation)
+        mid_val = tick.mid
+        if signal.metadata and "forced_price" in signal.metadata:
+            mid_val = float(signal.metadata["forced_price"])
+            logger.info("OPEN-CYCLE: Using forced price from signal metadata", 
+                        pair=pair, forced_price=mid_val, original_mid=tick.mid)
+        
+        mid_dec = Decimal(str(mid_val))
         buy_entry_price = Price(mid_dec + entry_distance)
         op_buy = Operation(
             id=OperationId(f"{cycle_id}_B"),
@@ -2017,6 +1899,7 @@ class CycleOrchestrator:
         )
 
         # 6. Guardar Ciclo en DB
+        print(f"DEBUG: _open_new_cycle saving cycle {cycle.id} to repository")
         await self.repository.save_cycle(cycle)
         
         # 7. Ejecutar aperturas
@@ -2030,9 +1913,12 @@ class CycleOrchestrator:
                 tp_price=op.tp_price,
                 lot_size=op.lot_size
             )
+            print(f"DEBUG: _open_new_cycle adding task to open {op.id}")
             tasks.append(self.trading_service.open_operation(request, op))
         
+            print(f"DEBUG: _open_new_cycle gathering {len(tasks)} tasks")
         results = await asyncio.gather(*tasks)
+        print(f"DEBUG: _open_new_cycle gather results: {[r.success for r in results]}")
         
         if any(r.success for r in results):
             for op in [op_buy, op_sell]:
@@ -2041,6 +1927,7 @@ class CycleOrchestrator:
             self.strategy.register_cycle(cycle)
             logger.info("New dual cycle opened", cycle_id=cycle.id, pair=pair)
         else:
+            print(f"DEBUG: _open_new_cycle FAILED TO OPEN ANY OPERATIONS")
             logger.error("Failed to open dual cycle", cycle_id=cycle.id)
 
     async def _close_cycle_operations(self, signal: StrategySignal):
@@ -2241,7 +2128,7 @@ class CycleOrchestrator:
         self.strategy.register_cycle(recovery_cycle)
         
         await self.repository.save_cycle(recovery_cycle)
-        # print(f"DEBUG: Saved Recovery Cycle {recovery_cycle.id} to repo")
+        print(f"DEBUG: Saved Recovery Cycle {recovery_cycle.id} to repo")
         
         # 4. Determinar base para precios (±20 pips)
         # Si hay reference_price, usamos ese (ej: entry de la op que bloqueó)
@@ -2700,46 +2587,354 @@ class CycleOrchestrator:
     # LAYER 2: EVENT GUARD IMPLEMENTATION
     # ═══════════════════════════════════════════════════════════════════════
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # IMMUNE SYSTEM METHODS (PHASE 5)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    async def _check_immune_system(self, pair: CurrencyPair, tick: TickData) -> bool:
+        """
+        Verifica Layer 2 (Eventos) y Layer 3 (Gaps Ciegos).
+        Retorna True si el procesamiento puede continuar, False si está congelado.
+        """
+        from wsplumber.core.strategy._params import (
+            LAYER2_MODE, EVENT_CALENDAR, EVENT_PROTECTION_WINDOW_PRE, EVENT_PROTECTION_WINDOW_POST,
+            LAYER3_MODE, GAP_FREEZE_THRESHOLD_PIPS, GAP_CALM_DURATION_MINUTES, GAP_CALM_THRESHOLD_PIPS
+        )
+        
+        now = tick.timestamp or datetime.now()
+        mid_price = float(tick.bid + tick.ask) / 2.0
+        multiplier = 0.01 if "JPY" in str(pair) else 0.0001
+        
+        # ═══════════════════════════════════════════════════════════
+        # 1. LAYER 3: BLIND GAP & DYNAMIC UNFREEZE (Quiet Period)
+        # ═══════════════════════════════════════════════════════════
+        allowed_v3 = True
+        if LAYER3_MODE == "ON":
+            last_price = self._last_prices.get(pair)
+            
+            if last_price:
+                jump_pips = abs(mid_price - last_price) / multiplier
+                
+                # Caso Alpha: El mercado está saltando FUERTE (> 50 pips) -> Iniciamos Freeze
+                if jump_pips >= GAP_FREEZE_THRESHOLD_PIPS:
+                    logger.warning("BLIND GAP DETECTED! Triggering freeze", pair=pair, pips=jump_pips)
+                    self._calm_since[pair] = now
+                
+                # Caso Beta: Estamos congelados y ocurre inestabilidad -> Reset de Calma
+                elif pair in self._calm_since and jump_pips >= GAP_CALM_THRESHOLD_PIPS:
+                    logger.info("SECURITY RESET: Instability detected during freeze", pair=pair)
+                    self._calm_since[pair] = now
+
+            self._last_prices[pair] = mid_price
+
+            if pair in self._calm_since:
+                calm_duration = now - self._calm_since[pair]
+                if calm_duration >= timedelta(minutes=GAP_CALM_DURATION_MINUTES):
+                    logger.info("DYNAMIC UNFREEZE: Market stabilized", pair=pair)
+                    del self._calm_since[pair]
+                else:
+                    return False, True
+
+        # ═══════════════════════════════════════════════════════════
+        # 2. LAYER 2: EVENT GUARD (Scheduled)
+        # ═══════════════════════════════════════════════════════════
+        if LAYER2_MODE == "ON":
+            event = self.calendar.is_near_critical_event(now, window_minutes=EVENT_PROTECTION_WINDOW_PRE)
+            
+            if event:
+                event_key = f"{pair}_{event.timestamp.isoformat()}"
+                if getattr(self, "_active_shield_event", None) != event_key:
+                    logger.info("Scheduled event active, applying shield", event=event.description)
+                    await self._apply_event_shield(pair, tick)
+                    self._active_shield_event = event_key
+                return False, False
+            
+            if hasattr(self, "_active_shield_event"):
+                logger.info("Event window closed, normalizing system", pair=pair)
+                await self._normalize_post_event(pair, tick)
+                delattr(self, "_active_shield_event")
+
+        # DEBUG PRINT
+        event_status = self.calendar.is_near_critical_event(now, window_minutes=EVENT_PROTECTION_WINDOW_PRE) if LAYER2_MODE == "ON" else None
+        print(f"DEBUG: Tick #{getattr(tick, 'index', '?')} | {tick.timestamp} | {tick.mid} | Allowed={not bool(event_status)}")
+        
+        return True, False
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # LAYER 2: EVENT GUARD LOGIC (REFACTORED - HEDGE AWARE)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _calculate_floating_pips(self, op: Operation, tick: TickData) -> float:
+        """Calcula el beneficio/pérdida actual en pips."""
+        multiplier = 100 if "JPY" in str(op.pair) else 10000
+        entry = float(op.actual_entry_price or op.entry_price)
+        current = float(tick.bid if op.is_buy else tick.ask)
+        return (current - entry) * multiplier if op.is_buy else (entry - current) * multiplier
+
     async def _apply_event_shield(self, pair: CurrencyPair, tick: TickData):
         """
-        Aplica el escudo de protección: cancela stop orders y protege abiertas.
+        EVENT-GUARD V3.1: Protección Estratégica ante Noticias.
+        - BENEFICIO: Break Even (BE) + Cancelar opuesta.
+        - PÉRDIDA (Bloqueo): Quitar TPs y deshabilitar Hedges de continuación.
+        - PREVENTIVO: Cancelar Stop-Orders no activadas.
         """
-        logger.info("EVENT-GUARD: Applying Shield", pair=pair)
+        active_res = await self.repository.get_active_operations(pair)
+        active_ops = active_res.value if active_res.success else []
         
-        # 1. Cancelar todas las órdenes STOP pendientes
-        active_cycles_res = await self.repository.get_active_cycles(pair)
-        if not active_cycles_res.success:
+        pending_res = await self.repository.get_pending_operations(pair)
+        pending_ops = pending_res.value if pending_res.success else []
+
+        # 1. ESCENARIO PREVENTIVO: Cancelar órdenes STOP que no han entrado
+        # Excepción: Si ya hay un bloqueo (Lock) parcial, no queremos romperlo, pero el sistema 
+        # prefiere cancelar órdenes ciegas para evitar activaciones con slippage.
+        if not active_ops and pending_ops:
+            logger.info("EVENT-GUARD: No active positions, cleaning pending orders", pair=pair)
+            for op in pending_ops:
+                if op.broker_ticket and op.status == OperationStatus.PENDING:
+                    await self.trading_service.broker.cancel_order(op.broker_ticket)
+                    op.status = OperationStatus.CANCELLED
+                    op.metadata["cancel_reason"] = "event_shield_preventive"
+                    await self.repository.save_operation(op)
             return
 
-        for cycle in active_cycles_res.value:
-            ops_res = await self.repository.get_operations_by_cycle(cycle.id)
-            if not ops_res.success:
-                continue
-
-            for op in ops_res.value:
-                if op.status == OperationStatus.PENDING:
-                    logger.info("EVENT-GUARD: Cancelling pending stop order", 
-                              op_id=op.id, ticket=op.broker_ticket)
-                    # Usamos el broker directamente para cancelar
-                    if op.broker_ticket:
-                        await self.trading_service.broker.cancel_order(op.broker_ticket)
+        # 2. ESCENARIO CON POSICIONES ACTIVAS
+        # Agrupamos por ciclo para evaluar bloqueos
+        cycles_id = list(set([op.cycle_id for op in active_ops]))
+        
+        for cycle_id in cycles_id:
+            cycle_res = await self.repository.get_cycle(cycle_id)
+            if not cycle_res.success: continue
+            cycle = cycle_res.value
+            
+            ops_in_cycle = [op for op in active_ops if op.cycle_id == cycle_id]
+            pending_in_cycle = [op for op in pending_ops if op.cycle_id == cycle_id]
+            
+            # CASO A: UNA SOLA POSICIÓN ACTIVA (Buscando Beneficio/BE)
+            if len(ops_in_cycle) == 1:
+                op = ops_in_cycle[0]
+                floating_pips = self._calculate_floating_pips(op, tick)
+                
+                if floating_pips >= 0:
+                    # Aplicar BE (impacto rápido o proactivo)
+                    multiplier = 0.01 if "JPY" in str(pair) else 0.0001
+                    be_price = float(op.actual_entry_price or op.entry_price) + (BE_BUFFER_PIPS * multiplier if op.is_buy else -BE_BUFFER_PIPS * multiplier)
                     
-                    op.status = OperationStatus.CANCELLED
-                    op.metadata["cancel_reason"] = "EVENT_SHIELD_ACTIVATED"
+                    if not op.metadata.get("shield_be_activated"):
+                        logger.info("EVENT-GUARD: Position in profit, applying BE", op_id=op.id, be=be_price)
+                        await self.trading_service.broker.modify_position(op.broker_ticket, new_sl=Price(Decimal(str(be_price))))
+                        op.sl_price = Price(Decimal(str(be_price)))
+                        op.metadata["shield_be_activated"] = True
+                        await self.repository.save_operation(op)
+                    
+                    # Cancelar la contraparte pendiente (Main opuesta o Recovery opuesto)
+                    for p_op in pending_in_cycle:
+                        if p_op.status == OperationStatus.PENDING:
+                            logger.info("EVENT-GUARD: profit secured, cancelling counter-order", op_id=p_op.id)
+                            await self.trading_service.broker.cancel_order(p_op.broker_ticket)
+                            p_op.status = OperationStatus.CANCELLED
+                            p_op.metadata["cancel_reason"] = "event_shield_profit_secured"
+                            await self.repository.save_operation(p_op)
+                else:
+                    # CASO PÉRDIDA: Escudo de Bloqueo
+                    if op.tp_price is not None:
+                        logger.info("EVENT-GUARD: Position in loss, removing TP", op_id=op.id)
+                        await self.trading_service.broker.modify_position(op.broker_ticket, new_tp=None)
+                        op.tp_price = None
+                        op.metadata["shield_tp_stripped"] = True
+                        await self.repository.save_operation(op)
+                        
+                    # Deshabilitar Hedges (Meta) para evitar que entren nuevos durante la noticia
+                    op.metadata["continuation_hedge_disabled"] = True
                     await self.repository.save_operation(op)
+                    
+                    # NOTA: La contraparte PENDING se MANTIENE para actuar como LOCK si el mercado sigue en contra.
 
-                # 2. Mover posiciones abiertas a BE + 1 pip (si no tienen hedge)
-                elif op.status == OperationStatus.ACTIVE:
-                    # TODO: Futura implementación de BE+1 dinámico si se detecta exposición tóxica
-                    logger.info("EVENT-GUARD: Protecting active position with BE (Scheduled)", op_id=op.id)
-                    # Por ahora logueamos, la implementación de BE+1 requiere lógica de precios real
-                    op.metadata["shield_protected"] = True
-                    await self.repository.save_operation(op)
+            # CASO B: AMBAS ACTIVAS (Bloqueo/Lock)
+            elif len(ops_in_cycle) >= 2:
+                logger.info("EVENT-GUARD: Locked cycle detected, stripping triggers", cycle_id=cycle.id)
+                
+                # Quitar TPs para evitar cierres asimétricos durante la noticia
+                for op in ops_in_cycle:
+                    if op.tp_price is not None:
+                        logger.info("EVENT-GUARD: Removing TP from locked op", op_id=op.id)
+                        await self.trading_service.broker.modify_position(op.broker_ticket, new_tp=None)
+                        op.tp_price = None
+                        op.metadata["shield_tp_stripped"] = True
+                        await self.repository.save_operation(op)
+                
+                # Si es un MAIN, quitar los HEDGES de continuación que estuvieran PENDING
+                # Si es un RECOVERY bloqueado, quitar TPs.
+                for p_op in pending_in_cycle:
+                    if p_op.op_type in [OperationType.HEDGE_BUY, OperationType.HEDGE_SELL] or p_op.is_recovery:
+                        logger.info("EVENT-GUARD: Removing continuation hedge/recovery during event", op_id=p_op.id)
+                        await self.trading_service.broker.cancel_order(p_op.broker_ticket)
+                        p_op.status = OperationStatus.CANCELLED
+                        p_op.metadata["cancel_reason"] = "event_shield_lock_stripping"
+                        await self.repository.save_operation(p_op)
+
+            # Marcar ciclo como afectado por el escudo
+            cycle.metadata["event_shield_activated"] = True
+            await self.repository.save_cycle(cycle)
 
     async def _normalize_post_event(self, pair: CurrencyPair, tick: TickData):
         """
-        Normaliza el sistema tras el evento: re-abre estructuras si es necesario.
+        Normalización Post-Noticia:
+        - Reactiva ciclos que se perdieron o quedaron bloqueados.
+        - Abre nuevas oportunidades en el PRECIO ACTUAL.
         """
-        logger.info("EVENT-GUARD: Event window closed, normalizing system", pair=pair)
-        # El sistema volverá a abrir ciclos en el próximo tick ya que SHIELD_ACTIVE ya no bloqueará
-        # El core de estrategia detectará que no hay órdenes y sugerirá abrir de nuevo.
+        logger.info("EVENT-GUARD: Entering post-event normalization", pair=pair)
+        
+        # 0. Sincronizar primero para detectar cierres ocurridos durante el bloqueo (BE/TP)
+        await self.trading_service.sync_all_active_positions(pair)
+        
+        active_cycles_res = await self.repository.get_active_cycles(pair)
+        if not active_cycles_res.success: return
+
+        for cycle in active_cycles_res.value:
+            if not cycle.metadata.get("event_shield_activated"): continue
+            
+            ops_res = await self.repository.get_operations_by_cycle(cycle.id)
+            all_ops = ops_res.value if ops_res.success else []
+            active_ops = [op for op in all_ops if op.status == OperationStatus.ACTIVE]
+            pending_ops = [op for op in all_ops if op.status == OperationStatus.PENDING]
+
+            # 1. SI NO QUEDA NADA (Se cerró por BE o TP durante el evento)
+            if not active_ops and not pending_ops:
+                if cycle.cycle_type == CycleType.MAIN:
+                    logger.info("EVENT-GUARD: Main resolved during news, opening new cycle padre", cycle_id=cycle.id)
+                    signal = StrategySignal(
+                        signal_type=SignalType.OPEN_CYCLE,
+                        pair=pair,
+                        metadata={"reason": "post_event_renewal", "forced_price": float(tick.mid)}
+                    )
+                    await self._open_new_cycle(signal, tick)
+                    
+                    cycle.status = CycleStatus.CLOSED
+                    cycle.metadata["closed_reason"] = "resolved_during_event"
+                    await self.repository.save_cycle(cycle)
+            
+            # 2. SI HAY UN LOCK (Ambas activas)
+            elif len(active_ops) >= 2:
+                # El bloqueo se mantiene. Marcamos como NEUTRALIZED para congelar P&L (Flow 4 manual)
+                logger.info("EVENT-GUARD: Lock detected post-event, neutralizing and triggering recovery", cycle_id=cycle.id)
+                
+                for op in active_ops:
+                    op.status = OperationStatus.NEUTRALIZED
+                    op.tp_price = None # Asegurar que no tienen TP (Vigilancia Activa)
+                    await self.repository.save_operation(op)
+                    await self.trading_service.broker.update_position_status(op.broker_ticket, OperationStatus.NEUTRALIZED)
+                    await self.trading_service.broker.modify_position(op.broker_ticket, new_tp=None)
+
+                # Si es MAIN y está bloqueado, necesita Recovery
+                if cycle.cycle_type == CycleType.MAIN:
+                    cycle.status = CycleStatus.HEDGED
+                    await self.repository.save_cycle(cycle)
+                    
+                    # Disparar Recovery desde el precio actual
+                    signal = StrategySignal(
+                        signal_type=SignalType.OPEN_RECOVERY,
+                        pair=pair,
+                        metadata={"parent_cycle": cycle.id, "reason": "post_event_lock_recovery"}
+                    )
+                    await self._open_recovery_cycle(signal, tick)
+                
+                # Si es RECOVERY y está bloqueado, lanza el siguiente nivel
+                elif cycle.is_recovery:
+                    cycle.status = CycleStatus.IN_RECOVERY
+                    await self.repository.save_cycle(cycle)
+                    
+                    signal = StrategySignal(
+                        signal_type=SignalType.OPEN_RECOVERY,
+                        pair=pair,
+                        metadata={"parent_cycle": cycle.parent_cycle_id, "reason": "post_event_recovery_cascade"}
+                    )
+                    await self._open_recovery_cycle(signal, tick)
+
+            # 3. SI QUEDA UNA SOLA POSICIÓN (Sincronización de Cobertura)
+            elif len(active_ops) == 1:
+                op = active_ops[0]
+                # Si no hay orden pendiente, el escudo canceló la contraparte por seguridad/profit.
+                # Debemos reabrirla para que el ciclo no quede desprotegido.
+                if not pending_ops:
+                    # Restaurar protección usando el mismo ciclo para evitar bloqueos
+                    await self._restore_cycle_protection(cycle, op, tick)
+                    
+                    # 3.2 RESTAURAR TP (Solo ahora que tenemos protección de nuevo)
+                    if op.metadata.get("shield_tp_stripped"):
+                        multiplier = Decimal("0.01") if "JPY" in str(op.pair) else Decimal("0.0001")
+                        tp_pips = MAIN_TP_PIPS if cycle.cycle_type == CycleType.MAIN else RECOVERY_TP_PIPS
+                        dist = Decimal(str(tp_pips)) * multiplier
+                        entry = Decimal(str(op.actual_entry_price or op.entry_price))
+                        new_tp = Price(entry + dist) if op.is_buy else Price(entry - dist)
+                        
+                        logger.info("EVENT-GUARD: Restoring stripped TP for single position", op_id=op.id, tp=float(new_tp))
+                        await self.trading_service.broker.modify_position(op.broker_ticket, new_tp=new_tp)
+                        op.tp_price = new_tp
+                        op.metadata["shield_tp_stripped"] = False
+                        await self.repository.save_operation(op)
+
+            # Limpiar marcas
+            cycle.metadata["event_shield_activated"] = False
+            await self.repository.save_cycle(cycle)
+
+    async def _restore_cycle_protection(self, cycle: Cycle, op: Operation, tick: TickData):
+        """Restablece la orden de protección cancelada por el escudo en el precio actual."""
+        pair = cycle.pair
+        lot = op.lot_size
+        
+        multiplier = Decimal("0.01") if "JPY" in str(pair) else Decimal("0.0001")
+        
+        if cycle.cycle_type == CycleType.MAIN:
+            dist_pips = MAIN_DISTANCE_PIPS
+            tp_pips = MAIN_TP_PIPS
+        else:
+            dist_pips = RECOVERY_DISTANCE_PIPS
+            tp_pips = RECOVERY_TP_PIPS
+            
+        entry_distance = Decimal(str(dist_pips)) * multiplier
+        tp_distance = Decimal(str(tp_pips)) * multiplier
+        
+        mid_dec = Decimal(str(tick.mid))
+        is_buy_new = not op.is_buy # Si tenemos Buy activa, necesitamos Sell Stop (y viceversa)
+        
+        if is_buy_new:
+            # Necesitamos un Buy Stop arriba
+            entry_price = Price(mid_dec + entry_distance)
+            tp_price = Price(entry_price + tp_distance)
+            op_type = OperationType.MAIN_BUY if cycle.cycle_type == CycleType.MAIN else OperationType.RECOVERY_BUY
+        else:
+            # Necesitamos un Sell Stop abajo
+            entry_price = Price(mid_dec - entry_distance)
+            tp_price = Price(entry_price - tp_distance)
+            op_type = OperationType.MAIN_SELL if cycle.cycle_type == CycleType.MAIN else OperationType.RECOVERY_SELL
+            
+        new_op = Operation(
+            id=OperationId(f"{cycle.id}_RST_{'B' if is_buy_new else 'S'}_{random.randint(10,99)}"),
+            cycle_id=cycle.id,
+            pair=pair,
+            op_type=op_type,
+            status=OperationStatus.PENDING,
+            entry_price=entry_price,
+            tp_price=tp_price,
+            lot_size=lot
+        )
+        
+        logger.info("Restoring counter-order post-event", 
+                    cycle_id=cycle.id, op_id=new_op.id, entry=float(entry_price))
+        
+        # Guardar primero
+        await self.repository.save_operation(new_op)
+        
+        request = OrderRequest(
+            operation_id=new_op.id,
+            pair=pair,
+            order_type=new_op.op_type,
+            entry_price=new_op.entry_price,
+            tp_price=new_op.tp_price,
+            lot_size=new_op.lot_size
+        )
+        
+        result = await self.trading_service.open_operation(request, new_op)
+        if result.success:
+            cycle.add_operation(new_op)
+            await self.repository.save_cycle(cycle)
